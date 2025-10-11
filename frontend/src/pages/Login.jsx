@@ -1,20 +1,35 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 export default function LogIn() {
+  const navigate = useNavigate();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
 
   const handleLogin = (e) => {
-    e.preventDefault();
-    const admin = JSON.parse(localStorage.getItem("admin"));
+  e.preventDefault();
+  if (!username || !password) return alert("Please fill in all fields.");
 
-    if (admin && username === admin.username && password === admin.password) {
-      localStorage.setItem("user", JSON.stringify({ name: username }));
-      window.location.href = "/dashboard";
-    } else {
-      alert("Invalid credentials. Please check your username or password.");
-    }
-  };
+  fetch("http://localhost:5000/api/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, password }),
+  })
+    .then((res) => res.json())
+    .then((data) => {
+      if (data.success) {
+        localStorage.setItem("user", JSON.stringify({ name: data.name }));
+        window.location.href = "/dashboard";
+      } else {
+        alert(data.message);
+      }
+    })
+    .catch((err) => {
+      console.error(err);
+      alert("Server error. Try again later.");
+    });
+};
+
 
   return (
     <div className="min-h-screen flex flex-col justify-center items-center bg-gray-100">
@@ -45,12 +60,21 @@ export default function LogIn() {
           Log In
         </button>
       </form>
-      <button
-        onClick={() => (window.location.href = "/")}
-        className="mt-4 text-blue-600 hover:underline"
-      >
-        ← Back to Start
-      </button>
+
+      <div className="mt-4 flex flex-col items-center gap-2">
+        <button
+          onClick={() => navigate("/")}
+          className="text-blue-600 hover:underline"
+        >
+          ← Back to Home
+        </button>
+        <button
+          onClick={() => navigate("/signin")}
+          className="text-green-600 hover:underline"
+        >
+          ➕ Create Admin Account
+        </button>
+      </div>
     </div>
   );
 }

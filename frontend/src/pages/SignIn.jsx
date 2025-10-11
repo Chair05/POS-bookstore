@@ -6,14 +6,30 @@ export default function SignIn() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
 
-  const handleSignIn = (e) => {
-    e.preventDefault();
-    if (!username || !password) return alert("Please fill in all fields.");
+ const handleSignIn = (e) => {
+  e.preventDefault();
+  if (!username || !password) return alert("Please fill in all fields.");
 
-    localStorage.setItem("admin", JSON.stringify({ username, password }));
-    alert("Admin account created successfully!");
-    navigate("/login");
-  };
+  fetch("http://localhost:5000/api/register", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, password }),
+  })
+    .then((res) => res.json())
+    .then((data) => {
+      if (data.success) {
+        alert("Admin account created successfully!");
+        navigate("/login");
+      } else {
+        alert(data.message);
+      }
+    })
+    .catch((err) => {
+      console.error(err);
+      alert("Server error. Try again later.");
+    });
+};
+
 
   return (
     <div className="min-h-screen flex flex-col justify-center items-center bg-gray-100">
