@@ -1,26 +1,33 @@
-const { getAllProducts, addProduct } = require("../models/productModel");
+const Product = require('../models/productModel');
 
-const fetchProducts = (req, res) => {
-  getAllProducts((err, results) => {
-    if (err) return res.status(500).json({ success: false, message: "Server error" });
-    res.json({ success: true, products: results });
+exports.getProducts = (req, res) => {
+  Product.getAll((err, results) => {
+    if (err) return res.status(500).json({ message: 'Database error' });
+    res.json(results);
   });
 };
 
-const createProduct = (req, res) => {
-  const product = req.body;
-  if (!product.name || !product.price || !product.category || !product.barcode)
-    return res.status(400).json({ success: false, message: "All fields required" });
-
-  addProduct(product, (err, result) => {
-    if (err) {
-      if (err.code === "ER_DUP_ENTRY") {
-        return res.status(400).json({ success: false, message: "Barcode already exists" });
-      }
-      return res.status(500).json({ success: false, message: "Server error" });
-    }
-    res.json({ success: true, id: result.insertId });
+exports.createProduct = (req, res) => {
+  const { name, price, category } = req.body;
+  Product.create({ name, price, category }, (err, result) => {
+    if (err) return res.status(500).json({ message: 'Insert failed' });
+    res.json({ message: 'Product added', id: result.insertId });
   });
 };
 
-module.exports = { fetchProducts, createProduct };
+exports.updateProduct = (req, res) => {
+  const { id } = req.params;
+  const { name, price, category } = req.body;
+  Product.update(id, { name, price, category }, (err) => {
+    if (err) return res.status(500).json({ message: 'Update failed' });
+    res.json({ message: 'Product updated' });
+  });
+};
+
+exports.deleteProduct = (req, res) => {
+  const { id } = req.params;
+  Product.delete(id, (err) => {
+    if (err) return res.status(500).json({ message: 'Delete failed' });
+    res.json({ message: 'Product deleted' });
+  });
+};

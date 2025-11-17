@@ -1,13 +1,29 @@
-const db = require("../db");
+const db = require('./db');
 
-const getAllProducts = (callback) => {
-  db.query("SELECT * FROM products", callback);
+const Product = {
+  getAll: (callback) => {
+    db.query('SELECT * FROM products', callback);
+  },
+
+  create: (data, callback) => {
+    db.query(
+      'INSERT INTO products (name, price, category) VALUES (?, ?, ?)',
+      [data.name, data.price, data.category],
+      callback
+    );
+  },
+
+  update: (id, data, callback) => {
+    db.query(
+      'UPDATE products SET name=?, price=?, category=? WHERE id=?',
+      [data.name, data.price, data.category, id],
+      callback
+    );
+  },
+
+  delete: (id, callback) => {
+    db.query('DELETE FROM products WHERE id=?', [id], callback);
+  }
 };
 
-const addProduct = (product, callback) => {
-  const { name, price, category, barcode } = product;
-  const query = "INSERT INTO products (name, price, category, barcode) VALUES (?, ?, ?, ?)";
-  db.query(query, [name, price, category, barcode], callback);
-};
-
-module.exports = { getAllProducts, addProduct };
+module.exports = Product;

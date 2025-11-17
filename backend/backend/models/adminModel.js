@@ -12,4 +12,3 @@ const findAdmin = (username, password, callback) => {
 };
 
 module.exports = { createAdmin, findAdmin };
-8
