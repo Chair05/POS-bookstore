@@ -2,27 +2,26 @@ const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
 
-const db = require("./models/db"); // ✅ your database connection
-const authRoutes = require("./routes/authRoutes"); 
-const productsRoute = require("./routes/productRoutes"); // ✅ product routes
+const db = require("./db");
+const authRoutes = require("./routes/authRoutes");
+const productsRoute = require("./routes/productRoutes");
 
-// Initialize Express first!
-const app = express(); 
+const app = express();
 
 // Middleware
 app.use(cors());
 app.use(express.json());
 
 // Routes
-app.use("/api", authRoutes);              // login, register, etc.
-app.use("/api/products", productsRoute);  // product CRUD
+app.use("/api", authRoutes);
+app.use("/api/products", productsRoute);
 
 // Default route
 app.get("/", (req, res) => {
   res.send("POS Backend Running ✅");
 });
 
-// Optional: test DB connection
+// Test DB connection
 db.connect(err => {
   if (err) {
     console.error("❌ Database connection failed:", err);
