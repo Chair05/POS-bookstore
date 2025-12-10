@@ -1,8 +1,10 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
 export default function StartPage() {
   const navigate = useNavigate();
+
+  // 🔥 Clears old/stale login every time Start Page load
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-blue-100 to-blue-300">
@@ -30,3 +32,4 @@ export default function StartPage() {
     </div>
   );
 }
+ 

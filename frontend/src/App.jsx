@@ -5,21 +5,59 @@ import LogIn from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import StartPage from "./pages/Start";
 import StockManager from "./pages/Stock";
+import SalesPage from "./pages/Sales";
 import "./index.css";
 
-export default function App() {
-  const user = JSON.parse(localStorage.getItem("user"));
+function ProtectedRoute({ children }) {
+  const user = localStorage.getItem("user");
+  if (!user) return <Navigate to="/login" replace />;
+  return children;
+}
 
+export default function App() {
   return (
     <Router>
-      <Routes>
-        <Route path="/" element={<StartPage />} />
-        <Route path="/signin" element={user ? <Navigate to="/dashboard" /> : <SignIn />} />
-        <Route path="/login" element={user ? <Navigate to="/dashboard" /> : <LogIn />} />
-        <Route path="/dashboard" element={user ? <Dashboard /> : <Navigate to="/login" />} />
-        <Route path="/stock" element={<StockManager />} />
-        <Route path="*" element={<Navigate to="/" />} />
-      </Routes>
+      <div style={{ width: "100%" }}>
+
+        {/* Main routing */}
+        <Routes>
+          {/* Public */}
+          <Route path="/" element={<StartPage />} />
+          <Route path="/signin" element={<SignIn />} />
+          <Route path="/login" element={<LogIn />} />
+
+          {/* Protected */}
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/stock"
+            element={
+              <ProtectedRoute>
+                <StockManager />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/sales"
+            element={
+              <ProtectedRoute>
+                <SalesPage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Catch-all */}
+          <Route path="*" element={<Navigate to="/" />} />
+        </Routes>
+      </div>
     </Router>
   );
 }
