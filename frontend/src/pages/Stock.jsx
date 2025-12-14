@@ -6,9 +6,8 @@ export default function Stock() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const [selectedProduct, setSelectedProduct] = useState(null);
-  const [stockAmount, setStockAmount] = useState("");
   const [imageFile, setImageFile] = useState(null);
+  const [scannedCode, setScannedCode] = useState("");
 
   // Load stock
   useEffect(() => {
@@ -29,29 +28,26 @@ export default function Stock() {
     }
   };
 
-  const updateStock = async () => {
-    if (!selectedProduct || !stockAmount) return;
-
+  // Update stock by amount
+  const updateStock = async (productId, amount) => {
     const res = await fetch(
-      `http://localhost:5000/api/products/${selectedProduct.id}/add-stock`,
+      `http://localhost:5000/api/products/${productId}/add-stock`,
       {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amount: Number(stockAmount) }),
+        body: JSON.stringify({ amount }),
       }
     );
 
     const data = await res.json();
     if (data.success) {
-      alert("Stock updated!");
-      setStockAmount("");
-      setSelectedProduct(null);
       loadStock();
     } else {
       alert("Failed to update stock");
     }
   };
 
+  // Update product image
   const updateImage = async (productId) => {
     if (!imageFile) return alert("Please select an image first");
 
@@ -76,24 +72,47 @@ export default function Stock() {
     }
   };
 
+  // Barcode scanning listener
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === "Enter" && scannedCode) {
+        const product = stock.find((item) => item.barcode === scannedCode);
+        if (!product) {
+          alert("Product not found");
+          setScannedCode("");
+          return;
+        }
+
+        updateStock(product.id, 1); // automatically add 1 stock
+        setScannedCode("");
+      } else if (e.key !== "Enter") {
+        setScannedCode((prev) => prev + e.key);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [scannedCode, stock]);
+
   if (loading) return <p className="p-6">Loading stock...</p>;
   if (error) return <p className="p-6 text-red-600">⚠️ {error}</p>;
 
   return (
-    <div className="p-6 bg-sky-100 min-h-screen">
-
+    <div className="min-h-screen bg-sky-100 p-6">
       {/* Back Button */}
       <Link
         to="/dashboard"
-        className="inline-block bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg shadow mb-6"
+        className="mb-6 inline-block rounded-lg bg-blue-600 px-4 py-2 text-white shadow hover:bg-blue-700"
       >
         ⬅ Back to Dashboard
       </Link>
 
-      <h1 className="text-2xl font-bold mb-4 text-gray-800">📦 Stock Inventory</h1>
+      <h1 className="mb-4 text-2xl font-bold text-gray-800">
+        📦 Stock Inventory
+      </h1>
 
       {/* Table Container */}
-      <div className="overflow-x-auto shadow-lg rounded-xl bg-white">
+      <div className="overflow-x-auto rounded-xl bg-white shadow-lg">
         <table className="min-w-full">
           <thead className="bg-gray-200">
             <tr>
@@ -111,13 +130,13 @@ export default function Stock() {
             {stock.map((item) => (
               <tr
                 key={item.id}
-                className="border-b hover:bg-gray-50 transition"
+                className="border-b transition hover:bg-gray-50"
               >
                 <td className="p-3">
                   <img
                     src={`http://localhost:5000${item.image}?v=${Date.now()}`}
                     alt="product"
-                    className="w-16 h-16 object-cover rounded-lg shadow"
+                    className="h-16 w-16 rounded-lg object-cover shadow"
                   />
                 </td>
 
@@ -131,7 +150,6 @@ export default function Stock() {
 
                 <td className="p-3">
                   <div className="flex flex-col gap-2">
-
                     {/* Image upload */}
                     <input
                       type="file"
@@ -142,18 +160,20 @@ export default function Stock() {
 
                     <button
                       onClick={() => updateImage(item.id)}
-                      className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-lg text-sm shadow"
+                      className="rounded-lg bg-blue-600 px-3 py-1 text-sm text-white shadow hover:bg-blue-700"
                     >
                       Update Image
                     </button>
 
                     <button
-                      onClick={() => setSelectedProduct(item)}
-                      className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded-lg text-sm shadow"
+                      onClick={() => {
+                        const amount = prompt("Enter stock to add", "1");
+                        if (amount) updateStock(item.id, Number(amount));
+                      }}
+                      className="rounded-lg bg-green-600 px-3 py-1 text-sm text-white shadow hover:bg-green-700"
                     >
                       + Add Stock
                     </button>
-
                   </div>
                 </td>
               </tr>
@@ -161,39 +181,6 @@ export default function Stock() {
           </tbody>
         </table>
       </div>
-
-      {/* Modal */}
-      {selectedProduct && (
-        <div className="fixed inset-0 bg-black/50 flex justify-center items-center p-4">
-          <div className="bg-white p-6 rounded-xl w-80 shadow-xl">
-            <h3 className="text-lg font-bold mb-3">
-              Add Stock for: {selectedProduct.name}
-            </h3>
-
-            <input
-              type="number"
-              placeholder="Enter amount"
-              value={stockAmount}
-              onChange={(e) => setStockAmount(e.target.value)}
-              className="w-full border px-3 py-2 rounded-lg mb-4"
-            />
-
-            <button
-              onClick={updateStock}
-              className="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg mb-2"
-            >
-              Update Stock
-            </button>
-
-            <button
-              onClick={() => setSelectedProduct(null)}
-              className="w-full bg-red-500 hover:bg-red-600 text-white py-2 rounded-lg"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
