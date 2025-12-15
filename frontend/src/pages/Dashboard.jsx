@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 
 export default function Dashboard() {
   const [products, setProducts] = useState([]);
-  const [cart, setCart] = useState([]);
+  const [checkoutItems, setCheckoutItems] = useState([]);
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState("");
   const barcodeRef = useRef("");
@@ -38,38 +38,36 @@ export default function Dashboard() {
         if (code) handleBarcodeScan(code);
         barcodeRef.current = "";
       } else if (/\d/.test(e.key)) {
-        // Only append numeric keys
         barcodeRef.current += e.key;
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [products, cart]);
+  }, [products, checkoutItems]);
 
-  /* ================= ADD TO CART ================= */
+  /* ================= ADD TO CHECKOUT ================= */
   const handleBarcodeScan = (code) => {
     const product = products.find((p) => String(p.barcode) === String(code));
     if (!product) return alert(`❌ Product not found. Scanned: "${code}"`);
 
-    const inCartQty = cart.filter((c) => c.id === product.id).length;
-    if (product.stock - inCartQty <= 0)
-      return alert("❌ Out of stock");
+    const inCheckoutQty = checkoutItems.filter((c) => c.id === product.id).length;
+    if (product.stock - inCheckoutQty <= 0) return alert("❌ Out of stock");
 
-    setCart((prev) => [...prev, product]);
+    setCheckoutItems((prev) => [...prev, product]);
     setTotal((prev) => prev + Number(product.price));
   };
 
-  /* ================= REMOVE FROM CART ================= */
-  const removeFromCart = (index) => {
-    const removed = cart[index];
-    setCart((prev) => prev.filter((_, i) => i !== index));
+  /* ================= REMOVE FROM CHECKOUT ================= */
+  const removeFromCheckout = (index) => {
+    const removed = checkoutItems[index];
+    setCheckoutItems((prev) => prev.filter((_, i) => i !== index));
     setTotal((prev) => prev - Number(removed.price));
   };
 
   /* ================= PRINT RECEIPT ================= */
   const printReceipt = () => {
-    const grouped = cart.reduce((acc, item) => {
+    const grouped = checkoutItems.reduce((acc, item) => {
       if (!acc[item.id]) acc[item.id] = { ...item, quantity: 0 };
       acc[item.id].quantity += 1;
       return acc;
@@ -102,9 +100,9 @@ export default function Dashboard() {
 
   /* ================= HANDLE PAY ================= */
   const handlePay = async () => {
-    if (!cart.length) return alert("Cart is empty");
+    if (!checkoutItems.length) return alert("Checkout is empty");
 
-    const items = cart.map((i) => ({ barcode: i.barcode, quantity: 1 }));
+    const items = checkoutItems.map((i) => ({ barcode: i.barcode, quantity: 1 }));
 
     try {
       const res = await fetch("http://localhost:5000/api/products/checkout", {
@@ -117,7 +115,7 @@ export default function Dashboard() {
       if (!data.success) return alert(data.message || "Purchase failed");
 
       printReceipt();
-      setCart([]);
+      setCheckoutItems([]);
       setTotal(0);
       loadProducts();
     } catch (err) {
@@ -183,22 +181,22 @@ export default function Dashboard() {
                   onClick={() => handleBarcodeScan(p.barcode)}
                   className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-full py-2 md:py-3 text-base md:text-lg font-semibold transition"
                 >
-                  Add to Cart
+                  Add to Checkout
                 </button>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Cart */}
+        {/* Checkout */}
         <div className="lg:w-96 bg-white rounded-3xl p-6 shadow-md mt-4 lg:mt-0 w-full">
-          <h2 className="font-semibold text-lg md:text-xl mb-4">🛒 Cart</h2>
+          <h2 className="font-semibold text-lg md:text-xl mb-4">🛒 Checkout</h2>
 
-          {cart.length === 0 && (
-            <p className="text-gray-500 text-sm md:text-base">Cart is empty</p>
+          {checkoutItems.length === 0 && (
+            <p className="text-gray-500 text-sm md:text-base">Checkout is empty</p>
           )}
 
-          {cart.map((item, i) => (
+          {checkoutItems.map((item, i) => (
             <div
               key={i}
               className="flex justify-between items-center bg-gray-50 rounded-xl px-4 py-2 mb-2 shadow-sm"
@@ -208,7 +206,7 @@ export default function Dashboard() {
                 <p className="text-xs md:text-sm text-gray-600">₱{item.price}</p>
               </div>
               <button
-                onClick={() => removeFromCart(i)}
+                onClick={() => removeFromCheckout(i)}
                 className="bg-blue-600 hover:bg-blue-700 text-white rounded-full px-4 py-1 md:py-2 text-sm md:text-base font-semibold transition"
               >
                 ✖
