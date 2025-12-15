@@ -10,9 +10,13 @@ export default function Dashboard() {
 
   /* ================= LOAD PRODUCTS ================= */
   const loadProducts = async () => {
-    const res = await fetch("http://localhost:5000/api/products");
-    const data = await res.json();
-    if (data.success) setProducts(data.products);
+    try {
+      const res = await fetch("http://localhost:5000/api/products");
+      const data = await res.json();
+      if (data.success) setProducts(data.products);
+    } catch (err) {
+      console.error("Error loading products:", err);
+    }
   };
 
   useEffect(() => {
@@ -30,9 +34,11 @@ export default function Dashboard() {
         return;
 
       if (e.key === "Enter") {
-        handleBarcodeScan(barcodeRef.current.trim());
+        const code = barcodeRef.current.trim();
+        if (code) handleBarcodeScan(code);
         barcodeRef.current = "";
-      } else {
+      } else if (/\d/.test(e.key)) {
+        // Only append numeric keys
         barcodeRef.current += e.key;
       }
     };
@@ -44,10 +50,11 @@ export default function Dashboard() {
   /* ================= ADD TO CART ================= */
   const handleBarcodeScan = (code) => {
     const product = products.find((p) => String(p.barcode) === String(code));
-    if (!product) return alert("❌ Product not found");
+    if (!product) return alert(`❌ Product not found. Scanned: "${code}"`);
 
     const inCartQty = cart.filter((c) => c.id === product.id).length;
-    if (product.stock - inCartQty <= 0) return alert("❌ Out of stock");
+    if (product.stock - inCartQty <= 0)
+      return alert("❌ Out of stock");
 
     setCart((prev) => [...prev, product]);
     setTotal((prev) => prev + Number(product.price));
@@ -127,7 +134,9 @@ export default function Dashboard() {
     <div className="flex flex-col min-h-screen w-screen bg-blue-500">
       {/* Header */}
       <header className="flex flex-wrap justify-between items-center bg-blue-600 shadow-md py-4 px-4 md:px-6">
-        <h1 className="text-3xl md:text-4xl font-bold text-white">📚 POS Dashboard</h1>
+        <h1 className="text-3xl md:text-4xl font-bold text-white">
+          📚 POS Dashboard
+        </h1>
         <button
           onClick={() => {
             localStorage.clear();
@@ -161,9 +170,15 @@ export default function Dashboard() {
                   className="h-28 w-full object-contain rounded-lg mb-3"
                   alt={p.name}
                 />
-                <p className="font-medium text-base md:text-lg text-gray-800">{p.name}</p>
-                <p className="text-sm md:text-base text-gray-600 mb-1">₱{p.price}</p>
-                <p className="text-sm md:text-base text-gray-500 mb-2">Stock: {p.stock}</p>
+                <p className="font-medium text-base md:text-lg text-gray-800">
+                  {p.name}
+                </p>
+                <p className="text-sm md:text-base text-gray-600 mb-1">
+                  ₱{p.price}
+                </p>
+                <p className="text-sm md:text-base text-gray-500 mb-2">
+                  Stock: {p.stock}
+                </p>
                 <button
                   onClick={() => handleBarcodeScan(p.barcode)}
                   className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-full py-2 md:py-3 text-base md:text-lg font-semibold transition"

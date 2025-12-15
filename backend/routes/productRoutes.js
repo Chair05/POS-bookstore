@@ -22,17 +22,26 @@ const upload = multer({ storage });
 // -------------------------
 // GET ALL PRODUCTS
 // -------------------------
+// GET ALL PRODUCTS
 router.get("/", (req, res) => {
   const sql = "SELECT * FROM products ORDER BY id DESC";
-
   db.query(sql, (err, results) => {
-    if (err) {
-      console.error("❌ Error fetching products:", err);
-      return res.status(500).json({ success: false });
-    }
-    res.json({ success: true, products: results });
+    if (err) return res.status(500).json({ success: false });
+    const products = results.map(p => ({ ...p, barcode: String(p.barcode) }));
+    res.json({ success: true, products });
   });
 });
+
+router.get("/barcode/:barcode", (req, res) => {
+  const { barcode } = req.params;
+  const sql = "SELECT * FROM products WHERE barcode = ? LIMIT 1";
+  db.query(sql, [barcode], (err, results) => {
+    if (err) return res.status(500).json({ success: false });
+    if (results.length === 0) return res.json({ success: false, message: "Product not found" });
+    res.json({ success: true, product: { ...results[0], barcode: String(results[0].barcode) } });
+  });
+});
+
 
 // -------------------------
 // ADD NEW PRODUCT
