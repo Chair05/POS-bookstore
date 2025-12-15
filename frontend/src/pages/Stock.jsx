@@ -9,7 +9,14 @@ export default function Stock() {
   const [imageFile, setImageFile] = useState(null);
   const [scannedCode, setScannedCode] = useState("");
 
-  // Load stock
+  const [newProduct, setNewProduct] = useState({
+    name: "",
+    category: "",
+    price: "",
+    barcode: "",
+    stock: 1,
+  });
+
   useEffect(() => {
     loadStock();
   }, []);
@@ -28,7 +35,6 @@ export default function Stock() {
     }
   };
 
-  // Update stock by amount
   const updateStock = async (productId, amount) => {
     const res = await fetch(
       `http://localhost:5000/api/products/${productId}/add-stock`,
@@ -47,7 +53,6 @@ export default function Stock() {
     }
   };
 
-  // Update product image
   const updateImage = async (productId) => {
     if (!imageFile) return alert("Please select an image first");
 
@@ -72,7 +77,43 @@ export default function Stock() {
     }
   };
 
-  // Barcode scanning listener
+  const addProduct = async () => {
+    const { name, category, price, barcode, stock: pStock } = newProduct;
+
+    if (!name || !category || !price || !barcode)
+      return alert("Please fill in all fields");
+
+    const formData = new FormData();
+    formData.append("name", name);
+    formData.append("category", category);
+    formData.append("price", Number(price));
+    formData.append("barcode", barcode);
+    formData.append("stock", Number(pStock));
+
+    if (imageFile) formData.append("image", imageFile);
+
+    try {
+      const res = await fetch("http://localhost:5000/api/products", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await res.json();
+
+      if (data.success) {
+        alert("Product added!");
+        setNewProduct({ name: "", category: "", price: "", barcode: "", stock: 1 });
+        setImageFile(null);
+        loadStock();
+      } else {
+        alert(data.message || "Failed to add product");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Server error");
+    }
+  };
+
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === "Enter" && scannedCode) {
@@ -83,7 +124,7 @@ export default function Stock() {
           return;
         }
 
-        updateStock(product.id, 1); // automatically add 1 stock
+        updateStock(product.id, 1);
         setScannedCode("");
       } else if (e.key !== "Enter") {
         setScannedCode((prev) => prev + e.key);
@@ -98,22 +139,75 @@ export default function Stock() {
   if (error) return <p className="p-6 text-red-600">⚠️ {error}</p>;
 
   return (
-    <div className="min-h-screen bg-sky-100 p-6">
+    <div className="min-h-screen bg-sky-100 p-4 md:p-6">
       {/* Back Button */}
-      <Link
-        to="/dashboard"
-        className="mb-6 inline-block rounded-lg bg-blue-600 px-4 py-2 text-white shadow hover:bg-blue-700"
-      >
-        ⬅ Back to Dashboard
-      </Link>
+      <div className="flex justify-start items-center mb-6">
+        <Link
+          to="/dashboard"
+          className="rounded-lg bg-blue-600 px-4 py-2 text-white shadow hover:bg-blue-700 flex items-center gap-1"
+        >
+          ⬅ Back to Dashboard
+        </Link>
+      </div>
 
-      <h1 className="mb-4 text-2xl font-bold text-gray-800">
+      <h1 className="mb-4 text-2xl md:text-3xl font-bold text-gray-800">
         📦 Stock Inventory
       </h1>
 
+      {/* Add New Product */}
+      <div className="mb-6 rounded-xl bg-white p-4 md:p-6 shadow-lg">
+        <h2 className="text-lg md:text-xl font-semibold mb-3">➕ Add New Product</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <input
+            placeholder="Name"
+            className="border p-2 rounded w-full"
+            value={newProduct.name}
+            onChange={(e) => setNewProduct((prev) => ({ ...prev, name: e.target.value }))}
+          />
+          <input
+            placeholder="Category"
+            className="border p-2 rounded w-full"
+            value={newProduct.category}
+            onChange={(e) => setNewProduct((prev) => ({ ...prev, category: e.target.value }))}
+          />
+          <input
+            placeholder="Price"
+            type="number"
+            className="border p-2 rounded w-full"
+            value={newProduct.price}
+            onChange={(e) => setNewProduct((prev) => ({ ...prev, price: e.target.value }))}
+          />
+          <input
+            placeholder="Barcode"
+            className="border p-2 rounded w-full"
+            value={newProduct.barcode}
+            onChange={(e) => setNewProduct((prev) => ({ ...prev, barcode: e.target.value }))}
+          />
+          <input
+            placeholder="Stock"
+            type="number"
+            className="border p-2 rounded w-full"
+            value={newProduct.stock}
+            onChange={(e) => setNewProduct((prev) => ({ ...prev, stock: e.target.value }))}
+          />
+          <input
+            type="file"
+            accept="image/*"
+            onChange={(e) => setImageFile(e.target.files[0])}
+            className="border p-2 rounded w-full"
+          />
+        </div>
+        <button
+          onClick={addProduct}
+          className="mt-3 rounded-lg bg-green-600 px-4 py-2 text-white shadow hover:bg-green-700 w-full md:w-auto"
+        >
+          Add Product
+        </button>
+      </div>
+
       {/* Table Container */}
       <div className="overflow-x-auto rounded-xl bg-white shadow-lg">
-        <table className="min-w-full">
+        <table className="min-w-full table-auto">
           <thead className="bg-gray-200">
             <tr>
               <th className="p-3 text-left">Image</th>
@@ -128,10 +222,7 @@ export default function Stock() {
 
           <tbody>
             {stock.map((item) => (
-              <tr
-                key={item.id}
-                className="border-b transition hover:bg-gray-50"
-              >
+              <tr key={item.id} className="border-b transition hover:bg-gray-50">
                 <td className="p-3">
                   <img
                     src={`http://localhost:5000${item.image}?v=${Date.now()}`}
@@ -139,32 +230,25 @@ export default function Stock() {
                     className="h-16 w-16 rounded-lg object-cover shadow"
                   />
                 </td>
-
                 <td className="p-3 font-semibold">{item.name}</td>
                 <td className="p-3 text-gray-600">{item.category}</td>
                 <td className="p-3 text-gray-500">{item.barcode}</td>
-                <td className="p-3 font-bold text-blue-600">
-                  ₱{Number(item.price).toFixed(2)}
-                </td>
+                <td className="p-3 font-bold text-blue-600">₱{Number(item.price).toFixed(2)}</td>
                 <td className="p-3 font-bold">{item.stock}</td>
-
                 <td className="p-3">
-                  <div className="flex flex-col gap-2">
-                    {/* Image upload */}
+                  <div className="flex flex-col md:flex-row gap-2">
                     <input
                       type="file"
                       accept="image/*"
                       onChange={(e) => setImageFile(e.target.files[0])}
                       className="text-sm"
                     />
-
                     <button
                       onClick={() => updateImage(item.id)}
                       className="rounded-lg bg-blue-600 px-3 py-1 text-sm text-white shadow hover:bg-blue-700"
                     >
                       Update Image
                     </button>
-
                     <button
                       onClick={() => {
                         const amount = prompt("Enter stock to add", "1");

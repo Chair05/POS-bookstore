@@ -23,6 +23,7 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 // -------------------------
 app.use("/api", authRoutes);
 app.use("/api/products", productsRoute);
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // Default route
 app.get("/", (req, res) => {

@@ -18,6 +18,7 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage });
 
+
 // -------------------------
 // GET ALL PRODUCTS
 // -------------------------
@@ -36,13 +37,15 @@ router.get("/", (req, res) => {
 // -------------------------
 // ADD NEW PRODUCT
 // -------------------------
-router.post("/", (req, res) => {
-  const { name, price, category, barcode, stock, image } = req.body;
+// ADD NEW PRODUCT (with optional image)
+router.post("/", upload.single("image"), (req, res) => {
+  const { name, price, category, barcode, stock } = req.body;
+  const image = req.file ? "/uploads/" + req.file.filename : "";
 
   if (!name || !price || !category || !barcode) {
     return res.status(400).json({
       success: false,
-      message: "Missing required fields"
+      message: "Missing required fields",
     });
   }
 
@@ -53,7 +56,7 @@ router.post("/", (req, res) => {
 
   db.query(
     sql,
-    [name, price, category, barcode, stock || 0, image || ""],
+    [name, price, category, barcode, stock || 0, image],
     (err, result) => {
       if (err) {
         console.error("❌ Error adding product:", err);
@@ -63,11 +66,12 @@ router.post("/", (req, res) => {
       res.json({
         success: true,
         id: result.insertId,
-        message: "Product added successfully"
+        message: "Product added successfully",
       });
     }
   );
 });
+
 
 // -------------------------
 // GET PRODUCT BY BARCODE
