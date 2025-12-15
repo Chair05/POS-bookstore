@@ -25,7 +25,6 @@ export default function Stock() {
     try {
       const res = await fetch("http://localhost:5000/api/products");
       const data = await res.json();
-
       if (!data.success) throw new Error("Failed to load stock");
       setStock(data.products);
     } catch (err) {
@@ -46,11 +45,8 @@ export default function Stock() {
     );
 
     const data = await res.json();
-    if (data.success) {
-      loadStock();
-    } else {
-      alert("Failed to update stock");
-    }
+    if (data.success) loadStock();
+    else alert("Failed to update stock");
   };
 
   const updateImage = async (productId) => {
@@ -72,9 +68,7 @@ export default function Stock() {
       alert("Image updated!");
       setImageFile(null);
       loadStock();
-    } else {
-      alert("Image update failed");
-    }
+    } else alert("Image update failed");
   };
 
   const addProduct = async () => {
@@ -89,7 +83,6 @@ export default function Stock() {
     formData.append("price", Number(price));
     formData.append("barcode", barcode);
     formData.append("stock", Number(pStock));
-
     if (imageFile) formData.append("image", imageFile);
 
     try {
@@ -99,15 +92,12 @@ export default function Stock() {
       });
 
       const data = await res.json();
-
       if (data.success) {
         alert("Product added!");
         setNewProduct({ name: "", category: "", price: "", barcode: "", stock: 1 });
         setImageFile(null);
         loadStock();
-      } else {
-        alert(data.message || "Failed to add product");
-      }
+      } else alert(data.message || "Failed to add product");
     } catch (err) {
       console.error(err);
       alert("Server error");
@@ -123,7 +113,6 @@ export default function Stock() {
           setScannedCode("");
           return;
         }
-
         updateStock(product.id, 1);
         setScannedCode("");
       } else if (e.key !== "Enter") {
@@ -135,117 +124,131 @@ export default function Stock() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [scannedCode, stock]);
 
-  if (loading) return <p className="p-6">Loading stock...</p>;
-  if (error) return <p className="p-6 text-red-600">⚠️ {error}</p>;
+  if (loading)
+    return <p className="p-6 text-white text-lg">Loading stock...</p>;
+  if (error)
+    return <p className="p-6 text-red-600 text-lg">⚠️ {error}</p>;
 
   return (
-    <div className="min-h-screen bg-sky-100 p-4 md:p-6">
+    <div className="min-h-screen w-screen bg-blue-500 p-4 md:p-6">
       {/* Back Button */}
-      <div className="flex justify-start items-center mb-6">
+      <div className="flex justify-start mb-6">
         <Link
           to="/dashboard"
-          className="rounded-lg bg-blue-600 px-4 py-2 text-white shadow hover:bg-blue-700 flex items-center gap-1"
+          className="rounded-lg border border-white text-white px-6 py-3 shadow hover:bg-white hover:text-blue-600 transition flex items-center gap-2 text-lg"
         >
           ⬅ Back to Dashboard
         </Link>
       </div>
 
-      <h1 className="mb-4 text-2xl md:text-3xl font-bold text-gray-800">
-        📦 Stock Inventory
-      </h1>
+      <h1 className="mb-6 text-3xl font-bold text-white">📦 Stock Inventory</h1>
 
       {/* Add New Product */}
-      <div className="mb-6 rounded-xl bg-white p-4 md:p-6 shadow-lg">
-        <h2 className="text-lg md:text-xl font-semibold mb-3">➕ Add New Product</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+      <div className="mb-6 rounded-2xl bg-white p-6 shadow-lg">
+        <h2 className="text-xl font-semibold mb-4">➕ Add New Product</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <input
             placeholder="Name"
-            className="border p-2 rounded w-full"
+            className="border rounded px-3 py-3 w-full focus:ring-2 focus:ring-blue-500 outline-none text-base"
             value={newProduct.name}
-            onChange={(e) => setNewProduct((prev) => ({ ...prev, name: e.target.value }))}
+            onChange={(e) =>
+              setNewProduct((prev) => ({ ...prev, name: e.target.value }))
+            }
           />
           <input
             placeholder="Category"
-            className="border p-2 rounded w-full"
+            className="border rounded px-3 py-3 w-full focus:ring-2 focus:ring-blue-500 outline-none text-base"
             value={newProduct.category}
-            onChange={(e) => setNewProduct((prev) => ({ ...prev, category: e.target.value }))}
+            onChange={(e) =>
+              setNewProduct((prev) => ({ ...prev, category: e.target.value }))
+            }
           />
           <input
             placeholder="Price"
             type="number"
-            className="border p-2 rounded w-full"
+            className="border rounded px-3 py-3 w-full focus:ring-2 focus:ring-blue-500 outline-none text-base"
             value={newProduct.price}
-            onChange={(e) => setNewProduct((prev) => ({ ...prev, price: e.target.value }))}
+            onChange={(e) =>
+              setNewProduct((prev) => ({ ...prev, price: e.target.value }))
+            }
           />
           <input
             placeholder="Barcode"
-            className="border p-2 rounded w-full"
+            className="border rounded px-3 py-3 w-full focus:ring-2 focus:ring-blue-500 outline-none text-base"
             value={newProduct.barcode}
-            onChange={(e) => setNewProduct((prev) => ({ ...prev, barcode: e.target.value }))}
+            onChange={(e) =>
+              setNewProduct((prev) => ({ ...prev, barcode: e.target.value }))
+            }
           />
           <input
             placeholder="Stock"
             type="number"
-            className="border p-2 rounded w-full"
+            className="border rounded px-3 py-3 w-full focus:ring-2 focus:ring-blue-500 outline-none text-base"
             value={newProduct.stock}
-            onChange={(e) => setNewProduct((prev) => ({ ...prev, stock: e.target.value }))}
+            onChange={(e) =>
+              setNewProduct((prev) => ({ ...prev, stock: e.target.value }))
+            }
           />
           <input
             type="file"
             accept="image/*"
             onChange={(e) => setImageFile(e.target.files[0])}
-            className="border p-2 rounded w-full"
+            className="border rounded px-3 py-3 w-full text-base"
           />
         </div>
         <button
           onClick={addProduct}
-          className="mt-3 rounded-lg bg-green-600 px-4 py-2 text-white shadow hover:bg-green-700 w-full md:w-auto"
+          className="mt-4 rounded-full bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 shadow text-lg font-semibold transition"
         >
           Add Product
         </button>
       </div>
 
-      {/* Table Container */}
-      <div className="overflow-x-auto rounded-xl bg-white shadow-lg">
+      {/* Stock Table */}
+      <div className="overflow-x-auto rounded-2xl bg-white shadow-lg">
         <table className="min-w-full table-auto">
-          <thead className="bg-gray-200">
+          <thead className="bg-gray-100">
             <tr>
-              <th className="p-3 text-left">Image</th>
-              <th className="p-3 text-left">Product</th>
-              <th className="p-3 text-left">Category</th>
-              <th className="p-3 text-left">Barcode</th>
-              <th className="p-3 text-left">Price</th>
-              <th className="p-3 text-left">Stock</th>
-              <th className="p-3 text-left">Actions</th>
+              <th className="p-4 text-left text-lg">Image</th>
+              <th className="p-4 text-left text-lg">Product</th>
+              <th className="p-4 text-left text-lg">Category</th>
+              <th className="p-4 text-left text-lg">Barcode</th>
+              <th className="p-4 text-left text-lg">Price</th>
+              <th className="p-4 text-left text-lg">Stock</th>
+              <th className="p-4 text-left text-lg">Actions</th>
             </tr>
           </thead>
-
           <tbody>
             {stock.map((item) => (
-              <tr key={item.id} className="border-b transition hover:bg-gray-50">
-                <td className="p-3">
+              <tr
+                key={item.id}
+                className="border-b transition hover:bg-gray-50"
+              >
+                <td className="p-4">
                   <img
                     src={`http://localhost:5000${item.image}?v=${Date.now()}`}
                     alt="product"
-                    className="h-16 w-16 rounded-lg object-cover shadow"
+                    className="h-20 w-20 rounded-lg object-cover shadow"
                   />
                 </td>
-                <td className="p-3 font-semibold">{item.name}</td>
-                <td className="p-3 text-gray-600">{item.category}</td>
-                <td className="p-3 text-gray-500">{item.barcode}</td>
-                <td className="p-3 font-bold text-blue-600">₱{Number(item.price).toFixed(2)}</td>
-                <td className="p-3 font-bold">{item.stock}</td>
-                <td className="p-3">
-                  <div className="flex flex-col md:flex-row gap-2">
+                <td className="p-4 font-semibold text-gray-800 text-base">{item.name}</td>
+                <td className="p-4 text-gray-600 text-base">{item.category}</td>
+                <td className="p-4 text-gray-500 text-base">{item.barcode}</td>
+                <td className="p-4 font-bold text-blue-600 text-base">
+                  ₱{Number(item.price).toFixed(2)}
+                </td>
+                <td className="p-4 font-bold text-base">{item.stock}</td>
+                <td className="p-4">
+                  <div className="flex flex-col md:flex-row gap-3">
                     <input
                       type="file"
                       accept="image/*"
                       onChange={(e) => setImageFile(e.target.files[0])}
-                      className="text-sm"
+                      className="text-base"
                     />
                     <button
                       onClick={() => updateImage(item.id)}
-                      className="rounded-lg bg-blue-600 px-3 py-1 text-sm text-white shadow hover:bg-blue-700"
+                      className="rounded-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 text-base shadow font-semibold transition"
                     >
                       Update Image
                     </button>
@@ -254,7 +257,7 @@ export default function Stock() {
                         const amount = prompt("Enter stock to add", "1");
                         if (amount) updateStock(item.id, Number(amount));
                       }}
-                      className="rounded-lg bg-green-600 px-3 py-1 text-sm text-white shadow hover:bg-green-700"
+                      className="rounded-full bg-white text-blue-600 border-2 border-blue-600 hover:bg-blue-50 px-4 py-2 text-base shadow font-semibold transition"
                     >
                       + Add Stock
                     </button>
