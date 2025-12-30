@@ -6,7 +6,17 @@ export default function Dashboard() {
   const [checkoutItems, setCheckoutItems] = useState([]);
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("");
   const barcodeRef = useRef("");
+
+  const categories = [
+    "School Supplies",
+    "Shirt",
+    "Pants",
+    "Footwear",
+    "Pen",
+    "Others",
+  ];
 
   /* ================= LOAD PRODUCTS ================= */
   const loadProducts = async () => {
@@ -46,7 +56,6 @@ export default function Dashboard() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [products, checkoutItems]);
 
-  /* ================= ADD TO CHECKOUT ================= */
   const handleBarcodeScan = (code) => {
     const product = products.find((p) => String(p.barcode) === String(code));
     if (!product) return alert(`❌ Product not found. Scanned: "${code}"`);
@@ -58,14 +67,12 @@ export default function Dashboard() {
     setTotal((prev) => prev + Number(product.price));
   };
 
-  /* ================= REMOVE FROM CHECKOUT ================= */
   const removeFromCheckout = (index) => {
     const removed = checkoutItems[index];
     setCheckoutItems((prev) => prev.filter((_, i) => i !== index));
     setTotal((prev) => prev - Number(removed.price));
   };
 
-  /* ================= PRINT RECEIPT ================= */
   const printReceipt = () => {
     const grouped = checkoutItems.reduce((acc, item) => {
       if (!acc[item.id]) acc[item.id] = { ...item, quantity: 0 };
@@ -98,7 +105,6 @@ export default function Dashboard() {
     win.close();
   };
 
-  /* ================= HANDLE PAY ================= */
   const handlePay = async () => {
     if (!checkoutItems.length) return alert("Checkout is empty");
 
@@ -124,14 +130,17 @@ export default function Dashboard() {
     }
   };
 
-  const filtered = products.filter((p) =>
-    p.name.toLowerCase().includes(search.toLowerCase())
-  );
+  // Filter products by search + category
+  const filtered = products.filter((p) => {
+    const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase());
+    const matchesCategory = categoryFilter ? p.category === categoryFilter : true;
+    return matchesSearch && matchesCategory;
+  });
 
   return (
-    <div className="flex flex-col min-h-screen w-screen bg-blue-500">
+    <div className="flex flex-col h-screen w-screen bg-blue-500">
       {/* Header */}
-      <header className="flex flex-wrap justify-between items-center bg-blue-600 shadow-md py-4 px-4 md:px-6">
+      <header className="flex justify-between items-center bg-blue-600 shadow-md py-4 px-4 md:px-6 flex-shrink-0">
         <h1 className="text-3xl md:text-4xl font-bold text-white">
           📚 POS Dashboard
         </h1>
@@ -147,39 +156,48 @@ export default function Dashboard() {
       </header>
 
       {/* Main Content */}
-      <div className="flex flex-col lg:flex-row lg:gap-6 flex-grow p-4 md:p-6 overflow-auto">
+      <div className="flex flex-1 flex-col lg:flex-row gap-4 overflow-hidden p-4 md:p-6">
         {/* Products */}
-        <div className="lg:flex-1 bg-white rounded-3xl p-6 shadow-md w-full">
-          <input
-            placeholder="Search product..."
-            className="w-full mb-4 rounded-xl border px-4 py-3 text-base md:text-lg focus:ring-2 focus:ring-blue-500 outline-none"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+        <div className="lg:flex-1 bg-white rounded-3xl p-6 shadow-md overflow-auto">
+          {/* Search + Category */}
+          <div className="flex flex-col sm:flex-row sm:gap-2 mb-4">
+            <input
+              placeholder="Search product..."
+              className="flex-1 rounded-xl border px-4 py-3 text-base md:text-lg focus:ring-2 focus:ring-blue-500 outline-none mb-2 sm:mb-0"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+            <select
+              className="rounded-xl border px-4 py-3 text-base md:text-lg focus:ring-2 focus:ring-blue-500 outline-none"
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
+            >
+              <option value="">All Categories</option>
+              {categories.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-4">
             {filtered.map((p) => (
               <div
                 key={p.id}
-                className="bg-gray-50 rounded-xl p-4 shadow hover:shadow-lg transition"
+                className="bg-gray-50 rounded-xl p-4 shadow hover:shadow-lg transition flex flex-col"
               >
                 <img
                   src={`http://localhost:5000${p.image}`}
                   className="h-28 w-full object-contain rounded-lg mb-3"
                   alt={p.name}
                 />
-                <p className="font-medium text-base md:text-lg text-gray-800">
-                  {p.name}
-                </p>
-                <p className="text-sm md:text-base text-gray-600 mb-1">
-                  ₱{p.price}
-                </p>
-                <p className="text-sm md:text-base text-gray-500 mb-2">
-                  Stock: {p.stock}
-                </p>
+                <p className="font-medium text-base md:text-lg text-gray-800">{p.name}</p>
+                <p className="text-sm md:text-base text-gray-600 mb-1">₱{p.price}</p>
+                <p className="text-sm md:text-base text-gray-500 mb-2">Stock: {p.stock}</p>
                 <button
                   onClick={() => handleBarcodeScan(p.barcode)}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-full py-2 md:py-3 text-base md:text-lg font-semibold transition"
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-full py-3 md:py-4 text-base md:text-lg font-semibold transition mt-auto"
                 >
                   Add to Checkout
                 </button>
@@ -189,35 +207,35 @@ export default function Dashboard() {
         </div>
 
         {/* Checkout */}
-        <div className="lg:w-96 bg-white rounded-3xl p-6 shadow-md mt-4 lg:mt-0 w-full">
+        <div className="lg:w-96 bg-white rounded-3xl p-6 shadow-md flex flex-col h-full overflow-auto">
           <h2 className="font-semibold text-lg md:text-xl mb-4">🛒 Checkout</h2>
 
           {checkoutItems.length === 0 && (
             <p className="text-gray-500 text-sm md:text-base">Checkout is empty</p>
           )}
 
-          {checkoutItems.map((item, i) => (
-            <div
-              key={i}
-              className="flex justify-between items-center bg-gray-50 rounded-xl px-4 py-2 mb-2 shadow-sm"
-            >
-              <div>
-                <p className="text-sm md:text-base font-medium">{item.name}</p>
-                <p className="text-xs md:text-sm text-gray-600">₱{item.price}</p>
-              </div>
-              <button
-                onClick={() => removeFromCheckout(i)}
-                className="bg-blue-600 hover:bg-blue-700 text-white rounded-full px-4 py-1 md:py-2 text-sm md:text-base font-semibold transition"
+          <div className="flex-1 overflow-auto">
+            {checkoutItems.map((item, i) => (
+              <div
+                key={i}
+                className="flex justify-between items-center bg-gray-50 rounded-xl px-4 py-2 mb-2 shadow-sm"
               >
-                ✖
-              </button>
-            </div>
-          ))}
+                <div>
+                  <p className="text-sm md:text-base font-medium">{item.name}</p>
+                  <p className="text-xs md:text-sm text-gray-600">₱{item.price}</p>
+                </div>
+                <button
+                  onClick={() => removeFromCheckout(i)}
+                  className="bg-blue-600 hover:bg-blue-700 text-white rounded-full px-4 py-1 md:py-2 text-sm md:text-base font-semibold transition"
+                >
+                  ✖
+                </button>
+              </div>
+            ))}
+          </div>
 
           <hr className="my-3 border-gray-300" />
-          <p className="font-semibold text-gray-800 text-lg md:text-xl">
-            Total: ₱{total.toFixed(2)}
-          </p>
+          <p className="font-semibold text-gray-800 text-lg md:text-xl">Total: ₱{total.toFixed(2)}</p>
 
           <button
             onClick={handlePay}
@@ -229,14 +247,14 @@ export default function Dashboard() {
       </div>
 
       {/* Bottom Buttons */}
-      <div className="flex flex-col sm:flex-row gap-4 p-4 md:p-6 w-full">
-        <Link to="/stock">
-          <button className="flex-1 bg-white text-blue-600 border-2 border-blue-600 hover:bg-blue-50 rounded-full py-3 md:py-4 text-lg md:text-xl font-semibold transition">
+      <div className="flex flex-col sm:flex-row gap-4 p-4 md:p-6 bg-blue-500 flex-shrink-0">
+        <Link to="/stock" className="flex-1">
+          <button className="w-full bg-white text-blue-600 border-2 border-blue-600 hover:bg-blue-50 rounded-full py-3 md:py-4 text-lg md:text-xl font-semibold transition">
             Manage Stock
           </button>
         </Link>
-        <Link to="/sales">
-          <button className="flex-1 bg-white text-blue-600 border-2 border-blue-600 hover:bg-blue-50 rounded-full py-3 md:py-4 text-lg md:text-xl font-semibold transition">
+        <Link to="/sales" className="flex-1">
+          <button className="w-full bg-white text-blue-600 border-2 border-blue-600 hover:bg-blue-50 rounded-full py-3 md:py-4 text-lg md:text-xl font-semibold transition">
             View Sales
           </button>
         </Link>
