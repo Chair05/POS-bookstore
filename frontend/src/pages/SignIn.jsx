@@ -1,100 +1,116 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-export default function SignIn() {
+export default function SignUp() {
   const navigate = useNavigate();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [role, setRole] = useState("admin"); // default role
 
-  const handleSignIn = (e) => {
+  const handleSignUp = (e) => {
     e.preventDefault();
-    if (!username || !password) return alert("Please fill in all fields.");
+    if (!username || !password) {
+      alert("Please fill in all fields.");
+      return;
+    }
 
-    fetch("http://localhost:5000/api/register", {
+    fetch("http://localhost:5000/api/register", { // ✅ register endpoint
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password }),
+      body: JSON.stringify({ username, password, role }),
     })
       .then((res) => res.json())
       .then((data) => {
         if (data.success) {
-          alert("Admin account created successfully!");
-          navigate("/login");
+          alert(`${role} account created successfully!`);
+          navigate("/login"); // redirect to login after signup
         } else {
           alert(data.message);
         }
       })
-      .catch((err) => {
-        console.error(err);
+      .catch(() => {
         alert("Server error. Try again later.");
       });
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#f3f4f6]">
-      <div className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-[0_18px_50px_rgba(15,23,42,0.15)] px-20 py-16 w-full max-w-3xl text-center border border-gray-100">
+    <div className="min-h-screen flex items-center justify-center bg-[#f3f4f6] px-4">
+      <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-md border border-gray-100 w-full max-w-2xl px-6 py-8 sm:px-10 sm:py-10">
         {/* Header */}
-        <div className="flex items-center justify-center gap-5 mb-10">
-          <div className="w-20 h-20 rounded-xl bg-gradient-to-br from-green-500 via-blue-500 to-purple-500 flex items-center justify-center text-white text-4xl font-bold shadow-sm">
+        <div className="flex items-center justify-center gap-4 mb-6 text-center">
+          <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-green-500 via-blue-500 to-purple-500 flex items-center justify-center text-white text-lg">
             🔑
           </div>
           <div>
-            <h1 className="text-4xl font-bold text-gray-900">Create Admin Account</h1>
-            <p className="text-lg text-gray-500">
-              Set up your bookstore admin account.
+            <h1 className="text-xl font-semibold text-gray-900">Sign Up</h1>
+            <p className="text-sm text-gray-500">
+              Create a new Admin or Sub account
             </p>
           </div>
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSignIn} className="space-y-8 text-left">
+        <form onSubmit={handleSignUp} className="space-y-4 max-w-xl mx-auto text-left">
+          {/* Role Selector */}
           <div>
-            <label className="block mb-3 text-lg font-medium text-gray-700">
-              Username
-            </label>
+            <label className="block mb-1 text-sm font-medium text-gray-700">Sign up as</label>
+            <select
+              value={role}
+              onChange={(e) => setRole(e.target.value)}
+              className="w-full h-11 px-4 text-sm rounded-lg border border-gray-300 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-600"
+            >
+              <option value="admin">Admin</option>
+              <option value="sub">Sub User</option>
+            </select>
+          </div>
+
+          {/* Username */}
+          <div>
+            <label className="block mb-1 text-sm font-medium text-gray-700">Username</label>
             <input
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              className="w-full px-6 py-5 text-xl rounded-3xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#2563eb] focus:border-[#2563eb] placeholder:text-gray-400 bg-gray-50"
-              placeholder="Enter new username"
+              placeholder="Enter username"
+              className="w-full h-11 px-4 text-sm rounded-lg border border-gray-300 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-600"
             />
           </div>
 
+          {/* Password */}
           <div>
-            <label className="block mb-3 text-lg font-medium text-gray-700">
-              Password
-            </label>
+            <label className="block mb-1 text-sm font-medium text-gray-700">Password</label>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-6 py-5 text-xl rounded-3xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#2563eb] focus:border-[#2563eb] placeholder:text-gray-400 bg-gray-50"
               placeholder="Enter password"
+              className="w-full h-11 px-4 text-sm rounded-lg border border-gray-300 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-600"
             />
           </div>
 
+          {/* Submit */}
           <button
             type="submit"
-            className="w-full mt-4 py-5 rounded-full bg-gradient-to-r from-[#2563eb] to-[#1d4ed8] text-white text-xl font-bold shadow-[0_10px_30px_rgba(37,99,235,0.45)] hover:brightness-105 active:scale-[0.97] transition"
+            className="w-full h-11 rounded-full bg-gradient-to-r from-blue-600 to-blue-700 text-white text-sm font-semibold shadow hover:brightness-105 active:scale-95 transition"
           >
-            Create Account
+            Sign Up
           </button>
         </form>
 
         {/* Links */}
-        <div className="mt-10 flex flex-col items-center gap-5">
+        <div className="mt-6 flex flex-col items-center gap-2 text-sm">
           <button
             onClick={() => navigate("/")}
-            className="text-lg md:text-xl text-[#2563eb] hover:text-[#1d4ed8] hover:underline transition"
+            className="text-blue-600 hover:underline"
           >
             ← Back to Home
           </button>
+
           <button
             onClick={() => navigate("/login")}
-            className="text-lg md:text-xl text-emerald-600 hover:text-emerald-700 hover:underline transition"
+            className="text-emerald-600 hover:underline"
           >
-            ➕ Already have an account? Log In
+            Already have an account? Log in
           </button>
         </div>
       </div>

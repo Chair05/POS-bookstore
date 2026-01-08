@@ -1,24 +1,40 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 export default function Dashboard() {
+  const navigate = useNavigate();
+
+  // ----------------------------
+  // User state and role check
+  // ----------------------------
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    const storedUser = JSON.parse(localStorage.getItem("user"));
+    if (!storedUser) {
+      navigate("/"); // redirect to start page if not logged in
+    } else {
+      setUser(storedUser);
+    }
+  }, [navigate]);
+
+  const isAdmin = user?.role === "admin";
+
+  // ----------------------------
+  // State variables
+  // ----------------------------
   const [products, setProducts] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [checkoutItems, setCheckoutItems] = useState([]);
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
+  const [notifications, setNotifications] = useState([]);
   const barcodeRef = useRef("");
 
-  const categories = [
-    "School Supplies",
-    "Shirt",
-    "Pants",
-    "Footwear",
-    "Pen",
-    "Others",
-  ];
-
-  /* ================= LOAD PRODUCTS ================= */
+  // ----------------------------
+  // Load products
+  // ----------------------------
   const loadProducts = async () => {
     try {
       const res = await fetch("http://localhost:5000/api/products");
@@ -29,11 +45,43 @@ export default function Dashboard() {
     }
   };
 
+  // ----------------------------
+  // Load categories
+  // ----------------------------
+  const loadCategories = async () => {
+    try {
+      const res = await fetch("http://localhost:5000/api/categories");
+      const data = await res.json();
+      if (data.success) {
+        const cats = data.categories.map((c) =>
+          typeof c === "string" ? c : c.name
+        );
+        setCategories(cats);
+      }
+    } catch (err) {
+      console.error("Error loading categories:", err);
+    }
+  };
+
   useEffect(() => {
     loadProducts();
+    loadCategories();
   }, []);
 
-  /* ================= BARCODE SCANNER ================= */
+  // ----------------------------
+  // Notifications
+  // ----------------------------
+  const addNotification = (message) => {
+    const id = Date.now();
+    setNotifications((prev) => [...prev, { id, message }]);
+    setTimeout(() => {
+      setNotifications((prev) => prev.filter((n) => n.id !== id));
+    }, 3000);
+  };
+
+  // ----------------------------
+  // Barcode scanner
+  // ----------------------------
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (
@@ -58,10 +106,15 @@ export default function Dashboard() {
 
   const handleBarcodeScan = (code) => {
     const product = products.find((p) => String(p.barcode) === String(code));
-    if (!product) return alert(`❌ Product not found. Scanned: "${code}"`);
+    if (!product) return addNotification(`❌ Product not found. Scanned: "${code}"`);
 
     const inCheckoutQty = checkoutItems.filter((c) => c.id === product.id).length;
-    if (product.stock - inCheckoutQty <= 0) return alert("❌ Out of stock");
+    const remainingStock = product.stock - inCheckoutQty;
+
+    if (remainingStock <= 0) return addNotification("❌ Out of stock");
+
+    if (remainingStock <= 30)
+      addNotification(`⚠ Only ${remainingStock} left in stock!`);
 
     setCheckoutItems((prev) => [...prev, product]);
     setTotal((prev) => prev + Number(product.price));
@@ -73,6 +126,9 @@ export default function Dashboard() {
     setTotal((prev) => prev - Number(removed.price));
   };
 
+  // ----------------------------
+  // Print receipt
+  // ----------------------------
   const printReceipt = () => {
     const grouped = checkoutItems.reduce((acc, item) => {
       if (!acc[item.id]) acc[item.id] = { ...item, quantity: 0 };
@@ -105,8 +161,11 @@ export default function Dashboard() {
     win.close();
   };
 
+  // ----------------------------
+  // Handle payment (only admin)
+  // ----------------------------
   const handlePay = async () => {
-    if (!checkoutItems.length) return alert("Checkout is empty");
+    if (!checkoutItems.length) return addNotification("Checkout is empty");
 
     const items = checkoutItems.map((i) => ({ barcode: i.barcode, quantity: 1 }));
 
@@ -118,36 +177,52 @@ export default function Dashboard() {
       });
 
       const data = await res.json();
-      if (!data.success) return alert(data.message || "Purchase failed");
+      if (!data.success) return addNotification(data.message || "Purchase failed");
 
       printReceipt();
       setCheckoutItems([]);
       setTotal(0);
       loadProducts();
+      loadCategories();
     } catch (err) {
       console.error(err);
-      alert("An error occurred while processing the payment.");
+      addNotification("An error occurred while processing the payment.");
     }
   };
 
-  // Filter products by search + category
+  // ----------------------------
+  // Filtered products
+  // ----------------------------
   const filtered = products.filter((p) => {
     const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase());
     const matchesCategory = categoryFilter ? p.category === categoryFilter : true;
     return matchesSearch && matchesCategory;
   });
 
+  // ----------------------------
+  // Render
+  // ----------------------------
   return (
-    <div className="flex flex-col h-screen w-screen bg-blue-500">
+    <div className="flex flex-col h-screen w-screen bg-blue-500 relative">
+      {/* Notifications */}
+      <div className="absolute top-4 right-4 flex flex-col gap-2 z-50">
+        {notifications.map((n) => (
+          <div
+            key={n.id}
+            className="bg-yellow-300 text-black px-4 py-2 rounded shadow-md animate-slide-in"
+          >
+            {n.message}
+          </div>
+        ))}
+      </div>
+
       {/* Header */}
       <header className="flex justify-between items-center bg-blue-600 shadow-md py-4 px-4 md:px-6 flex-shrink-0">
-        <h1 className="text-3xl md:text-4xl font-bold text-white">
-          📚 POS Dashboard
-        </h1>
+        <h1 className="text-3xl md:text-4xl font-bold text-white">📚 POS Dashboard</h1>
         <button
           onClick={() => {
-            localStorage.clear();
-            window.location.href = "/";
+            localStorage.removeItem("user");
+            navigate("/");
           }}
           className="bg-white text-blue-600 hover:bg-gray-100 rounded-full px-6 py-3 md:px-8 md:py-3 text-lg md:text-xl font-semibold transition"
         >
@@ -181,6 +256,7 @@ export default function Dashboard() {
             </select>
           </div>
 
+          {/* Product Grid */}
           <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-4">
             {filtered.map((p) => (
               <div
@@ -194,13 +270,21 @@ export default function Dashboard() {
                 />
                 <p className="font-medium text-base md:text-lg text-gray-800">{p.name}</p>
                 <p className="text-sm md:text-base text-gray-600 mb-1">₱{p.price}</p>
-                <p className="text-sm md:text-base text-gray-500 mb-2">Stock: {p.stock}</p>
-                <button
-                  onClick={() => handleBarcodeScan(p.barcode)}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-full py-3 md:py-4 text-base md:text-lg font-semibold transition mt-auto"
+                <p
+                  className={`text-sm md:text-base mb-2 ${
+                    p.stock <= 30 ? "text-red-600 font-semibold" : "text-gray-500"
+                  }`}
                 >
-                  Add to Checkout
-                </button>
+                  {p.stock <= 30 ? `⚠ Only ${p.stock} left!` : `Stock: ${p.stock}`}
+                </p>
+                {isAdmin && (
+                  <button
+                    onClick={() => handleBarcodeScan(p.barcode)}
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-full py-3 md:py-4 text-base md:text-lg font-semibold transition mt-auto"
+                  >
+                    Add to Checkout
+                  </button>
+                )}
               </div>
             ))}
           </div>
@@ -234,25 +318,30 @@ export default function Dashboard() {
             ))}
           </div>
 
-          <hr className="my-3 border-gray-300" />
-          <p className="font-semibold text-gray-800 text-lg md:text-xl">Total: ₱{total.toFixed(2)}</p>
-
-          <button
-            onClick={handlePay}
-            className="w-full mt-4 bg-blue-600 hover:bg-blue-700 text-white rounded-full py-3 md:py-4 text-lg md:text-xl font-semibold transition"
-          >
-            Pay
-          </button>
+          {/* Only admin can pay */}
+          {isAdmin && (
+            <button
+              onClick={handlePay}
+              className="w-full mt-4 bg-blue-600 hover:bg-blue-700 text-white rounded-full py-3 md:py-4 text-lg md:text-xl font-semibold transition"
+            >
+              Pay
+            </button>
+          )}
         </div>
       </div>
 
       {/* Bottom Buttons */}
       <div className="flex flex-col sm:flex-row gap-4 p-4 md:p-6 bg-blue-500 flex-shrink-0">
-        <Link to="/stock" className="flex-1">
-          <button className="w-full bg-white text-blue-600 border-2 border-blue-600 hover:bg-blue-50 rounded-full py-3 md:py-4 text-lg md:text-xl font-semibold transition">
-            Manage Stock
-          </button>
-        </Link>
+        {/* Only Admin can Manage Stock */}
+        {isAdmin && (
+          <Link to="/stock" className="flex-1">
+            <button className="w-full bg-white text-blue-600 border-2 border-blue-600 hover:bg-blue-50 rounded-full py-3 md:py-4 text-lg md:text-xl font-semibold transition">
+              Manage Stock
+            </button>
+          </Link>
+        )}
+
+        {/* Both admin and sub can view sales */}
         <Link to="/sales" className="flex-1">
           <button className="w-full bg-white text-blue-600 border-2 border-blue-600 hover:bg-blue-50 rounded-full py-3 md:py-4 text-lg md:text-xl font-semibold transition">
             View Sales

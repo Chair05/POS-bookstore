@@ -2,30 +2,37 @@ const express = require("express");
 const router = express.Router();
 const db = require("../db");
 
-// ✅ Register (Sign Up Admin)
-// Create admin (Sign Up)
+// ✅ Register (Sign Up Admin or Sub User)
 router.post("/register", (req, res) => {
-  const { username, password } = req.body;
-  if (!username || !password)
+  const { username, password, role } = req.body;
+
+  if (!username || !password || !role)
     return res.status(400).json({ success: false, message: "Missing fields" });
 
+  // Only allow valid roles
+  if (!["admin", "sub"].includes(role))
+    return res.status(400).json({ success: false, message: "Invalid role" });
+
+  // Insert into database
   db.query(
-  "INSERT INTO admins (username, password) VALUES (?, ?)",
-  [username, password],
-  (err) => {
-    if (err) {
-      console.error("Database query error:", err);
-      return res.status(500).json({ success: false, message: "Database error" });
+    "INSERT INTO admins (username, password, role) VALUES (?, ?, ?)",
+    [username, password, role],
+    (err) => {
+      if (err) {
+        console.error("Database query error:", err);
+        return res.status(500).json({ success: false, message: "Database error" });
+      }
+      return res.json({ success: true, message: `${role} registered successfully!` });
     }
-    return res.json({ success: true, message: "Admin registered!" });
-  }
-);
+  );
 });
 
-
-// ✅ Login
+// ✅ Login (Admin or Sub)
 router.post("/login", (req, res) => {
   const { username, password } = req.body;
+
+  if (!username || !password)
+    return res.status(400).json({ success: false, message: "Missing fields" });
 
   db.query(
     "SELECT * FROM admins WHERE username = ? AND password = ?",
@@ -40,7 +47,15 @@ router.post("/login", (req, res) => {
         return res.status(401).json({ success: false, message: "Invalid credentials" });
       }
 
-      res.json({ success: true, message: "Login successful" });
+      const user = result[0];
+
+      // Return role to frontend for redirect
+      res.json({
+        success: true,
+        message: "Login successful",
+        name: user.username,
+        role: user.role, // important!
+      });
     }
   );
 });
