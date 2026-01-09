@@ -17,8 +17,8 @@ export default function Stock() {
     stock: 1,
   });
 
-  const [scanInputs, setScanInputs] = useState({}); // per-product barcode input
-  const [amountInputs, setAmountInputs] = useState({}); // per-product amount input
+  const [scanInputs, setScanInputs] = useState({});
+  const [amountInputs, setAmountInputs] = useState({});
   const [openDropdownId, setOpenDropdownId] = useState(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
 
@@ -405,37 +405,46 @@ export default function Stock() {
                 <td className="p-4 font-bold text-blue-600">{item.price || 0}</td>
                 <td className="p-4 font-bold">{item.stock || 0}</td>
 
-                {/* PER-PRODUCT SCAN + AMOUNT */}
-                <td className="p-4 flex gap-2">
-                  <input
-                    placeholder="Scan barcode"
-                    className="border rounded-lg px-2 py-1 flex-1"
-                    value={scanInputs[item.id] || ""}
-                    onChange={(e) =>
-                      setScanInputs((prev) => ({ ...prev, [item.id]: e.target.value }))
-                    }
-                    onKeyDown={(e) => e.key === "Enter" && handleScanEnter(item.id)}
-                  />
-                  <input
-                    type="number"
-                    min={1}
-                    placeholder="Amount"
-                    className="border rounded-lg px-2 py-1 w-20"
-                    value={amountInputs[item.id] || 1}
-                    onChange={(e) =>
-                      setAmountInputs((prev) => ({ ...prev, [item.id]: e.target.value }))
-                    }
-                  />
+                {/* SCAN + AMOUNT */}
+                <td className="p-4 flex flex-col gap-2">
+                  <div className="flex gap-2">
+                    <input
+                      placeholder="Scan barcode"
+                      className="border rounded-lg px-2 py-1 flex-1"
+                      value={scanInputs[item.id] || ""}
+                      onChange={(e) =>
+                        setScanInputs((prev) => ({ ...prev, [item.id]: e.target.value }))
+                      }
+                      onKeyDown={(e) => e.key === "Enter" && handleScanEnter(item.id)}
+                    />
+                    <input
+                      type="number"
+                      min={1}
+                      placeholder="Amount"
+                      className="border rounded-lg px-2 py-1 w-20"
+                      value={amountInputs[item.id] || 1}
+                      onChange={(e) =>
+                        setAmountInputs((prev) => ({ ...prev, [item.id]: e.target.value }))
+                      }
+                    />
+                  </div>
                 </td>
 
-                <td className="p-4 space-y-2">
+                {/* ACTIONS */}
+                <td className="p-4 flex flex-col gap-2">
                   <input
                     type="file"
                     onChange={(e) => {
-                      setImageFiles((prev) => ({ ...prev, [item.id]: e.target.files[0] }));
-                      e.target.value = null;
+                      if (e.target.files[0]) {
+                        setImageFiles((prev) => ({ ...prev, [item.id]: e.target.files[0] }));
+                      }
                     }}
                   />
+                  {imageFiles[item.id] && (
+                    <p className="text-sm text-green-600">
+                      Selected: {imageFiles[item.id].name}
+                    </p>
+                  )}
                   <button
                     onClick={() => updateImage(item.id)}
                     className="w-full bg-blue-600 text-white py-2 rounded-xl"
