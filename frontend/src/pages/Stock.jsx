@@ -9,7 +9,6 @@ export default function Stock() {
   const [imageFiles, setImageFiles] = useState({});
   const [categories, setCategories] = useState([]);
   const [newCategory, setNewCategory] = useState("");
-
   const [newProduct, setNewProduct] = useState({
     name: "",
     category: "",
@@ -18,6 +17,8 @@ export default function Stock() {
     stock: 1,
   });
 
+  const [scanInputs, setScanInputs] = useState({}); // per-product barcode input
+  const [amountInputs, setAmountInputs] = useState({}); // per-product amount input
   const [openDropdownId, setOpenDropdownId] = useState(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
 
@@ -28,11 +29,12 @@ export default function Stock() {
   }, []);
 
   const loadStock = async () => {
+    setLoading(true);
     try {
       const res = await fetch("http://localhost:5000/api/products");
       const data = await res.json();
       if (!data.success) throw new Error("Failed to load stock");
-      setStock(data.products);
+      setStock(data.products || []);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -45,7 +47,7 @@ export default function Stock() {
       const res = await fetch("http://localhost:5000/api/categories");
       const data = await res.json();
       if (!data.success) throw new Error("Failed to load categories");
-      setCategories(data.categories);
+      setCategories(data.categories || []);
     } catch (err) {
       console.error("Category load error:", err);
     }
@@ -55,7 +57,7 @@ export default function Stock() {
   const updateStock = async (productId, amount) => {
     setStock((prev) =>
       prev.map((p) =>
-        p.id === productId ? { ...p, stock: p.stock + amount } : p
+        p.id === productId ? { ...p, stock: (p.stock || 0) + amount } : p
       )
     );
 
@@ -93,13 +95,7 @@ export default function Stock() {
       );
       const data = await res.json();
       if (!data.success) alert("Failed to update category");
-      else {
-        setStock((prev) =>
-          prev.map((p) =>
-            p.id === productId ? { ...p, category: categoryName } : p
-          )
-        );
-      }
+      else loadStock();
     } catch (err) {
       console.error(err);
       alert("Error updating category");
@@ -108,7 +104,7 @@ export default function Stock() {
 
   /* ================= ADD CATEGORY ================= */
   const addCategory = async () => {
-    if (!newCategory) return alert("Enter category name");
+    if (!newCategory.trim()) return alert("Enter category name");
     if (categories.some((c) => c.name === newCategory))
       return alert("Category already exists");
 
@@ -120,13 +116,9 @@ export default function Stock() {
       });
       const data = await res.json();
 
-      if (data.success && data.category && data.category.name) {
-        const addedCategory = data.category;
-        setCategories((prev) => [...prev, addedCategory]);
-        setNewProduct((prev) => ({
-          ...prev,
-          category: addedCategory.name,
-        }));
+      if (data.success && data.category?.name) {
+        await loadCategories();
+        setNewProduct((prev) => ({ ...prev, category: data.category.name }));
         setNewCategory("");
       } else {
         console.error("Backend response invalid:", data);
@@ -149,14 +141,8 @@ export default function Stock() {
       );
       const data = await res.json();
       if (data.success) {
-        setCategories((prev) => prev.filter((c) => c.id !== categoryId));
-
-        if (productId) {
-          const product = stock.find((p) => p.id === productId);
-          const deletedCategory = categories.find((c) => c.id === categoryId);
-          if (product && product.category === deletedCategory?.name)
-            updateCategory(productId, "");
-        }
+        await loadCategories();
+        if (productId) updateCategory(productId, "");
       } else alert("Failed to delete category");
     } catch (err) {
       console.error(err);
@@ -181,7 +167,7 @@ export default function Stock() {
       if (data.success) {
         alert("Image updated!");
         setImageFiles((prev) => ({ ...prev, [productId]: null }));
-        loadStock();
+        await loadStock();
       } else alert("Image update failed");
     } catch (err) {
       console.error(err);
@@ -210,14 +196,8 @@ export default function Stock() {
       const data = await res.json();
       if (data.success) {
         alert("Product added!");
-        setNewProduct({
-          name: "",
-          category: "",
-          price: "",
-          barcode: "",
-          stock: 1,
-        });
-        setStock((prev) => [...prev, data.product]);
+        setNewProduct({ name: "", category: "", price: "", barcode: "", stock: 1 });
+        await loadStock();
       } else alert("Failed to add product");
     } catch (err) {
       console.error(err);
@@ -237,12 +217,31 @@ export default function Stock() {
       const data = await res.json();
       if (data.success) {
         alert("Product deleted!");
-        setStock((prev) => prev.filter((p) => p.id !== productId));
         setConfirmDeleteId(null);
+        await loadStock();
       } else alert(data.message || "Failed to delete product");
     } catch (err) {
       console.error(err);
       alert("Error deleting product");
+    }
+  };
+
+  /* ================= HANDLE PER-PRODUCT SCAN WITH AMOUNT ================= */
+  const handleScanEnter = (productId) => {
+    const barcode = scanInputs[productId]?.trim();
+    let amount = Number(amountInputs[productId]) || 1;
+    if (!barcode) return;
+
+    const product = stock.find(
+      (p) => p.id === productId && p.barcode === barcode
+    );
+
+    if (product) {
+      updateStock(productId, amount);
+      setScanInputs((prev) => ({ ...prev, [productId]: "" }));
+      setAmountInputs((prev) => ({ ...prev, [productId]: 1 }));
+    } else {
+      alert("Barcode does not match this product");
     }
   };
 
@@ -263,33 +262,24 @@ export default function Stock() {
       {/* ADD PRODUCT */}
       <div className="bg-white p-6 rounded-2xl shadow-lg mb-4">
         <h2 className="text-xl font-semibold mb-4">➕ Add New Product</h2>
-
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <input
             placeholder="Name"
             className="border rounded-lg px-4 py-3"
             value={newProduct.name}
-            onChange={(e) =>
-              setNewProduct({ ...newProduct, name: e.target.value })
-            }
+            onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })}
           />
 
           <select
             className="border rounded-lg px-4 py-3"
             value={newProduct.category}
-            onChange={(e) => {
-              if (e.target.value === "__add_new") {
-                setNewProduct({ ...newProduct, category: "" });
-              } else {
-                setNewProduct({ ...newProduct, category: e.target.value });
-              }
-            }}
+            onChange={(e) =>
+              setNewProduct({ ...newProduct, category: e.target.value === "__add_new" ? "" : e.target.value })
+            }
           >
             <option value="">Select Category</option>
             {categories.map((c) => (
-              <option key={c.id} value={c.name}>
-                {c.name}
-              </option>
+              <option key={c.id} value={c.name}>{c.name}</option>
             ))}
             <option value="__add_new">➕ Add new category</option>
           </select>
@@ -302,12 +292,7 @@ export default function Stock() {
                 value={newCategory}
                 onChange={(e) => setNewCategory(e.target.value)}
               />
-              <button
-                onClick={addCategory}
-                className="bg-green-600 text-white px-4 rounded-lg"
-              >
-                Add
-              </button>
+              <button onClick={addCategory} className="bg-green-600 text-white px-4 rounded-lg">Add</button>
             </div>
           )}
 
@@ -316,27 +301,14 @@ export default function Stock() {
             placeholder="Price"
             className="border rounded-lg px-4 py-3"
             value={newProduct.price}
-            onChange={(e) =>
-              setNewProduct({ ...newProduct, price: e.target.value })
-            }
+            onChange={(e) => setNewProduct({ ...newProduct, price: e.target.value })}
           />
 
           <input
-            placeholder="Barcode (scan or type)"
+            placeholder="Barcode"
             className="border rounded-lg px-4 py-3"
             value={newProduct.barcode}
-            onChange={(e) =>
-              setNewProduct({ ...newProduct, barcode: e.target.value })
-            }
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                const product = stock.find(
-                  (item) => item.barcode === newProduct.barcode
-                );
-                if (product) updateStock(product.id, 1);
-                else alert("Product not found");
-              }
-            }}
+            onChange={(e) => setNewProduct({ ...newProduct, barcode: e.target.value })}
           />
 
           <input
@@ -344,9 +316,7 @@ export default function Stock() {
             placeholder="Stock"
             className="border rounded-lg px-4 py-3"
             value={newProduct.stock}
-            onChange={(e) =>
-              setNewProduct({ ...newProduct, stock: e.target.value })
-            }
+            onChange={(e) => setNewProduct({ ...newProduct, stock: e.target.value })}
           />
         </div>
 
@@ -369,18 +339,19 @@ export default function Stock() {
               <th className="p-4">Barcode</th>
               <th className="p-4">Price</th>
               <th className="p-4">Stock</th>
+              <th className="p-4">Scan + Amount</th>
               <th className="p-4">Actions</th>
             </tr>
           </thead>
           <tbody>
             {stock.map((item) => (
-              <tr key={item.id} className="border-b">
+              <tr key={item.id || Math.random()} className="border-b">
                 <td className="p-4">
                   {item.image ? (
                     <img
                       src={`http://localhost:5000${item.image}`}
                       className="h-16 w-16 rounded-xl object-cover"
-                      alt=""
+                      alt={item.name || "Product Image"}
                     />
                   ) : (
                     <div className="h-16 w-16 bg-gray-200 rounded-xl flex items-center justify-center text-gray-500">
@@ -388,8 +359,7 @@ export default function Stock() {
                     </div>
                   )}
                 </td>
-                <td className="p-4 font-semibold">{item.name}</td>
-
+                <td className="p-4 font-semibold">{item.name || "Unnamed"}</td>
                 <td className="p-4 relative">
                   <div
                     className="border rounded-lg px-3 py-2 cursor-pointer w-40"
@@ -398,10 +368,8 @@ export default function Stock() {
                     }
                   >
                     {categories.find((c) => c.name === item.category)?.name ||
-                      item.category ||
-                      "Select Category"}
+                      item.category || "Select Category"}
                   </div>
-
                   {openDropdownId === item.id && (
                     <ul className="absolute bg-white border rounded shadow mt-1 w-40 z-50 max-h-48 overflow-y-auto">
                       {categories.map((c) => (
@@ -433,20 +401,39 @@ export default function Stock() {
                   )}
                 </td>
 
-                <td className="p-4">{item.barcode}</td>
-                <td className="p-4 font-bold text-blue-600">₱{item.price}</td>
-                <td className="p-4 font-bold">{item.stock}</td>
+                <td className="p-4">{item.barcode || "—"}</td>
+                <td className="p-4 font-bold text-blue-600">{item.price || 0}</td>
+                <td className="p-4 font-bold">{item.stock || 0}</td>
 
-                {/* ACTIONS COLUMN */}
+                {/* PER-PRODUCT SCAN + AMOUNT */}
+                <td className="p-4 flex gap-2">
+                  <input
+                    placeholder="Scan barcode"
+                    className="border rounded-lg px-2 py-1 flex-1"
+                    value={scanInputs[item.id] || ""}
+                    onChange={(e) =>
+                      setScanInputs((prev) => ({ ...prev, [item.id]: e.target.value }))
+                    }
+                    onKeyDown={(e) => e.key === "Enter" && handleScanEnter(item.id)}
+                  />
+                  <input
+                    type="number"
+                    min={1}
+                    placeholder="Amount"
+                    className="border rounded-lg px-2 py-1 w-20"
+                    value={amountInputs[item.id] || 1}
+                    onChange={(e) =>
+                      setAmountInputs((prev) => ({ ...prev, [item.id]: e.target.value }))
+                    }
+                  />
+                </td>
+
                 <td className="p-4 space-y-2">
                   <input
                     type="file"
                     onChange={(e) => {
-                      setImageFiles((prev) => ({
-                        ...prev,
-                        [item.id]: e.target.files[0],
-                      }));
-                      e.target.value = null; // allow re-upload same file
+                      setImageFiles((prev) => ({ ...prev, [item.id]: e.target.files[0] }));
+                      e.target.value = null;
                     }}
                   />
                   <button
@@ -454,12 +441,6 @@ export default function Stock() {
                     className="w-full bg-blue-600 text-white py-2 rounded-xl"
                   >
                     Upload Image
-                  </button>
-                  <button
-                    onClick={() => updateStock(item.id, 1)}
-                    className="w-full border-2 border-blue-600 text-blue-600 py-2 rounded-xl"
-                  >
-                    + Add Stock
                   </button>
 
                   {confirmDeleteId === item.id ? (

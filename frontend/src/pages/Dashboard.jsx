@@ -3,16 +3,13 @@ import { Link, useNavigate } from "react-router-dom";
 
 export default function Dashboard() {
   const navigate = useNavigate();
-
-  // ----------------------------
-  // User state and role check
-  // ----------------------------
   const [user, setUser] = useState(null);
 
+  // Load user from localStorage
   useEffect(() => {
     const storedUser = JSON.parse(localStorage.getItem("user"));
     if (!storedUser) {
-      navigate("/"); // redirect to start page if not logged in
+      navigate("/"); 
     } else {
       setUser(storedUser);
     }
@@ -20,9 +17,6 @@ export default function Dashboard() {
 
   const isAdmin = user?.role === "admin";
 
-  // ----------------------------
-  // State variables
-  // ----------------------------
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [checkoutItems, setCheckoutItems] = useState([]);
@@ -32,9 +26,7 @@ export default function Dashboard() {
   const [notifications, setNotifications] = useState([]);
   const barcodeRef = useRef("");
 
-  // ----------------------------
   // Load products
-  // ----------------------------
   const loadProducts = async () => {
     try {
       const res = await fetch("http://localhost:5000/api/products");
@@ -45,9 +37,7 @@ export default function Dashboard() {
     }
   };
 
-  // ----------------------------
   // Load categories
-  // ----------------------------
   const loadCategories = async () => {
     try {
       const res = await fetch("http://localhost:5000/api/categories");
@@ -68,9 +58,7 @@ export default function Dashboard() {
     loadCategories();
   }, []);
 
-  // ----------------------------
   // Notifications
-  // ----------------------------
   const addNotification = (message) => {
     const id = Date.now();
     setNotifications((prev) => [...prev, { id, message }]);
@@ -79,9 +67,7 @@ export default function Dashboard() {
     }, 3000);
   };
 
-  // ----------------------------
   // Barcode scanner
-  // ----------------------------
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (
@@ -126,9 +112,7 @@ export default function Dashboard() {
     setTotal((prev) => prev - Number(removed.price));
   };
 
-  // ----------------------------
   // Print receipt
-  // ----------------------------
   const printReceipt = () => {
     const grouped = checkoutItems.reduce((acc, item) => {
       if (!acc[item.id]) acc[item.id] = { ...item, quantity: 0 };
@@ -141,7 +125,7 @@ export default function Dashboard() {
     win.document.write(`
       <html>
         <body style="font-family:Arial">
-          <h2 style="text-align:center">📚 Bookstore Receipt</h2>
+          <h2 style="text-align:center">📚 LCCB Bookstore Receipt</h2>
           <hr/>
           ${groupedArr
             .map(
@@ -161,9 +145,7 @@ export default function Dashboard() {
     win.close();
   };
 
-  // ----------------------------
-  // Handle payment (only admin)
-  // ----------------------------
+  // Handle payment
   const handlePay = async () => {
     if (!checkoutItems.length) return addNotification("Checkout is empty");
 
@@ -190,18 +172,13 @@ export default function Dashboard() {
     }
   };
 
-  // ----------------------------
-  // Filtered products
-  // ----------------------------
+  // Filter products
   const filtered = products.filter((p) => {
     const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase());
     const matchesCategory = categoryFilter ? p.category === categoryFilter : true;
     return matchesSearch && matchesCategory;
   });
 
-  // ----------------------------
-  // Render
-  // ----------------------------
   return (
     <div className="flex flex-col h-screen w-screen bg-blue-500 relative">
       {/* Notifications */}
@@ -218,7 +195,7 @@ export default function Dashboard() {
 
       {/* Header */}
       <header className="flex justify-between items-center bg-blue-600 shadow-md py-4 px-4 md:px-6 flex-shrink-0">
-        <h1 className="text-3xl md:text-4xl font-bold text-white">📚 POS Dashboard</h1>
+        <h1 className="text-3xl md:text-4xl font-bold text-white">📚 LCCB Bookstore</h1>
         <button
           onClick={() => {
             localStorage.removeItem("user");
@@ -234,7 +211,6 @@ export default function Dashboard() {
       <div className="flex flex-1 flex-col lg:flex-row gap-4 overflow-hidden p-4 md:p-6">
         {/* Products */}
         <div className="lg:flex-1 bg-white rounded-3xl p-6 shadow-md overflow-auto">
-          {/* Search + Category */}
           <div className="flex flex-col sm:flex-row sm:gap-2 mb-4">
             <input
               placeholder="Search product..."
@@ -256,7 +232,6 @@ export default function Dashboard() {
             </select>
           </div>
 
-          {/* Product Grid */}
           <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-4">
             {filtered.map((p) => (
               <div
@@ -277,14 +252,13 @@ export default function Dashboard() {
                 >
                   {p.stock <= 30 ? `⚠ Only ${p.stock} left!` : `Stock: ${p.stock}`}
                 </p>
-                {isAdmin && (
-                  <button
-                    onClick={() => handleBarcodeScan(p.barcode)}
-                    className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-full py-3 md:py-4 text-base md:text-lg font-semibold transition mt-auto"
-                  >
-                    Add to Checkout
-                  </button>
-                )}
+                {/* Add to checkout for both admin and sub */}
+                <button
+                  onClick={() => handleBarcodeScan(p.barcode)}
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-full py-3 md:py-4 text-base md:text-lg font-semibold transition mt-auto"
+                >
+                  Add to Checkout
+                </button>
               </div>
             ))}
           </div>
@@ -318,21 +292,19 @@ export default function Dashboard() {
             ))}
           </div>
 
-          {/* Only admin can pay */}
-          {isAdmin && (
-            <button
-              onClick={handlePay}
-              className="w-full mt-4 bg-blue-600 hover:bg-blue-700 text-white rounded-full py-3 md:py-4 text-lg md:text-xl font-semibold transition"
-            >
-              Pay
-            </button>
-          )}
+          {/* Pay button for both admin and sub */}
+          <button
+            onClick={handlePay}
+            className="w-full mt-4 bg-blue-600 hover:bg-blue-700 text-white rounded-full py-3 md:py-4 text-lg md:text-xl font-semibold transition"
+          >
+            Pay
+          </button>
         </div>
       </div>
 
       {/* Bottom Buttons */}
       <div className="flex flex-col sm:flex-row gap-4 p-4 md:p-6 bg-blue-500 flex-shrink-0">
-        {/* Only Admin can Manage Stock */}
+        {/* Admin only: Manage Stock */}
         {isAdmin && (
           <Link to="/stock" className="flex-1">
             <button className="w-full bg-white text-blue-600 border-2 border-blue-600 hover:bg-blue-50 rounded-full py-3 md:py-4 text-lg md:text-xl font-semibold transition">
@@ -341,7 +313,7 @@ export default function Dashboard() {
           </Link>
         )}
 
-        {/* Both admin and sub can view sales */}
+        {/* Both admin and sub: View Sales */}
         <Link to="/sales" className="flex-1">
           <button className="w-full bg-white text-blue-600 border-2 border-blue-600 hover:bg-blue-50 rounded-full py-3 md:py-4 text-lg md:text-xl font-semibold transition">
             View Sales
