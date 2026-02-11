@@ -1,0 +1,177 @@
+/* Stock.css */
+
+/* ----------------- Table ----------------- */
+table {
+  border-collapse: collapse;
+  width: 100%;
+  font-family: 'Inter', sans-serif;
+}
+
+th, td {
+  text-align: left;
+  padding: 0.75rem 1rem;
+}
+
+thead th {
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.875rem;
+  color: #4B5563; /* Tailwind gray-700 */
+  border-bottom: 2px solid #E5E7EB; /* Tailwind gray-200 */
+}
+
+tbody tr {
+  transition: background-color 0.2s;
+}
+
+tbody tr:hover {
+  background-color: #F9FAFB; /* Tailwind gray-50 */
+}
+
+.product-img {
+  border-radius: 0.5rem;
+  height: 4rem;
+  width: 4rem;
+  object-fit: cover;
+}
+
+.img-placeholder {
+  background-color: #E5E7EB;
+  height: 4rem;
+  width: 4rem;
+  border-radius: 0.5rem;
+}
+
+/* ----------------- Inputs ----------------- */
+input[type="text"],
+input[type="number"],
+select {
+  border: 1px solid #D1D5DB; /* Tailwind gray-300 */
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+input:focus,
+select:focus {
+  border-color: #3B82F6; /* Tailwind blue-500 */
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+/* ----------------- Buttons ----------------- */
+button {
+  cursor: pointer;
+  font-weight: 600;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* Upload button */
+.upload-btn {
+  background-color: #3B82F6;
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+}
+
+.upload-btn:hover {
+  background-color: #2563EB;
+}
+
+/* Delete button */
+.delete-btn {
+  background-color: #F87171;
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+}
+
+.delete-btn:hover {
+  background-color: #EF4444;
+}
+
+/* ----------------- Category Dropdown ----------------- */
+.category-dropdown {
+  position: absolute;
+  top: 110%;
+  left: 0;
+  background-color: white;
+  border: 1px solid #D1D5DB;
+  border-radius: 0.5rem;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+  width: max-content;
+  min-width: 10rem;
+  z-index: 50;
+}
+
+.category-dropdown li {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+}
+
+.category-dropdown li:hover {
+  background-color: #F3F4F6; /* Tailwind gray-100 */
+}
+
+.category-select {
+  border: 1px solid #D1D5DB;
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  cursor: pointer;
+  background-color: white;
+}
+
+/* ----------------- Modal ----------------- */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0,0,0,0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 50;
+}
+
+.modal-box {
+  background-color: white;
+  border-radius: 1rem;
+  padding: 2rem;
+  width: 95%;
+  max-width: 32rem;
+  max-height: 90%;
+  overflow-y: auto;
+}
+
+.modal-box h2 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+.modal-box button {
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+}
+
+/* ----------------- Responsive ----------------- */
+@media (max-width: 768px) {
+  table {
+    font-size: 0.75rem;
+  }
+
+  th, td {
+    padding: 0.5rem 0.75rem;
+  }
+
+  .modal-box {
+    padding: 1rem;
+  }
+}

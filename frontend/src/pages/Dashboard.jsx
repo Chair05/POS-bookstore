@@ -198,8 +198,11 @@ export default function Dashboard() {
         <h1 className="text-3xl md:text-4xl font-bold text-white">📚 LCCB Bookstore</h1>
         <button
           onClick={() => {
-            localStorage.removeItem("user");
-            navigate("/");
+            const confirmed = window.confirm("Are you sure you want to log out?");
+            if (confirmed) {
+              localStorage.removeItem("user");
+              navigate("/");
+            }
           }}
           className="bg-white text-blue-600 hover:bg-gray-100 rounded-full px-6 py-3 md:px-8 md:py-3 text-lg md:text-xl font-semibold transition"
         >

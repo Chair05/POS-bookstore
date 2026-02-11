@@ -1,14 +1,5 @@
 import React, { useEffect, useState, useMemo } from "react";
-import { Link } from "react-router-dom";
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  Tooltip,
-  CartesianGrid,
-  ResponsiveContainer,
-} from "recharts";
+import { Link, useNavigate } from "react-router-dom";
 
 export default function SalesPage() {
   const [sales, setSales] = useState([]);
@@ -16,9 +7,8 @@ export default function SalesPage() {
   const [customDate, setCustomDate] = useState("");
   const [printDate, setPrintDate] = useState("");
 
-  // ---------------------
-  // Load sales from backend
-  // ---------------------
+  const navigate = useNavigate();
+
   const loadSales = async () => {
     try {
       const res = await fetch("http://localhost:5000/api/products/sales");
@@ -33,9 +23,6 @@ export default function SalesPage() {
     loadSales();
   }, []);
 
-  // ---------------------
-  // Helper functions
-  // ---------------------
   const toDateStr = (d) => d.toISOString().slice(0, 10);
   const formatDate = (dateString) =>
     new Date(dateString).toLocaleString("en-US", {
@@ -43,9 +30,6 @@ export default function SalesPage() {
       timeStyle: "short",
     });
 
-  // ---------------------
-  // Filtered sales (derived from sales + filter)
-  // ---------------------
   const filtered = useMemo(() => {
     const now = new Date();
     const todayStr = toDateStr(now);
@@ -63,9 +47,6 @@ export default function SalesPage() {
     });
   }, [sales, filter, customDate]);
 
-  // ---------------------
-  // Total earnings
-  // ---------------------
   const totalEarnings = useMemo(
     () =>
       filtered
@@ -74,9 +55,6 @@ export default function SalesPage() {
     [filtered]
   );
 
-  // ---------------------
-  // Product summary
-  // ---------------------
   const productSummary = useMemo(() => {
     return filtered
       .filter((s) => !s.refunded)
@@ -103,9 +81,6 @@ export default function SalesPage() {
     [productSummary]
   );
 
-  // ---------------------
-  // Group sales by receipt
-  // ---------------------
   const groupedByReceipt = useMemo(() => {
     return Object.values(
       filtered.reduce((acc, row) => {
@@ -130,26 +105,6 @@ export default function SalesPage() {
     ).sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
   }, [filtered]);
 
-  // ---------------------
-  // Chart data
-  // ---------------------
-  const chartData = useMemo(() => {
-    const earningsByDate = filtered
-      .filter((s) => !s.refunded)
-      .reduce((acc, sale) => {
-        const day = toDateStr(new Date(sale.created_at));
-        acc[day] = (acc[day] || 0) + Number(sale.total || 0);
-        return acc;
-      }, {});
-
-    return Object.entries(earningsByDate)
-      .map(([date, total]) => ({ date, total }))
-      .sort((a, b) => new Date(a.date) - new Date(b.date));
-  }, [filtered]);
-
-  // ---------------------
-  // Refund sale
-  // ---------------------
   const handleRefund = async (receiptId) => {
     const choice = window.prompt(
       "Type:\n1 = Resellable (return stock)\n2 = Defective (no stock return)"
@@ -168,20 +123,21 @@ export default function SalesPage() {
           body: JSON.stringify({ resellable }),
         }
       );
-
       const data = await res.json();
-
       if (data.success) {
-        // Update local state
         setSales((prev) =>
           prev.map((sale) =>
             sale.receipt_id === receiptId
-              ? { ...sale, refunded: 1, refund_type: resellable ? "resellable" : "defective" }
+              ? {
+                  ...sale,
+                  refunded: 1,
+                  refund_type: resellable ? "resellable" : "defective",
+                }
               : sale
           )
         );
         alert(data.message);
-        await loadSales(); // refresh sales to get updated stock
+        await loadSales();
       } else {
         alert("Refund failed: " + data.message);
       }
@@ -191,9 +147,6 @@ export default function SalesPage() {
     }
   };
 
-  // ---------------------
-  // Print daily sales
-  // ---------------------
   const handlePrint = () => {
     if (!printDate) return alert("Select a date to print.");
     const dailySalesRaw = sales.filter(
@@ -209,7 +162,6 @@ export default function SalesPage() {
         return acc;
       }, {})
     );
-
     const dailyTotal = dailySales.reduce((sum, s) => sum + Number(s.total || 0), 0);
 
     const printWindow = window.open("", "_blank");
@@ -219,7 +171,6 @@ export default function SalesPage() {
           <title>Daily Sales - ${printDate}</title>
           <style>
             body { font-family: Arial, sans-serif; padding: 20px; }
-            h1 { color: #2563eb; }
             table { width: 100%; border-collapse: collapse; margin-top: 20px; }
             th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
             th { background-color: #f3f4f6; }
@@ -274,9 +225,6 @@ export default function SalesPage() {
     printWindow.print();
   };
 
-  // ---------------------
-  // Render
-  // ---------------------
   return (
     <div className="h-screen w-screen bg-blue-500 p-4 flex flex-col">
       {/* Header */}
@@ -289,9 +237,19 @@ export default function SalesPage() {
         </Link>
       </header>
 
-      {/* Main layout */}
-      <div className="flex flex-1 gap-6 overflow-hidden flex-col lg:flex-row">
-        {/* Left Panel */}
+      {/* Chart Navigation Button */}
+      <div className="mb-4">
+        <button
+          onClick={() => navigate("/sales-chart")}
+          className="px-6 py-3 bg-white text-blue-600 rounded-full font-semibold shadow hover:bg-gray-100 transition"
+        >
+          View Sales Chart 📈
+        </button>
+      </div>
+
+      {/* Filters & Summary */}
+      <div className="flex flex-col lg:flex-row gap-6 flex-1 overflow-hidden">
+        {/* Left Panel: Filters & Summary */}
         <div className="flex flex-col w-full lg:w-96 gap-6 flex-shrink-0 overflow-y-auto">
           {/* Filters */}
           <div className="bg-white rounded-3xl p-6 shadow-md border border-gray-200">
@@ -299,28 +257,23 @@ export default function SalesPage() {
             <div className="flex flex-col gap-4">
               <button
                 onClick={() => { setFilter("today"); setCustomDate(""); }}
-                className={`px-5 py-3 rounded-full text-base font-semibold transition ${
-                  filter === "today" ? "bg-blue-600 text-white shadow-md" : "bg-gray-100 text-gray-800 hover:bg-gray-200"
-                }`}
+                className={`px-5 py-3 rounded-full text-base font-semibold transition ${filter === "today" ? "bg-blue-600 text-white shadow-md" : "bg-gray-100 text-gray-800 hover:bg-gray-200"}`}
               >
                 Today
               </button>
               <button
                 onClick={() => { setFilter("month"); setCustomDate(""); }}
-                className={`px-5 py-3 rounded-full text-base font-semibold transition ${
-                  filter === "month" ? "bg-blue-600 text-white shadow-md" : "bg-gray-100 text-gray-800 hover:bg-gray-200"
-                }`}
+                className={`px-5 py-3 rounded-full text-base font-semibold transition ${filter === "month" ? "bg-blue-600 text-white shadow-md" : "bg-gray-100 text-gray-800 hover:bg-gray-200"}`}
               >
                 This Month
               </button>
               <button
                 onClick={() => { setFilter("all"); setCustomDate(""); }}
-                className={`px-5 py-3 rounded-full text-base font-semibold transition ${
-                  filter === "all" ? "bg-blue-600 text-white shadow-md" : "bg-gray-100 text-gray-800 hover:bg-gray-200"
-                }`}
+                className={`px-5 py-3 rounded-full text-base font-semibold transition ${filter === "all" ? "bg-blue-600 text-white shadow-md" : "bg-gray-100 text-gray-800 hover:bg-gray-200"}`}
               >
                 All
               </button>
+
               <div className="mt-4 border-t pt-4">
                 <p className="text-sm font-semibold text-gray-800 mb-2">Custom Date</p>
                 <input
@@ -378,27 +331,8 @@ export default function SalesPage() {
           </div>
         </div>
 
-        {/* Right Panel */}
+        {/* Right Panel: Sales Records */}
         <div className="flex-1 flex flex-col overflow-y-auto">
-          {/* Sales Chart */}
-          <div className="bg-white rounded-3xl p-6 shadow-md border border-gray-200 mb-6 h-80">
-            <h2 className="text-2xl font-semibold mb-4 text-gray-800">📈 Sales Chart</h2>
-            {chartData.length === 0 ? (
-              <p className="text-gray-500 text-center text-lg mt-20">No sales to display.</p>
-            ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={chartData} margin={{ top: 10, right: 20, bottom: 20, left: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" tick={{ fontSize: 12 }} />
-                  <YAxis tick={{ fontSize: 12 }} />
-                  <Tooltip formatter={(value) => `₱${value}`} />
-                  <Line type="monotone" dataKey="total" stroke="#2563eb" strokeWidth={3} />
-                </LineChart>
-              </ResponsiveContainer>
-            )}
-          </div>
-
-          {/* Sales Records */}
           <div className="bg-white rounded-3xl p-6 shadow-md border border-gray-200 flex-1 flex flex-col overflow-y-auto">
             <h2 className="text-2xl font-semibold mb-4 text-gray-800">🧾 Sales Records</h2>
             {groupedByReceipt.length === 0 ? (
@@ -424,11 +358,7 @@ export default function SalesPage() {
                         )}
                         {sale.refunded && (
                           <span
-                            className={`px-3 py-1 text-sm rounded-full ${
-                              sale.refund_type === "resellable"
-                                ? "bg-green-100 text-green-700"
-                                : "bg-gray-300 text-red-700"
-                            }`}
+                            className={`px-3 py-1 text-sm rounded-full ${sale.refund_type === "resellable" ? "bg-green-100 text-green-700" : "bg-gray-300 text-red-700"}`}
                           >
                             {sale.refund_type === "resellable" ? "Resellable Refund" : "Defective Refund"}
                           </span>

@@ -6,6 +6,7 @@ import Dashboard from "./pages/Dashboard";
 import StartPage from "./pages/Start";
 import StockManager from "./pages/Stock";
 import SalesPage from "./pages/Sales";
+import SalesChartPage from "./pages/SalesChartPage";
 import "./index.css";
 
 function ProtectedRoute({ children }) {
@@ -49,10 +50,13 @@ export default function App() {
             path="/sales"
             element={
               <ProtectedRoute>
-                <SalesPage />
+                <SalesPage />  
               </ProtectedRoute>
             }
           />
+           <Route path="/sales-chart" element={ 
+            <ProtectedRoute><SalesChartPage /> </ProtectedRoute>}
+            />
 
           {/* Catch-all */}
           <Route path="*" element={<Navigate to="/" />} />

@@ -3,18 +3,26 @@ import { useNavigate } from "react-router-dom";
 
 export default function SignUp() {
   const navigate = useNavigate();
+
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState("admin"); // default role
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [role, setRole] = useState("admin");
 
   const handleSignUp = (e) => {
     e.preventDefault();
-    if (!username || !password) {
+
+    if (!username || !password || !confirmPassword) {
       alert("Please fill in all fields.");
       return;
     }
 
-    fetch("http://localhost:5000/api/register", { // ✅ register endpoint
+    if (password !== confirmPassword) {
+      alert("Passwords do not match.");
+      return;
+    }
+
+    fetch("http://localhost:5000/api/register", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username, password, role }),
@@ -23,7 +31,7 @@ export default function SignUp() {
       .then((data) => {
         if (data.success) {
           alert(`${role} account created successfully!`);
-          navigate("/login"); // redirect to login after signup
+          navigate("/login");
         } else {
           alert(data.message);
         }
@@ -36,11 +44,13 @@ export default function SignUp() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#f3f4f6] px-4">
       <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-md border border-gray-100 w-full max-w-2xl px-6 py-8 sm:px-10 sm:py-10">
+
         {/* Header */}
         <div className="flex items-center justify-center gap-4 mb-6 text-center">
           <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-green-500 via-blue-500 to-purple-500 flex items-center justify-center text-white text-lg">
             🔑
           </div>
+
           <div>
             <h1 className="text-xl font-semibold text-gray-900">Sign Up</h1>
             <p className="text-sm text-gray-500">
@@ -50,10 +60,17 @@ export default function SignUp() {
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSignUp} className="space-y-4 max-w-xl mx-auto text-left">
-          {/* Role Selector */}
+        <form
+          onSubmit={handleSignUp}
+          className="space-y-4 max-w-xl mx-auto text-left"
+        >
+
+          {/* Role */}
           <div>
-            <label className="block mb-1 text-sm font-medium text-gray-700">Sign up as</label>
+            <label className="block mb-1 text-sm font-medium text-gray-700">
+              Sign up as
+            </label>
+
             <select
               value={role}
               onChange={(e) => setRole(e.target.value)}
@@ -66,7 +83,10 @@ export default function SignUp() {
 
           {/* Username */}
           <div>
-            <label className="block mb-1 text-sm font-medium text-gray-700">Username</label>
+            <label className="block mb-1 text-sm font-medium text-gray-700">
+              Username
+            </label>
+
             <input
               type="text"
               value={username}
@@ -78,12 +98,30 @@ export default function SignUp() {
 
           {/* Password */}
           <div>
-            <label className="block mb-1 text-sm font-medium text-gray-700">Password</label>
+            <label className="block mb-1 text-sm font-medium text-gray-700">
+              Password
+            </label>
+
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Enter password"
+              className="w-full h-11 px-4 text-sm rounded-lg border border-gray-300 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-600"
+            />
+          </div>
+
+          {/* Confirm Password */}
+          <div>
+            <label className="block mb-1 text-sm font-medium text-gray-700">
+              Confirm Password
+            </label>
+
+            <input
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              placeholder="Re-enter password"
               className="w-full h-11 px-4 text-sm rounded-lg border border-gray-300 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-600"
             />
           </div>
@@ -99,6 +137,7 @@ export default function SignUp() {
 
         {/* Links */}
         <div className="mt-6 flex flex-col items-center gap-2 text-sm">
+
           <button
             onClick={() => navigate("/")}
             className="text-blue-600 hover:underline"
@@ -112,6 +151,7 @@ export default function SignUp() {
           >
             Already have an account? Log in
           </button>
+
         </div>
       </div>
     </div>
