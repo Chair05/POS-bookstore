@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import LccbLogo from "../assets/Lccb-logo.jpeg"; // adjust path if needed
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -9,7 +10,7 @@ export default function Dashboard() {
   useEffect(() => {
     const storedUser = JSON.parse(localStorage.getItem("user"));
     if (!storedUser) {
-      navigate("/"); 
+      navigate("/");
     } else {
       setUser(storedUser);
     }
@@ -92,7 +93,8 @@ export default function Dashboard() {
 
   const handleBarcodeScan = (code) => {
     const product = products.find((p) => String(p.barcode) === String(code));
-    if (!product) return addNotification(`❌ Product not found. Scanned: "${code}"`);
+    if (!product)
+      return addNotification(`❌ Product not found. Scanned: "${code}"`);
 
     const inCheckoutQty = checkoutItems.filter((c) => c.id === product.id).length;
     const remainingStock = product.stock - inCheckoutQty;
@@ -195,10 +197,17 @@ export default function Dashboard() {
 
       {/* Header */}
       <header className="flex justify-between items-center bg-blue-600 shadow-md py-4 px-4 md:px-6 flex-shrink-0">
-        <h1 className="text-3xl md:text-4xl font-bold text-white">📚 LCCB Bookstore</h1>
+        <div className="flex items-center gap-3">
+          <img src={LccbLogo} alt="LCCB Logo" className="h-12 w-12 rounded-lg" />
+          <h1 className="text-3xl md:text-4xl font-bold text-white">
+            LCCB Bookstore
+          </h1>
+        </div>
         <button
           onClick={() => {
-            const confirmed = window.confirm("Are you sure you want to log out?");
+            const confirmed = window.confirm(
+              "Are you sure you want to log out?"
+            );
             if (confirmed) {
               localStorage.removeItem("user");
               navigate("/");
@@ -246,8 +255,12 @@ export default function Dashboard() {
                   className="h-28 w-full object-contain rounded-lg mb-3"
                   alt={p.name}
                 />
-                <p className="font-medium text-base md:text-lg text-gray-800">{p.name}</p>
-                <p className="text-sm md:text-base text-gray-600 mb-1">₱{p.price}</p>
+                <p className="font-medium text-base md:text-lg text-gray-800">
+                  {p.name}
+                </p>
+                <p className="text-sm md:text-base text-gray-600 mb-1">
+                  ₱{p.price}
+                </p>
                 <p
                   className={`text-sm md:text-base mb-2 ${
                     p.stock <= 30 ? "text-red-600 font-semibold" : "text-gray-500"
@@ -255,7 +268,6 @@ export default function Dashboard() {
                 >
                   {p.stock <= 30 ? `⚠ Only ${p.stock} left!` : `Stock: ${p.stock}`}
                 </p>
-                {/* Add to checkout for both admin and sub */}
                 <button
                   onClick={() => handleBarcodeScan(p.barcode)}
                   className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-full py-3 md:py-4 text-base md:text-lg font-semibold transition mt-auto"
@@ -270,11 +282,9 @@ export default function Dashboard() {
         {/* Checkout */}
         <div className="lg:w-96 bg-white rounded-3xl p-6 shadow-md flex flex-col h-full overflow-auto">
           <h2 className="font-semibold text-lg md:text-xl mb-4">🛒 Checkout</h2>
-
           {checkoutItems.length === 0 && (
             <p className="text-gray-500 text-sm md:text-base">Checkout is empty</p>
           )}
-
           <div className="flex-1 overflow-auto">
             {checkoutItems.map((item, i) => (
               <div
@@ -294,8 +304,6 @@ export default function Dashboard() {
               </div>
             ))}
           </div>
-
-          {/* Pay button for both admin and sub */}
           <button
             onClick={handlePay}
             className="w-full mt-4 bg-blue-600 hover:bg-blue-700 text-white rounded-full py-3 md:py-4 text-lg md:text-xl font-semibold transition"
@@ -307,7 +315,6 @@ export default function Dashboard() {
 
       {/* Bottom Buttons */}
       <div className="flex flex-col sm:flex-row gap-4 p-4 md:p-6 bg-blue-500 flex-shrink-0">
-        {/* Admin only: Manage Stock */}
         {isAdmin && (
           <Link to="/stock" className="flex-1">
             <button className="w-full bg-white text-blue-600 border-2 border-blue-600 hover:bg-blue-50 rounded-full py-3 md:py-4 text-lg md:text-xl font-semibold transition">
@@ -315,8 +322,6 @@ export default function Dashboard() {
             </button>
           </Link>
         )}
-
-        {/* Both admin and sub: View Sales */}
         <Link to="/sales" className="flex-1">
           <button className="w-full bg-white text-blue-600 border-2 border-blue-600 hover:bg-blue-50 rounded-full py-3 md:py-4 text-lg md:text-xl font-semibold transition">
             View Sales

@@ -1,5 +1,6 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
+import logo from "../assets/Lccb-logo.jpeg"; // <-- adjust path if needed
 
 export default function StartPage() {
   const navigate = useNavigate();
@@ -15,12 +16,16 @@ export default function StartPage() {
         <div className="flex items-center justify-center gap-6 mb-6">
           <div
             className="w-16 h-16 rounded-2xl 
-            bg-gradient-to-br from-green-500 via-blue-500 to-purple-500 
-            flex items-center justify-center 
-            text-white text-4xl font-bold shadow-xl"
+            bg-white flex items-center justify-center 
+            shadow-xl overflow-hidden"
           >
-            📚
+            <img
+              src={logo}
+              alt="LCCB Logo"
+              className="w-full h-full object-contain"
+            />
           </div>
+
           <h1 className="text-4xl font-bold text-gray-900">
             LCCB Bookstore
           </h1>

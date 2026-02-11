@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import logo from "../assets/Lccb-logo.jpeg"; // adjust if needed
 
 export default function SignUp() {
   const navigate = useNavigate();
@@ -47,8 +48,12 @@ export default function SignUp() {
 
         {/* Header */}
         <div className="flex items-center justify-center gap-4 mb-6 text-center">
-          <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-green-500 via-blue-500 to-purple-500 flex items-center justify-center text-white text-lg">
-            🔑
+          <div className="w-12 h-12 rounded-lg overflow-hidden shadow bg-white flex items-center justify-center">
+            <img
+              src={logo}
+              alt="School Logo"
+              className="w-full h-full object-contain"
+            />
           </div>
 
           <div>
