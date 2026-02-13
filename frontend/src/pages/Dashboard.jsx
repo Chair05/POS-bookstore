@@ -1,23 +1,18 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import LccbLogo from "../assets/Lccb-logo.jpeg"; // adjust path if needed
+import LccbLogo from "../assets/Lccb-logo.jpeg";
 
 export default function Dashboard() {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
 
-  // Load user from localStorage
   useEffect(() => {
     const storedUser = JSON.parse(localStorage.getItem("user"));
-    if (!storedUser) {
-      navigate("/");
-    } else {
-      setUser(storedUser);
-    }
+    if (!storedUser) navigate("/");
+    else setUser(storedUser);
   }, [navigate]);
 
   const isAdmin = user?.role === "admin";
-
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [checkoutItems, setCheckoutItems] = useState([]);
@@ -27,7 +22,6 @@ export default function Dashboard() {
   const [notifications, setNotifications] = useState([]);
   const barcodeRef = useRef("");
 
-  // Load products
   const loadProducts = async () => {
     try {
       const res = await fetch("http://localhost:5000/api/products");
@@ -38,7 +32,6 @@ export default function Dashboard() {
     }
   };
 
-  // Load categories
   const loadCategories = async () => {
     try {
       const res = await fetch("http://localhost:5000/api/categories");
@@ -59,7 +52,6 @@ export default function Dashboard() {
     loadCategories();
   }, []);
 
-  // Notifications
   const addNotification = (message) => {
     const id = Date.now();
     setNotifications((prev) => [...prev, { id, message }]);
@@ -68,7 +60,6 @@ export default function Dashboard() {
     }, 3000);
   };
 
-  // Barcode scanner
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (
@@ -114,7 +105,6 @@ export default function Dashboard() {
     setTotal((prev) => prev - Number(removed.price));
   };
 
-  // Print receipt
   const printReceipt = () => {
     const grouped = checkoutItems.reduce((acc, item) => {
       if (!acc[item.id]) acc[item.id] = { ...item, quantity: 0 };
@@ -147,7 +137,6 @@ export default function Dashboard() {
     win.close();
   };
 
-  // Handle payment
   const handlePay = async () => {
     if (!checkoutItems.length) return addNotification("Checkout is empty");
 
@@ -174,7 +163,6 @@ export default function Dashboard() {
     }
   };
 
-  // Filter products
   const filtered = products.filter((p) => {
     const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase());
     const matchesCategory = categoryFilter ? p.category === categoryFilter : true;
@@ -182,7 +170,7 @@ export default function Dashboard() {
   });
 
   return (
-    <div className="flex flex-col h-screen w-screen bg-blue-500 relative">
+    <div className="flex flex-col h-screen w-screen bg-white relative">
       {/* Notifications */}
       <div className="absolute top-4 right-4 flex flex-col gap-2 z-50">
         {notifications.map((n) => (
@@ -195,43 +183,52 @@ export default function Dashboard() {
         ))}
       </div>
 
-      {/* Header */}
-      <header className="flex justify-between items-center bg-blue-600 shadow-md py-4 px-4 md:px-6 flex-shrink-0">
+      {/* Navbar */}
+      <header className="flex justify-between items-center bg-blue-600 shadow-md py-3 px-4 md:px-6 flex-shrink-0">
         <div className="flex items-center gap-3">
           <img src={LccbLogo} alt="LCCB Logo" className="h-12 w-12 rounded-lg" />
-          <h1 className="text-3xl md:text-4xl font-bold text-white">
+          <h1 className="text-2xl md:text-3xl font-bold text-white">
             LCCB Bookstore
           </h1>
         </div>
-        <button
-          onClick={() => {
-            const confirmed = window.confirm(
-              "Are you sure you want to log out?"
-            );
-            if (confirmed) {
-              localStorage.removeItem("user");
-              navigate("/");
-            }
-          }}
-          className="bg-white text-blue-600 hover:bg-gray-100 rounded-full px-6 py-3 md:px-8 md:py-3 text-lg md:text-xl font-semibold transition"
-        >
-          Logout
-        </button>
+        <div className="flex items-center gap-6 md:gap-8">
+          {isAdmin && (
+            <Link to="/stock" className="text-white text-sm md:text-base font-semibold hover:underline">
+              Inventory
+            </Link>
+          )}
+          <Link to="/sales" className="text-white text-sm md:text-base font-semibold hover:underline">
+            Sales
+          </Link>
+          <button
+            onClick={() => {
+              const confirmed = window.confirm("Are you sure you want to log out?");
+              if (confirmed) {
+                localStorage.removeItem("user");
+                navigate("/");
+              }
+            }}
+            className="bg-red-600 hover:bg-red-700 text-white px-6 md:px-8 font-semibold transition"
+            style={{ height: "3rem", borderRadius: "9999px" }}
+          >
+            Logout
+          </button>
+        </div>
       </header>
 
       {/* Main Content */}
       <div className="flex flex-1 flex-col lg:flex-row gap-4 overflow-hidden p-4 md:p-6">
         {/* Products */}
-        <div className="lg:flex-1 bg-white rounded-3xl p-6 shadow-md overflow-auto">
+        <div className="lg:flex-1 bg-white p-4 shadow-md overflow-auto">
           <div className="flex flex-col sm:flex-row sm:gap-2 mb-4">
             <input
               placeholder="Search product..."
-              className="flex-1 rounded-xl border px-4 py-3 text-base md:text-lg focus:ring-2 focus:ring-blue-500 outline-none mb-2 sm:mb-0"
+              className="flex-1 rounded-xl border px-3 py-2 text-sm md:text-base focus:ring-2 focus:ring-blue-500 outline-none mb-2 sm:mb-0"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
             <select
-              className="rounded-xl border px-4 py-3 text-base md:text-lg focus:ring-2 focus:ring-blue-500 outline-none"
+              className="rounded-xl border px-3 py-2 text-sm md:text-base focus:ring-2 focus:ring-blue-500 outline-none"
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value)}
             >
@@ -244,25 +241,23 @@ export default function Dashboard() {
             </select>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
             {filtered.map((p) => (
               <div
                 key={p.id}
-                className="bg-gray-50 rounded-xl p-4 shadow hover:shadow-lg transition flex flex-col"
+                className="bg-gray-50 rounded-md p-2 shadow hover:shadow-md transition flex flex-col"
               >
                 <img
                   src={`http://localhost:5000${p.image}`}
-                  className="h-28 w-full object-contain rounded-lg mb-3"
+                  className="h-20 w-full object-contain rounded-md mb-2"
                   alt={p.name}
                 />
-                <p className="font-medium text-base md:text-lg text-gray-800">
+                <p className="font-medium text-sm text-gray-800">
                   {p.name}
                 </p>
-                <p className="text-sm md:text-base text-gray-600 mb-1">
-                  ₱{p.price}
-                </p>
+                <p className="text-xs text-gray-600 mb-1">₱{p.price}</p>
                 <p
-                  className={`text-sm md:text-base mb-2 ${
+                  className={`text-xs mb-1 ${
                     p.stock <= 30 ? "text-red-600 font-semibold" : "text-gray-500"
                   }`}
                 >
@@ -270,9 +265,9 @@ export default function Dashboard() {
                 </p>
                 <button
                   onClick={() => handleBarcodeScan(p.barcode)}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-full py-3 md:py-4 text-base md:text-lg font-semibold transition mt-auto"
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-full py-1 text-sm font-semibold transition mt-auto"
                 >
-                  Add to Checkout
+                  Add
                 </button>
               </div>
             ))}
@@ -297,7 +292,7 @@ export default function Dashboard() {
                 </div>
                 <button
                   onClick={() => removeFromCheckout(i)}
-                  className="bg-blue-600 hover:bg-blue-700 text-white rounded-full px-4 py-1 md:py-2 text-sm md:text-base font-semibold transition"
+                  className="bg-blue-600 hover:bg-blue-700 text-white rounded-full px-3 py-1 md:py-2 text-sm md:text-base font-semibold transition"
                 >
                   ✖
                 </button>
@@ -311,22 +306,6 @@ export default function Dashboard() {
             Pay
           </button>
         </div>
-      </div>
-
-      {/* Bottom Buttons */}
-      <div className="flex flex-col sm:flex-row gap-4 p-4 md:p-6 bg-blue-500 flex-shrink-0">
-        {isAdmin && (
-          <Link to="/stock" className="flex-1">
-            <button className="w-full bg-white text-blue-600 border-2 border-blue-600 hover:bg-blue-50 rounded-full py-3 md:py-4 text-lg md:text-xl font-semibold transition">
-              Manage Stock
-            </button>
-          </Link>
-        )}
-        <Link to="/sales" className="flex-1">
-          <button className="w-full bg-white text-blue-600 border-2 border-blue-600 hover:bg-blue-50 rounded-full py-3 md:py-4 text-lg md:text-xl font-semibold transition">
-            View Sales
-          </button>
-        </Link>
       </div>
     </div>
   );
