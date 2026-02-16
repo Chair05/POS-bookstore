@@ -6,7 +6,6 @@ export default function Stock() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const [imageFiles, setImageFiles] = useState({});
   const [categories, setCategories] = useState([]);
   const [newCategory, setNewCategory] = useState("");
 
@@ -24,7 +23,7 @@ export default function Stock() {
   const [scanInputs, setScanInputs] = useState({});
   const [amountInputs, setAmountInputs] = useState({});
   const [openDropdownId, setOpenDropdownId] = useState(null);
-  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+  const [openActionMenuId, setOpenActionMenuId] = useState(null);
   const [search, setSearch] = useState("");
 
   /* ================= LOAD DATA ================= */
@@ -60,9 +59,7 @@ export default function Stock() {
   /* ================= STOCK ================= */
   const updateStock = async (id, amount) => {
     setStock((prev) =>
-      prev.map((p) =>
-        p.id === id ? { ...p, stock: (p.stock || 0) + amount } : p
-      )
+      prev.map((p) => (p.id === id ? { ...p, stock: (p.stock || 0) + amount } : p))
     );
 
     try {
@@ -78,21 +75,17 @@ export default function Stock() {
 
   /* ================= CATEGORY ================= */
   const updateCategory = async (productId, category) => {
-    await fetch(
-      `http://localhost:5000/api/products/${productId}/update-category`,
-      {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ category }),
-      }
-    );
+    await fetch(`http://localhost:5000/api/products/${productId}/update-category`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ category }),
+    });
     loadStock();
   };
 
   const addCategory = async () => {
     if (!newCategory.trim()) return alert("Enter category name");
-    if (categories.some((c) => c.name === newCategory))
-      return alert("Category already exists");
+    if (categories.some((c) => c.name === newCategory)) return alert("Category already exists");
 
     const res = await fetch("http://localhost:5000/api/categories", {
       method: "POST",
@@ -101,7 +94,6 @@ export default function Stock() {
     });
 
     const data = await res.json();
-
     if (data.success) {
       await loadCategories();
       setNewProduct((p) => ({ ...p, category: data.category.name }));
@@ -121,8 +113,7 @@ export default function Stock() {
   /* ================= PRODUCT ================= */
   const addProduct = async () => {
     const { name, category, price, barcode } = newProduct;
-    if (!name || !category || !price || !barcode)
-      return alert("Fill all fields");
+    if (!name || !category || !price || !barcode) return alert("Fill all fields");
 
     const formData = new FormData();
     Object.entries(newProduct).forEach(([k, v]) => formData.append(k, v));
@@ -142,24 +133,9 @@ export default function Stock() {
   };
 
   const deleteProduct = async (id) => {
+    if (!window.confirm("Delete this product?")) return;
     await fetch(`http://localhost:5000/api/products/${id}`, { method: "DELETE" });
-    setConfirmDeleteId(null);
-    loadStock();
-  };
-
-  const updateImage = async (id) => {
-    const file = imageFiles[id];
-    if (!file) return alert("Select image first");
-
-    const fd = new FormData();
-    fd.append("image", file);
-
-    await fetch(`http://localhost:5000/api/products/${id}/update-image`, {
-      method: "PUT",
-      body: fd,
-    });
-
-    setImageFiles((p) => ({ ...p, [id]: null }));
+    setOpenActionMenuId(null);
     loadStock();
   };
 
@@ -224,7 +200,7 @@ export default function Stock() {
               <th className="p-2">Price</th>
               <th className="p-2">Stock</th>
               <th className="p-2">Scan</th>
-              <th className="p-2">Actions</th>
+              <th className="p-2"></th> {/* Removed Actions text */}
             </tr>
           </thead>
           <tbody>
@@ -298,41 +274,46 @@ export default function Stock() {
                     }
                   />
                 </td>
-                <td className="p-2 flex flex-col gap-1">
-                  <input
-                    type="file"
-                    onChange={(e) =>
-                      setImageFiles((p) => ({ ...p, [item.id]: e.target.files[0] }))
-                    }
-                  />
+                <td className="p-2 relative">
+                  {/* 3-dot menu */}
                   <button
-                    onClick={() => updateImage(item.id)}
-                    className="bg-blue-600 text-white text-xs py-1 rounded"
+                    className="text-gray-500 px-2 py-1 hover:bg-gray-100 rounded"
+                    onClick={() =>
+                      setOpenActionMenuId(openActionMenuId === item.id ? null : item.id)
+                    }
                   >
-                    Upload
+                    ⋮
                   </button>
-                  {confirmDeleteId === item.id ? (
-                    <div className="flex gap-1">
-                      <button
+                  {openActionMenuId === item.id && (
+                    <ul className="absolute right-0 mt-1 bg-white border rounded shadow z-50 text-sm">
+                      <li className="px-2 py-1 hover:bg-gray-100">
+                        <label className="cursor-pointer">
+                          Upload Image
+                          <input
+                            type="file"
+                            className="hidden"
+                            onChange={async (e) => {
+                              const file = e.target.files[0];
+                              if (!file) return;
+                              const fd = new FormData();
+                              fd.append("image", file);
+                              await fetch(
+                                `http://localhost:5000/api/products/${item.id}/update-image`,
+                                { method: "PUT", body: fd }
+                              );
+                              setOpenActionMenuId(null);
+                              await loadStock();
+                            }}
+                          />
+                        </label>
+                      </li>
+                      <li
+                        className="px-2 py-1 hover:bg-red-100 cursor-pointer text-red-600"
                         onClick={() => deleteProduct(item.id)}
-                        className="bg-red-600 text-white text-xs py-1 flex-1 rounded"
                       >
                         Delete
-                      </button>
-                      <button
-                        onClick={() => setConfirmDeleteId(null)}
-                        className="border text-xs py-1 flex-1 rounded"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => setConfirmDeleteId(item.id)}
-                      className="bg-red-100 text-red-700 text-xs py-1 rounded"
-                    >
-                      🗑 Delete
-                    </button>
+                      </li>
+                    </ul>
                   )}
                 </td>
               </tr>
@@ -393,10 +374,16 @@ export default function Stock() {
               />
             </div>
             <div className="flex justify-end gap-3 mt-4">
-              <button onClick={() => setShowAddModal(false)} className="px-4 py-2 border rounded">
+              <button
+                onClick={() => setShowAddModal(false)}
+                className="px-4 py-2 border rounded"
+              >
                 Cancel
               </button>
-              <button onClick={addProduct} className="px-4 py-2 bg-blue-600 text-white rounded">
+              <button
+                onClick={addProduct}
+                className="px-4 py-2 bg-blue-600 text-white rounded"
+              >
                 Add
               </button>
             </div>
