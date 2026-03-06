@@ -6,6 +6,7 @@ export default function SalesPage() {
   const [filter, setFilter] = useState("all");
   const [customDate, setCustomDate] = useState("");
   const [printDate, setPrintDate] = useState("");
+  const [openPanel, setOpenPanel] = useState(null);
 
   const navigate = useNavigate();
 
@@ -24,6 +25,7 @@ export default function SalesPage() {
   }, []);
 
   const toDateStr = (d) => d.toISOString().slice(0, 10);
+
   const formatDate = (dateString) =>
     new Date(dateString).toLocaleString("en-US", {
       dateStyle: "medium",
@@ -39,10 +41,12 @@ export default function SalesPage() {
     return sales.filter((s) => {
       const d = new Date(s.created_at);
       if (isNaN(d)) return false;
+
       if (filter === "today") return toDateStr(d) === todayStr;
       if (filter === "month")
         return d.getMonth() === thisMonth && d.getFullYear() === thisYear;
       if (filter === "custom" && customDate) return toDateStr(d) === customDate;
+
       return true;
     });
   }, [sales, filter, customDate]);
@@ -61,7 +65,9 @@ export default function SalesPage() {
       .reduce((acc, sale) => {
         const name = sale.product_name;
         const qty = Number(sale.quantity) || 0;
+
         acc[name] = (acc[name] || 0) + qty;
+
         return acc;
       }, {});
   }, [filtered]);
@@ -85,306 +91,267 @@ export default function SalesPage() {
     return Object.values(
       filtered.reduce((acc, row) => {
         const key = row.receipt_id || row.order_id || row.id;
-        if (!acc[key])
+
+        if (!acc[key]) {
           acc[key] = {
             receiptId: key,
             created_at: row.created_at,
             items: [],
             total: 0,
             refunded: row.refunded,
-            refund_type: row.refund_type || null,
           };
+        }
+
         acc[key].items.push(row);
         acc[key].total += Number(row.total || 0);
-        if (row.refunded) {
-          acc[key].refunded = 1;
-          acc[key].refund_type = row.refund_type;
-        }
+
         return acc;
       }, {})
     ).sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
   }, [filtered]);
 
   const handleRefund = async (receiptId) => {
-    const choice = window.prompt(
-      "Type:\n1 = Resellable (return stock)\n2 = Defective (no stock return)"
-    );
-
-    if (!choice) return;
-
-    const resellable = choice === "1";
+    const confirm = window.confirm("Refund this order?");
+    if (!confirm) return;
 
     try {
       const res = await fetch(
         `http://localhost:5000/api/products/refund/${receiptId}`,
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ resellable }),
-        }
+        { method: "PUT" }
       );
+
       const data = await res.json();
+
       if (data.success) {
-        setSales((prev) =>
-          prev.map((sale) =>
-            sale.receipt_id === receiptId
-              ? {
-                  ...sale,
-                  refunded: 1,
-                  refund_type: resellable ? "resellable" : "defective",
-                }
-              : sale
-          )
-        );
-        alert(data.message);
-        await loadSales();
-      } else {
-        alert("Refund failed: " + data.message);
+        alert("Refunded");
+        loadSales();
       }
     } catch (err) {
       console.error(err);
-      alert("Server error");
     }
   };
 
   const handlePrint = () => {
-    if (!printDate) return alert("Select a date to print.");
-    const dailySalesRaw = sales.filter(
+    if (!printDate) return alert("Select a date first.");
+
+    const daily = sales.filter(
       (s) => toDateStr(new Date(s.created_at)) === printDate
     );
-    const dailySales = Object.values(
-      dailySalesRaw.reduce((acc, row) => {
-        const key = row.receipt_id || row.order_id || row.id;
-        if (!acc[key])
-          acc[key] = { receiptId: key, created_at: row.created_at, items: [], total: 0 };
-        acc[key].items.push(row);
-        acc[key].total += Number(row.total || 0);
-        return acc;
-      }, {})
-    );
-    const dailyTotal = dailySales.reduce((sum, s) => sum + Number(s.total || 0), 0);
 
-    const printWindow = window.open("", "_blank");
-    printWindow.document.write(`
+    const total = daily.reduce((sum, s) => sum + Number(s.total || 0), 0);
+
+    const w = window.open("", "_blank");
+
+    w.document.write(`
       <html>
-        <head>
-          <title>Daily Sales - ${printDate}</title>
-          <style>
-            body { font-family: Arial, sans-serif; padding: 20px; }
-            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-            th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
-            th { background-color: #f3f4f6; }
-            tfoot td { font-weight: bold; }
-            .refunded { text-decoration: line-through; color: red; }
-          </style>
-        </head>
-        <body>
-          <h1>Daily Sales - ${printDate}</h1>
-          <table>
-            <thead>
-              <tr>
-                <th>Receipt ID</th>
-                <th>Product</th>
-                <th>Qty</th>
-                <th>Price</th>
-                <th>Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${dailySales
-                .map(
-                  (sale) =>
-                    sale.items
-                      .map(
-                        (item, idx) => `
-                        <tr class="${item.refunded ? "refunded" : ""}">
-                          <td>${idx === 0 ? sale.receiptId : ""}</td>
-                          <td>${item.product_name}</td>
-                          <td>${item.quantity}</td>
-                          <td>₱${item.price}</td>
-                          <td>₱${Number(item.quantity) * Number(item.price)}</td>
-                        </tr>
-                      `
-                      )
-                      .join("")
-                )
-                .join("")}
-            </tbody>
-            <tfoot>
-              <tr>
-                <td colspan="4">Total Earnings</td>
-                <td>₱${dailyTotal}</td>
-              </tr>
-            </tfoot>
-          </table>
-        </body>
+      <body style="font-family:Arial;padding:20px;">
+      <h2>Daily Sales ${printDate}</h2>
+      <table border="1" cellpadding="8">
+      <tr>
+      <th>Product</th>
+      <th>Qty</th>
+      <th>Total</th>
+      </tr>
+      ${daily
+        .map(
+          (s) => `
+      <tr>
+      <td>${s.product_name}</td>
+      <td>${s.quantity}</td>
+      <td>₱${s.total}</td>
+      </tr>`
+        )
+        .join("")}
+      </table>
+      <h3>Total ₱${total}</h3>
+      </body>
       </html>
     `);
-    printWindow.document.close();
-    printWindow.focus();
-    printWindow.print();
+
+    w.print();
   };
 
   return (
-    <div className="h-screen w-screen bg-blue-500 p-4 flex flex-col">
-      {/* Header */}
-      <header className="flex justify-between items-center mb-4 flex-shrink-0">
-        <h1 className="text-4xl font-bold text-white">📊 Sales Report</h1>
-        <Link to="/dashboard">
-          <button className="px-5 py-3 bg-white text-blue-600 rounded-full text-lg font-semibold hover:bg-gray-100 transition">
-            ⬅ Back to Dashboard
+    <div className="h-screen w-screen flex flex-col">
+
+      {/* HEADER */}
+      <header className="bg-blue-600 p-4 flex justify-between items-center">
+
+        <h1 className="text-3xl font-bold text-white">
+          📊 Sales Report
+        </h1>
+
+        <div className="flex gap-3">
+
+          {/* BLUE BUTTONS */}
+          <button
+            onClick={() => setOpenPanel("filter")}
+            className="bg-blue-600 text-white border border-white px-4 py-2 rounded-full hover:bg-blue-700"
+          >
+            Filter
           </button>
-        </Link>
+
+          <button
+            onClick={() => setOpenPanel("summary")}
+            className="bg-blue-600 text-white border border-white px-4 py-2 rounded-full hover:bg-blue-700"
+          >
+            Summary
+          </button>
+
+          <button
+            onClick={() => setOpenPanel("most")}
+            className="bg-blue-600 text-white border border-white px-4 py-2 rounded-full hover:bg-blue-700"
+          >
+            Most Bought
+          </button>
+
+          <button
+            onClick={() => setOpenPanel("print")}
+            className="bg-blue-600 text-white border border-white px-4 py-2 rounded-full hover:bg-blue-700"
+          >
+            Print
+          </button>
+
+          {/* DASHBOARD */}
+          <Link to="/dashboard">
+            <button className="bg-white text-blue-600 px-4 py-2 rounded-full font-semibold hover:bg-gray-100">
+              Dashboard
+            </button>
+          </Link>
+
+        </div>
       </header>
 
-      {/* Chart Navigation Button */}
-      <div className="mb-4">
-        <button
-          onClick={() => navigate("/sales-chart")}
-          className="px-6 py-3 bg-white text-blue-600 rounded-full font-semibold shadow hover:bg-gray-100 transition"
-        >
-          View Sales Chart 📈
-        </button>
+      {/* BODY */}
+      <div className="flex-1 bg-white p-6 overflow-y-auto">
+
+        <h2 className="text-2xl font-semibold mb-4">
+          Sales Records
+        </h2>
+
+        {groupedByReceipt.map((sale) => (
+          <div
+            key={sale.receiptId}
+            className="border rounded-xl p-4 mb-3 flex justify-between"
+          >
+            <div>
+
+              <p className="font-semibold">
+                Receipt {sale.receiptId}
+              </p>
+
+              <p className="text-sm text-gray-500">
+                {formatDate(sale.created_at)}
+              </p>
+
+              {sale.items.map((item) => (
+                <p key={item.id}>
+                  {item.product_name} × {item.quantity}
+                </p>
+              ))}
+
+            </div>
+
+            <div className="flex items-center gap-3">
+
+              <p className="text-green-600 font-bold">
+                ₱{sale.total}
+              </p>
+
+              {!sale.refunded && (
+                <button
+                  onClick={() => handleRefund(sale.receiptId)}
+                  className="bg-red-600 text-white px-3 py-1 rounded-full"
+                >
+                  Refund
+                </button>
+              )}
+
+            </div>
+          </div>
+        ))}
+
       </div>
 
-      {/* Filters & Summary */}
-      <div className="flex flex-col lg:flex-row gap-6 flex-1 overflow-hidden">
-        {/* Left Panel: Filters & Summary */}
-        <div className="flex flex-col w-full lg:w-96 gap-6 flex-shrink-0 overflow-y-auto">
-          {/* Filters */}
-          <div className="bg-white rounded-3xl p-6 shadow-md border border-gray-200">
-            <h2 className="text-2xl font-semibold mb-3 text-gray-800">Filter Sales</h2>
-            <div className="flex flex-col gap-4">
-              <button
-                onClick={() => { setFilter("today"); setCustomDate(""); }}
-                className={`px-5 py-3 rounded-full text-base font-semibold transition ${filter === "today" ? "bg-blue-600 text-white shadow-md" : "bg-gray-100 text-gray-800 hover:bg-gray-200"}`}
-              >
-                Today
-              </button>
-              <button
-                onClick={() => { setFilter("month"); setCustomDate(""); }}
-                className={`px-5 py-3 rounded-full text-base font-semibold transition ${filter === "month" ? "bg-blue-600 text-white shadow-md" : "bg-gray-100 text-gray-800 hover:bg-gray-200"}`}
-              >
-                This Month
-              </button>
-              <button
-                onClick={() => { setFilter("all"); setCustomDate(""); }}
-                className={`px-5 py-3 rounded-full text-base font-semibold transition ${filter === "all" ? "bg-blue-600 text-white shadow-md" : "bg-gray-100 text-gray-800 hover:bg-gray-200"}`}
-              >
-                All
-              </button>
+      {/* OVERLAY */}
+      {openPanel && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center">
 
-              <div className="mt-4 border-t pt-4">
-                <p className="text-sm font-semibold text-gray-800 mb-2">Custom Date</p>
+          <div className="bg-white p-6 rounded-3xl w-96 relative">
+
+            <button
+              onClick={() => setOpenPanel(null)}
+              className="absolute top-3 right-4 text-xl"
+            >
+              ✕
+            </button>
+
+            {openPanel === "filter" && (
+              <>
+                <h2 className="text-xl font-bold mb-4">Filter Sales</h2>
+
+                <button onClick={()=>setFilter("today")} className="block mb-2">Today</button>
+                <button onClick={()=>setFilter("month")} className="block mb-2">This Month</button>
+                <button onClick={()=>setFilter("all")} className="block mb-2">All</button>
+
                 <input
                   type="date"
                   value={customDate}
-                  onChange={(e) => { setCustomDate(e.target.value); setFilter("custom"); }}
-                  className="w-full rounded-xl border border-gray-300 bg-gray-50 px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600"
+                  onChange={(e)=>{
+                    setFilter("custom");
+                    setCustomDate(e.target.value);
+                  }}
+                  className="border p-2 w-full mt-2"
                 />
-              </div>
-            </div>
-          </div>
+              </>
+            )}
 
-          {/* Summary */}
-          <div className="bg-white rounded-3xl p-6 shadow-md border border-gray-200">
-            <h2 className="text-2xl font-semibold mb-3 text-gray-800">📦 Summary</h2>
-            <p className="text-lg text-gray-800"><strong>Total Sales:</strong> {filtered.length}</p>
-            <p className="text-lg text-gray-800 mt-2">
-              <strong>Total Earnings:</strong> <span className="text-green-600 font-bold text-lg">₱{totalEarnings}</span>
-            </p>
-            <p className="text-base text-gray-700 mt-4"><strong>Items sold:</strong> {summaryString}</p>
-          </div>
+            {openPanel === "summary" && (
+              <>
+                <h2 className="text-xl font-bold mb-4">Summary</h2>
 
-          {/* Most Bought Items */}
-          <div className="bg-white rounded-3xl p-6 shadow-md border border-gray-200">
-            <h2 className="text-2xl font-semibold mb-3 text-gray-800">🔥 Most Bought Items</h2>
-            {mostBoughtItems.length === 0 ? (
-              <p className="text-gray-500 text-base">No items sold yet.</p>
-            ) : (
-              <ul className="space-y-2">
-                {mostBoughtItems.map(([name, qty], index) => (
-                  <li key={index} className="flex justify-between text-base text-gray-700">
+                <p>Total Sales: {filtered.length}</p>
+                <p>Total Earnings: ₱{totalEarnings}</p>
+                <p className="mt-3">{summaryString}</p>
+              </>
+            )}
+
+            {openPanel === "most" && (
+              <>
+                <h2 className="text-xl font-bold mb-4">Most Bought</h2>
+
+                {mostBoughtItems.map(([name, qty]) => (
+                  <div key={name} className="flex justify-between">
                     <span>{name}</span>
-                    <span className="font-semibold text-green-600">{qty}</span>
-                  </li>
+                    <span>{qty}</span>
+                  </div>
                 ))}
-              </ul>
+              </>
             )}
-          </div>
 
-          {/* Print Daily Sales */}
-          <div className="bg-white rounded-3xl p-6 shadow-md border border-gray-200 mt-4">
-            <h2 className="text-2xl font-semibold mb-3 text-gray-800">🖨 Print Daily Sales</h2>
-            <input
-              type="date"
-              value={printDate}
-              onChange={(e) => setPrintDate(e.target.value)}
-              className="w-full rounded-xl border border-gray-300 bg-gray-50 px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600 mb-3"
-            />
-            <button
-              onClick={handlePrint}
-              className="w-full py-3 rounded-full bg-blue-600 text-white font-semibold hover:bg-blue-700 transition"
-            >
-              Print Daily Sales
-            </button>
+            {openPanel === "print" && (
+              <>
+                <h2 className="text-xl font-bold mb-4">Print Daily Sales</h2>
+
+                <input
+                  type="date"
+                  value={printDate}
+                  onChange={(e)=>setPrintDate(e.target.value)}
+                  className="border p-2 w-full mb-3"
+                />
+
+                <button
+                  onClick={handlePrint}
+                  className="bg-blue-600 text-white w-full py-2 rounded"
+                >
+                  Print
+                </button>
+              </>
+            )}
+
           </div>
         </div>
-
-        {/* Right Panel: Sales Records */}
-        <div className="flex-1 flex flex-col overflow-y-auto">
-          <div className="bg-white rounded-3xl p-6 shadow-md border border-gray-200 flex-1 flex flex-col overflow-y-auto">
-            <h2 className="text-2xl font-semibold mb-4 text-gray-800">🧾 Sales Records</h2>
-            {groupedByReceipt.length === 0 ? (
-              <p className="text-gray-500 text-center text-lg">No sales found.</p>
-            ) : (
-              <ul className="space-y-4 overflow-y-auto">
-                {groupedByReceipt.map((sale) => (
-                  <li key={sale.receiptId} className="border border-gray-200 rounded-2xl p-4">
-                    <div className="flex justify-between items-center mb-3">
-                      <div>
-                        <p className="font-semibold text-gray-900 text-lg">Receipt {sale.receiptId}</p>
-                        <p className="text-xs text-gray-400">{formatDate(sale.created_at)}</p>
-                      </div>
-                      <div className="flex items-center gap-4">
-                        <p className="text-green-600 font-bold text-xl">₱{sale.total}</p>
-                        {!sale.refunded && (
-                          <button
-                            onClick={() => handleRefund(sale.receiptId)}
-                            className="px-3 py-1 bg-red-600 text-white text-sm rounded-full hover:bg-red-700 transition"
-                          >
-                            Refund
-                          </button>
-                        )}
-                        {sale.refunded && (
-                          <span
-                            className={`px-3 py-1 text-sm rounded-full ${sale.refund_type === "resellable" ? "bg-green-100 text-green-700" : "bg-gray-300 text-red-700"}`}
-                          >
-                            {sale.refund_type === "resellable" ? "Resellable Refund" : "Defective Refund"}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    <ul className="mt-2 space-y-2">
-                      {sale.items.map((item) => (
-                        <li
-                          key={item.id}
-                          className={`flex justify-between text-base ${sale.refunded ? "text-red-400 line-through" : "text-gray-700"}`}
-                        >
-                          <span>{item.product_name} — Qty: {item.quantity} × ₱{item.price}</span>
-                          <span className="font-semibold text-green-600">
-                            ₱{Number(item.quantity) * Number(item.price)}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        </div>
-      </div>
+      )}
     </div>
   );
 }
