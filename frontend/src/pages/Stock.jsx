@@ -7,10 +7,8 @@ export default function Stock() {
   const [error, setError] = useState("");
 
   const [categories, setCategories] = useState([]);
-  const [newCategory, setNewCategory] = useState("");
 
   const [showAddModal, setShowAddModal] = useState(false);
-  const [showAddCategoryModal, setShowAddCategoryModal] = useState(false);
 
   const [newProduct, setNewProduct] = useState({
     name: "",
@@ -22,12 +20,10 @@ export default function Stock() {
 
   const [scanInputs, setScanInputs] = useState({});
   const [amountInputs, setAmountInputs] = useState({});
-  const [openDropdownId, setOpenDropdownId] = useState(null);
   const [openActionMenuId, setOpenActionMenuId] = useState(null);
   const [search, setSearch] = useState("");
 
-  /* ================= LOAD DATA ================= */
-
+  /* ================= LOAD ================= */
   useEffect(() => {
     loadStock();
     loadCategories();
@@ -57,8 +53,7 @@ export default function Stock() {
     }
   };
 
-  /* ================= STOCK ================= */
-
+  /* ================= STOCK UPDATE ================= */
   const updateStock = async (id, amount) => {
     setStock((prev) =>
       prev.map((p) =>
@@ -77,31 +72,7 @@ export default function Stock() {
     }
   };
 
-  /* ================= CATEGORY ================= */
-
-  const addCategory = async () => {
-    if (!newCategory.trim()) return alert("Enter category name");
-
-    if (categories.some((c) => c.name === newCategory))
-      return alert("Category already exists");
-
-    const res = await fetch("http://localhost:5000/api/categories", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: newCategory }),
-    });
-
-    const data = await res.json();
-
-    if (data.success) {
-      await loadCategories();
-      setNewProduct((p) => ({ ...p, category: data.category.name }));
-      setNewCategory("");
-    }
-  };
-
-  /* ================= PRODUCT ================= */
-
+  /* ================= ADD PRODUCT ================= */
   const addProduct = async () => {
     const { name, category, price, barcode } = newProduct;
 
@@ -133,6 +104,7 @@ export default function Stock() {
     }
   };
 
+  /* ================= DELETE ================= */
   const deleteProduct = async (id) => {
     if (!window.confirm("Delete this product?")) return;
 
@@ -144,6 +116,7 @@ export default function Stock() {
     loadStock();
   };
 
+  /* ================= SCAN ================= */
   const handleScanEnter = (id) => {
     const barcode = scanInputs[id];
     const amount = Number(amountInputs[id]) || 1;
@@ -152,15 +125,22 @@ export default function Stock() {
 
     if (product?.barcode === barcode) {
       updateStock(id, amount);
-
       setScanInputs((p) => ({ ...p, [id]: "" }));
       setAmountInputs((p) => ({ ...p, [id]: 1 }));
-    } else alert("Barcode mismatch");
+    } else {
+      alert("Barcode mismatch");
+    }
   };
 
-  const filteredStock = stock.filter((item) =>
-    item.name.toLowerCase().includes(search.toLowerCase())
-  );
+  /* ================= SEARCH (NAME + CATEGORY) ================= */
+  const filteredStock = stock.filter((item) => {
+    const query = search.toLowerCase();
+
+    return (
+      item.name?.toLowerCase().includes(query) ||
+      item.category?.toLowerCase().includes(query)
+    );
+  });
 
   if (loading) return <p className="p-6">Loading...</p>;
   if (error) return <p className="p-6 text-red-600">{error}</p>;
@@ -169,224 +149,211 @@ export default function Stock() {
     <div className="h-screen w-screen bg-gray-100 flex flex-col">
 
       {/* HEADER */}
-      <div className="bg-blue-600 text-white p-4 flex justify-between items-center">
-        <h1 className="text-2xl font-bold">📦 Stock Inventory</h1>
+      <div className="bg-blue-600 px-6 py-4 flex justify-between items-center shadow-md">
+        <h1 className="text-white text-xl font-semibold">
+          Stock Inventory
+        </h1>
 
-        <Link
-          to="/dashboard"
-          className="bg-white text-blue-600 px-4 py-2 rounded-full font-semibold"
-        >
-          ⬅ Dashboard
+        <Link to="/dashboard">
+          <button className="bg-white text-blue-600 px-4 py-2 rounded-full font-semibold hover:bg-gray-100">
+            ⬅ Back
+          </button>
         </Link>
       </div>
 
-      {/* SEARCH + ADD */}
-      <div className="flex items-center justify-between p-4 bg-white shadow gap-3">
+      {/* SEARCH + ADD (moved slightly higher) */}
+      <div className="p-3 bg-white shadow flex items-start gap-3">
+
         <input
-          placeholder="Search product..."
-          className="border px-3 py-2 rounded flex-1 text-sm"
+          placeholder="Search product or category..."
+          className="flex-1 px-4 py-2 rounded-full border focus:ring-2 focus:ring-blue-500"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
 
         <button
           onClick={() => setShowAddModal(true)}
-          className="bg-blue-600 text-white px-4 py-2 rounded-full font-semibold"
+          className="bg-blue-600 text-white px-5 py-2 rounded-full hover:bg-blue-700 transition"
         >
-          ➕ Add Product
+          Add Product
         </button>
+
       </div>
 
       {/* TABLE */}
       <div className="flex-1 overflow-y-auto p-4">
-        <table className="min-w-full bg-white rounded-xl shadow">
-          <thead className="bg-gray-100">
-            <tr>
-              <th className="p-2">Image</th>
-              <th className="p-2">Product</th>
-              <th className="p-2">Category</th>
-              <th className="p-2">Barcode</th>
-              <th className="p-2">Price</th>
-              <th className="p-2">Stock</th>
-              <th className="p-2">Scan</th>
-              <th className="p-2"></th>
-            </tr>
-          </thead>
 
-          <tbody>
-            {filteredStock.map((item) => (
-              <tr key={item.id} className="border-b">
+        <div className="bg-white rounded-2xl shadow overflow-hidden">
 
-                <td className="p-2">
-                  {item.image ? (
-                    <img
-                      src={`http://localhost:5000${item.image}`}
-                      className="h-12 w-12 rounded object-cover"
-                    />
-                  ) : (
-                    <div className="h-12 w-12 bg-gray-200 rounded" />
-                  )}
-                </td>
+          <table className="min-w-full">
 
-                <td className="p-2 font-semibold">{item.name}</td>
-
-                <td className="p-2">{item.category || "-"}</td>
-
-                <td className="p-2">{item.barcode}</td>
-
-                <td className="p-2 text-blue-600 font-bold">
-                  ₱{item.price}
-                </td>
-
-                <td className="p-2 font-bold">{item.stock}</td>
-
-                <td className="p-2 flex gap-1">
-                  <input
-                    placeholder="Scan"
-                    className="border px-1 py-1 text-xs"
-                    value={scanInputs[item.id] || ""}
-                    onChange={(e) =>
-                      setScanInputs((p) => ({
-                        ...p,
-                        [item.id]: e.target.value,
-                      }))
-                    }
-                    onKeyDown={(e) =>
-                      e.key === "Enter" && handleScanEnter(item.id)
-                    }
-                  />
-
-                  <input
-                    type="number"
-                    className="border px-1 py-1 w-14 text-xs"
-                    value={amountInputs[item.id] || 1}
-                    onChange={(e) =>
-                      setAmountInputs((p) => ({
-                        ...p,
-                        [item.id]: e.target.value,
-                      }))
-                    }
-                  />
-                </td>
-
-                <td className="p-2">
-                  <button
-                    className="text-gray-500 hover:bg-gray-100 px-2 rounded"
-                    onClick={() =>
-                      setOpenActionMenuId(
-                        openActionMenuId === item.id ? null : item.id
-                      )
-                    }
-                  >
-                    ⋮
-                  </button>
-
-                  {openActionMenuId === item.id && (
-                    <div className="absolute right-4 bg-white border shadow rounded text-sm z-50">
-                      <div
-                        className="px-3 py-2 hover:bg-red-100 text-red-600 cursor-pointer"
-                        onClick={() => deleteProduct(item.id)}
-                      >
-                        Delete
-                      </div>
-                    </div>
-                  )}
-                </td>
-
+            <thead className="bg-gray-50 text-sm text-gray-600">
+              <tr>
+                <th className="p-3 text-left">Image</th>
+                <th className="p-3 text-left">Product</th>
+                <th className="p-3 text-left">Category</th>
+                <th className="p-3 text-left">Barcode</th>
+                <th className="p-3 text-left">Price</th>
+                <th className="p-3 text-left">Stock</th>
+                <th className="p-3 text-left">Scan</th>
+                <th className="p-3"></th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+
+            <tbody>
+              {filteredStock.map((item) => (
+                <tr key={item.id} className="border-t hover:bg-gray-50">
+
+                  {/* IMAGE */}
+                  <td className="p-3">
+                    {item.image ? (
+                      <img
+                        src={`http://localhost:5000${item.image}`}
+                        className="h-12 w-12 rounded-xl object-cover"
+                      />
+                    ) : (
+                      <div className="h-12 w-12 bg-gray-200 rounded-xl" />
+                    )}
+                  </td>
+
+                  <td className="p-3 font-medium">{item.name}</td>
+                  <td className="p-3 text-gray-500">{item.category || "-"}</td>
+                  <td className="p-3 text-gray-500">{item.barcode}</td>
+
+                  <td className="p-3 font-semibold text-blue-600">
+                    ₱{item.price}
+                  </td>
+
+                  <td className="p-3 font-semibold">{item.stock}</td>
+
+                  {/* SCAN */}
+                  <td className="p-3 flex gap-1">
+                    <input
+                      placeholder="Scan"
+                      className="border px-2 py-1 text-xs rounded"
+                      value={scanInputs[item.id] || ""}
+                      onChange={(e) =>
+                        setScanInputs((p) => ({
+                          ...p,
+                          [item.id]: e.target.value,
+                        }))
+                      }
+                      onKeyDown={(e) =>
+                        e.key === "Enter" && handleScanEnter(item.id)
+                      }
+                    />
+
+                    <input
+                      type="number"
+                      className="border px-2 py-1 w-14 text-xs rounded"
+                      value={amountInputs[item.id] || 1}
+                      onChange={(e) =>
+                        setAmountInputs((p) => ({
+                          ...p,
+                          [item.id]: e.target.value,
+                        }))
+                      }
+                    />
+                  </td>
+
+                  {/* ACTION MENU */}
+                  <td className="p-3 relative">
+                    <button
+                      onClick={() =>
+                        setOpenActionMenuId(
+                          openActionMenuId === item.id ? null : item.id
+                        )
+                      }
+                      className="px-2 py-1 hover:bg-gray-100 rounded"
+                    >
+                      ⋮
+                    </button>
+
+                    {openActionMenuId === item.id && (
+                      <div className="absolute right-0 mt-2 bg-white shadow-lg rounded-xl overflow-hidden w-40 z-50">
+
+                        {/* UPLOAD IMAGE */}
+                        <label className="block px-4 py-2 hover:bg-gray-100 cursor-pointer">
+                          Upload Image
+                          <input
+                            type="file"
+                            className="hidden"
+                            onChange={async (e) => {
+                              const file = e.target.files[0];
+                              if (!file) return;
+
+                              const fd = new FormData();
+                              fd.append("image", file);
+
+                              try {
+                                await fetch(
+                                  `http://localhost:5000/api/products/${item.id}/update-image`,
+                                  {
+                                    method: "PUT",
+                                    body: fd,
+                                  }
+                                );
+
+                                setOpenActionMenuId(null);
+                                loadStock();
+                              } catch (err) {
+                                alert("Upload failed");
+                              }
+                            }}
+                          />
+                        </label>
+
+                        {/* DELETE */}
+                        <div
+                          onClick={() => deleteProduct(item.id)}
+                          className="px-4 py-2 text-red-600 hover:bg-red-100 cursor-pointer"
+                        >
+                          Delete
+                        </div>
+
+                      </div>
+                    )}
+                  </td>
+
+                </tr>
+              ))}
+            </tbody>
+
+          </table>
+
+        </div>
       </div>
 
-      {/* ADD PRODUCT MODAL */}
+      {/* ADD MODAL */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-black/50 flex justify-center items-center z-50">
+        <div className="fixed inset-0 bg-black/40 flex justify-center backdrop-blur-sm items-center z-50">
 
           <div className="bg-white rounded-2xl p-6 w-full max-w-md">
 
-            <h2 className="text-2xl font-semibold mb-4 text-center">
-              ➕ Add New Product
+            <h2 className="text-xl font-semibold mb-4 text-center">
+              Add Product
             </h2>
 
             <div className="flex flex-col gap-3">
 
-              <input
-                placeholder="Product Name"
-                className="border rounded px-3 py-2"
-                value={newProduct.name}
-                onChange={(e) =>
-                  setNewProduct({ ...newProduct, name: e.target.value })
-                }
-              />
+              <input placeholder="Name" className="border px-3 py-2 rounded"
+                onChange={(e)=>setNewProduct({...newProduct,name:e.target.value})}/>
 
-              <select
-                className="border rounded px-3 py-2"
-                value={newProduct.category}
-                onChange={(e) => {
-                  if (e.target.value === "__add_new") {
-                    setShowAddCategoryModal(true);
-                    setNewProduct({ ...newProduct, category: "" });
-                  } else {
-                    setNewProduct({
-                      ...newProduct,
-                      category: e.target.value,
-                    });
-                  }
-                }}
-              >
-                <option value="">Select Category</option>
+              <input placeholder="Category" className="border px-3 py-2 rounded"
+                onChange={(e)=>setNewProduct({...newProduct,category:e.target.value})}/>
 
-                {categories.map((c) => (
-                  <option key={c.id} value={c.name}>
-                    {c.name}
-                  </option>
-                ))}
+              <input placeholder="Price" className="border px-3 py-2 rounded"
+                onChange={(e)=>setNewProduct({...newProduct,price:e.target.value})}/>
 
-                <option value="__add_new">➕ Add new category</option>
-              </select>
+              <input placeholder="Barcode" className="border px-3 py-2 rounded"
+                onChange={(e)=>setNewProduct({...newProduct,barcode:e.target.value})}/>
 
-              <input
-                type="number"
-                placeholder="Price"
-                className="border rounded px-3 py-2"
-                value={newProduct.price}
-                onChange={(e) =>
-                  setNewProduct({
-                    ...newProduct,
-                    price: e.target.value,
-                  })
-                }
-              />
-
-              <input
-                placeholder="Barcode"
-                className="border rounded px-3 py-2"
-                value={newProduct.barcode}
-                onChange={(e) =>
-                  setNewProduct({
-                    ...newProduct,
-                    barcode: e.target.value,
-                  })
-                }
-              />
-
-              <input
-                type="number"
-                placeholder="Stock"
-                className="border rounded px-3 py-2"
-                value={newProduct.stock}
-                onChange={(e) =>
-                  setNewProduct({
-                    ...newProduct,
-                    stock: e.target.value,
-                  })
-                }
-              />
+              <input placeholder="Stock" className="border px-3 py-2 rounded"
+                onChange={(e)=>setNewProduct({...newProduct,stock:e.target.value})}/>
 
             </div>
 
-            <div className="flex justify-end gap-3 mt-5">
+            <div className="flex justify-end gap-3 mt-4">
               <button
                 onClick={() => setShowAddModal(false)}
                 className="px-4 py-2 border rounded"
@@ -396,9 +363,9 @@ export default function Stock() {
 
               <button
                 onClick={addProduct}
-                className="px-4 py-2 bg-blue-600 text-white rounded"
+                className="bg-blue-600 text-white px-6 py-2 rounded-full hover:bg-blue-700 transition shadow-md font-medium "
               >
-                Add Product
+                Add
               </button>
             </div>
 
