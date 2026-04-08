@@ -8,6 +8,7 @@ export default function SalesPage() {
   const [printDate, setPrintDate] = useState("");
   const [openPanel, setOpenPanel] = useState(null);
   const [showDropdown, setShowDropdown] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   /* ================= LOAD ================= */
   const loadSales = async () => {
@@ -133,9 +134,7 @@ export default function SalesPage() {
 
       const data = await res.json();
 
-      if (data.success) {
-        loadSales();
-      }
+      if (data.success) loadSales();
     } catch (err) {
       console.error(err);
     }
@@ -170,24 +169,66 @@ export default function SalesPage() {
   return (
     <div className="h-screen w-screen flex flex-col bg-gray-100">
 
-      {/* HEADER */}
-      <header className="bg-blue-600 px-6 py-4 flex justify-between items-center shadow-md">
-        <h1 className="text-2xl text-white font-semibold">Sales</h1>
+      {/* SIDEBAR */}
+      <div
+        className={`fixed top-0 left-0 h-full w-64 bg-blue-700 p-5 z-50 transform transition ${
+          sidebarOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
+      >
+        <h2 className="text-xl font-bold text-white mb-6">Menu</h2>
 
+        <Link to="/dashboard" onClick={() => setSidebarOpen(false)} className="block text-white py-2 hover:bg-blue-600 px-3 rounded">
+          Home
+        </Link>
+
+        <Link to="/stock" onClick={() => setSidebarOpen(false)} className="block text-white py-2 hover:bg-blue-600 px-3 rounded">
+          Inventory
+        </Link>
+
+        <Link to="/sales" onClick={() => setSidebarOpen(false)} className="block text-white py-2 bg-blue-500 px-3 rounded">
+          Sales
+        </Link>
+      </div>
+
+      {/* OVERLAY */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/30 z-40"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* HEADER */}
+      <header className="flex items-center justify-between bg-blue-600 px-6 py-4 shadow-md text-white">
+
+        {/* LEFT */}
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="w-10 h-10 flex items-center justify-center text-2xl transition relative -top-[7px]"
+          >
+            ☰
+          </button>
+
+          <h1 className="text-2xl font-semibold">
+            Sales
+          </h1>
+        </div>
+
+        {/* RIGHT */}
         <div className="flex items-center gap-3 relative">
 
-          {/* OPTIONS */}
           <div className="relative">
-            <button
-              onClick={() => setShowDropdown(!showDropdown)}
-              className="bg-blue-500 text-white px-4 py-2 rounded-full hover:bg-blue-700 transition"
-            >
-              Options
-            </button>
+       <button
+      onClick={() => setShowDropdown(!showDropdown)}
+      className="bg-blue-500 px-4 py-2 rounded-full hover:bg-blue-700 transition relative -top-[8px]"
+  >
+  Options
+    </button>
 
             <div
               className={`absolute right-0 mt-2 w-48 backdrop-blur-md bg-white/90 shadow-xl
-              transition-all duration-300 ease-out
+              transition-all duration-300
               ${
                 showDropdown
                   ? "opacity-100 translate-y-0"
@@ -201,29 +242,19 @@ export default function SalesPage() {
                     setOpenPanel(item);
                     setShowDropdown(false);
                   }}
-                  className="block w-full px-4 py-2 text-left hover:bg-gray-100 capitalize"
+                  className="block w-full px-4 py-2 text-left hover:bg-gray-100 capitalize text-black"
                 >
                   {item}
                 </button>
               ))}
 
               <Link to="/sales-chart">
-                <div
-                  onClick={() => setShowDropdown(false)}
-                  className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
-                >
+                <div className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-black">
                   Sales Chart
                 </div>
               </Link>
             </div>
           </div>
-
-          {/* BACK */}
-          <Link to="/dashboard">
-            <button className="bg-white text-blue-600 px-4 py-2 rounded-full font-semibold hover:bg-gray-100">
-              ⬅ Back
-            </button>
-          </Link>
 
         </div>
       </header>
@@ -285,7 +316,6 @@ export default function SalesPage() {
       {/* MODAL */}
       {openPanel && (
         <div className="fixed inset-0 bg-black/40 flex justify-center items-center backdrop-blur-sm">
-
           <div className="bg-white rounded-2xl p-6 w-80 shadow-lg">
 
             <button
@@ -295,7 +325,6 @@ export default function SalesPage() {
               Close
             </button>
 
-            {/* FILTER */}
             {openPanel === "filter" && (
               <>
                 <button onClick={() => setFilter("today")} className="block mb-2">Today</button>
@@ -312,46 +341,17 @@ export default function SalesPage() {
               </>
             )}
 
-            {/* SUMMARY (UPDATED) */}
             {openPanel === "summary" && (
               <>
                 <h2 className="text-lg font-semibold mb-3">Summary</h2>
 
-                <div className="mb-3">
-                  <p className="text-sm text-gray-500">Total Sales</p>
-                  <p className="text-xl font-bold">{filtered.length}</p>
-                </div>
-
-                <div className="mb-4">
-                  <p className="text-sm text-gray-500">Total Earnings</p>
-                  <p className="text-xl font-bold text-green-600">
-                    ₱{totalEarnings}
-                  </p>
-                </div>
-
-                <div className="border-t pt-3">
-                  <p className="text-sm font-semibold mb-2">
-                    Items Sold
-                  </p>
-
-                  <div className="space-y-2 max-h-40 overflow-y-auto">
-                    {Object.entries(productSummary).map(([name, qty]) => (
-                      <div
-                        key={name}
-                        className="flex justify-between bg-gray-50 px-3 py-2 rounded-lg"
-                      >
-                        <span>{name}</span>
-                        <span className="font-semibold text-blue-600">
-                          x{qty}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                <p>Total Sales: {filtered.length}</p>
+                <p className="text-green-600 font-bold">
+                  ₱{totalEarnings}
+                </p>
               </>
             )}
 
-            {/* MOST */}
             {openPanel === "most" && (
               <>
                 {mostBoughtItems.map(([n, q]) => (
@@ -360,7 +360,6 @@ export default function SalesPage() {
               </>
             )}
 
-            {/* PRINT */}
             {openPanel === "print" && (
               <>
                 <input

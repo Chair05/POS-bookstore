@@ -20,13 +20,20 @@ const upload = multer({ storage });
 // -------------------------
 router.get("/", (req, res) => {
   const sql = "SELECT * FROM products ORDER BY id DESC";
+
   db.query(sql, (err, results) => {
     if (err) return res.status(500).json({ success: false });
+
     const products = results.map((p) => ({
       ...p,
       barcode: String(p.barcode),
+      size: p.size || null, // ensure size is returned consistently
     }));
-    res.json({ success: true, products });
+
+    res.json({
+      success: true,
+      products,
+    });
   });
 });
 
@@ -35,40 +42,66 @@ router.get("/", (req, res) => {
 // -------------------------
 router.get("/barcode/:barcode", (req, res) => {
   const { barcode } = req.params;
-  const sql = "SELECT * FROM products WHERE barcode = ? LIMIT 1";
 
-  db.query(sql, [barcode], (err, results) => {
-    if (err) return res.status(500).json({ success: false });
-    if (results.length === 0)
-      return res.json({ success: false, message: "Product not found" });
+  db.query(
+    "SELECT * FROM products WHERE barcode = ? LIMIT 1",
+    [barcode],
+    (err, results) => {
+      if (err) return res.status(500).json({ success: false });
 
-    res.json({
-      success: true,
-      product: { ...results[0], barcode: String(results[0].barcode) },
-    });
-  });
+      if (results.length === 0)
+        return res.json({ success: false, message: "Product not found" });
+
+      const product = results[0];
+
+      res.json({
+        success: true,
+        product: {
+          ...product,
+          barcode: String(product.barcode),
+          size: product.size || null,
+        },
+      });
+    }
+  );
 });
 
 // -------------------------
-// ADD new product
+// ADD new product (WITH SIZE FIX)
 // -------------------------
 router.post("/", upload.single("image"), (req, res) => {
-  const { name, price, category, barcode, stock } = req.body;
+  let { name, price, category, barcode, stock, size } = req.body;
+
+  name = name?.trim();
+  category = category?.trim();
+  barcode = barcode?.toString().trim();
+  size = size && size.trim() !== "" ? size.trim() : null; // ✅ FIX
+
   const image = req.file ? "/uploads/" + req.file.filename : "";
 
-  if (!name || !price || !category || !barcode)
-    return res
-      .status(400)
-      .json({ success: false, message: "Missing required fields" });
+  if (!name || !price || !category || !barcode) {
+    return res.status(400).json({
+      success: false,
+      message: "Missing required fields",
+    });
+  }
 
   const sql = `
-    INSERT INTO products (name, price, category, barcode, stock, image)
-    VALUES (?, ?, ?, ?, ?, ?)
+    INSERT INTO products (name, price, category, barcode, stock, image, size)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
   `;
 
   db.query(
     sql,
-    [name, price, category, barcode, stock || 0, image],
+    [
+      name,
+      price,
+      category,
+      barcode,
+      stock || 0,
+      image,
+      size, // ✅ already normalized
+    ],
     (err, result) => {
       if (err) {
         console.error("❌ Error adding product:", err);
@@ -96,25 +129,27 @@ router.put("/:id/update-category", (req, res) => {
       .status(400)
       .json({ success: false, message: "Category is required" });
 
-  const sql = "UPDATE products SET category = ? WHERE id = ?";
+  db.query(
+    "UPDATE products SET category = ? WHERE id = ?",
+    [category, id],
+    (err, result) => {
+      if (err) {
+        console.error("❌ Category update error:", err);
+        return res.status(500).json({ success: false });
+      }
 
-  db.query(sql, [category, id], (err, result) => {
-    if (err) {
-      console.error("❌ Category update error:", err);
-      return res.status(500).json({ success: false });
+      if (result.affectedRows === 0)
+        return res
+          .status(404)
+          .json({ success: false, message: "Product not found" });
+
+      res.json({ success: true, message: "Category updated" });
     }
-
-    if (result.affectedRows === 0)
-      return res
-        .status(404)
-        .json({ success: false, message: "Product not found" });
-
-    res.json({ success: true, message: "Category updated" });
-  });
+  );
 });
 
 // -------------------------
-// ADD stock by amount
+// ADD stock
 // -------------------------
 router.put("/:id/add-stock", (req, res) => {
   const { id } = req.params;
@@ -130,6 +165,7 @@ router.put("/:id/add-stock", (req, res) => {
     [amount, id],
     (err, result) => {
       if (err) return res.status(500).json({ success: false });
+
       if (result.affectedRows === 0)
         return res.json({ success: false, message: "Product not found" });
 
@@ -143,22 +179,27 @@ router.put("/:id/add-stock", (req, res) => {
 // -------------------------
 router.put("/:id/update-image", upload.single("image"), (req, res) => {
   const { id } = req.params;
+
   if (!req.file)
     return res
       .status(400)
       .json({ success: false, message: "No image uploaded" });
 
   const newPath = "/uploads/" + req.file.filename;
-  const sql = "UPDATE products SET image = ? WHERE id = ?";
 
-  db.query(sql, [newPath, id], (err) => {
-    if (err) return res.status(500).json({ success: false });
-    res.json({
-      success: true,
-      message: "Image updated",
-      newImage: newPath,
-    });
-  });
+  db.query(
+    "UPDATE products SET image = ? WHERE id = ?",
+    [newPath, id],
+    (err) => {
+      if (err) return res.status(500).json({ success: false });
+
+      res.json({
+        success: true,
+        message: "Image updated",
+        newImage: newPath,
+      });
+    }
+  );
 });
 
 // -------------------------
@@ -167,20 +208,24 @@ router.put("/:id/update-image", upload.single("image"), (req, res) => {
 router.delete("/:id", (req, res) => {
   const { id } = req.params;
 
-  // Find the product first to delete its image
   db.query("SELECT image FROM products WHERE id = ?", [id], (err, results) => {
-    if (err) return res.status(500).json({ success: false, message: err.message });
+    if (err)
+      return res.status(500).json({ success: false, message: err.message });
+
     if (results.length === 0)
-      return res.status(404).json({ success: false, message: "Product not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Product not found" });
 
-    const imagePath = results[0].image ? path.join(__dirname, "..", results[0].image) : null;
+    const imagePath = results[0].image
+      ? path.join(__dirname, "..", results[0].image)
+      : null;
 
-    // Delete product
-    db.query("DELETE FROM products WHERE id = ?", [id], (err, result) => {
-      if (err) return res.status(500).json({ success: false, message: err.message });
+    db.query("DELETE FROM products WHERE id = ?", [id], (err) => {
+      if (err)
+        return res.status(500).json({ success: false, message: err.message });
 
-      // Delete image file if exists
-      if (imagePath) fs.unlink(imagePath, (err) => {}); // ignore errors
+      if (imagePath) fs.unlink(imagePath, () => {});
 
       res.json({ success: true, message: "Product deleted successfully" });
     });
@@ -188,10 +233,11 @@ router.delete("/:id", (req, res) => {
 });
 
 // -------------------------
-// CHECKOUT (create sales)
+// CHECKOUT
 // -------------------------
 router.post("/checkout", async (req, res) => {
   const { items } = req.body;
+
   if (!items || !Array.isArray(items) || items.length === 0)
     return res.json({ success: false, message: "Cart is empty" });
 
@@ -215,6 +261,7 @@ router.post("/checkout", async (req, res) => {
           throw new Error(`Product ${item.barcode} not found`);
 
         const quantity = item.quantity || 1;
+
         if (product.stock < quantity)
           throw new Error(`${product.name} is out of stock`);
 
@@ -228,11 +275,9 @@ router.post("/checkout", async (req, res) => {
 
         await new Promise((resolve, reject) => {
           db.query(
-            `
-            INSERT INTO sales 
+            `INSERT INTO sales 
             (product_id, barcode, quantity, price, total, product_name, receipt_id, refunded)
-            VALUES (?, ?, ?, ?, ?, ?, ?, 0)
-          `,
+            VALUES (?, ?, ?, ?, ?, ?, ?, 0)`,
             [
               product.id,
               product.barcode,
@@ -260,28 +305,24 @@ router.post("/checkout", async (req, res) => {
 });
 
 // -------------------------
-// GET all sales
+// GET sales
 // -------------------------
 router.get("/sales", (req, res) => {
-  const sql = `
-    SELECT id, product_name, barcode, quantity, price, total, created_at, receipt_id, refunded, refund_type
-    FROM sales
-    ORDER BY created_at DESC
-  `;
+  db.query(
+    `SELECT id, product_name, barcode, quantity, price, total, created_at, receipt_id, refunded, refund_type
+     FROM sales
+     ORDER BY created_at DESC`,
+    (err, results) => {
+      if (err)
+        return res.status(500).json({ success: false, message: "Database error" });
 
-  db.query(sql, (err, results) => {
-    if (err)
-      return res
-        .status(500)
-        .json({ success: false, message: "Database error" });
-
-    res.json({ success: true, sales: results });
-  });
+      res.json({ success: true, sales: results });
+    }
+  );
 });
 
-
 // -------------------------
-// REFUND sale by receipt ID
+// REFUND
 // -------------------------
 router.put("/refund/:receiptId", (req, res) => {
   const { receiptId } = req.params;
@@ -297,19 +338,20 @@ router.put("/refund/:receiptId", (req, res) => {
         return res.status(500).json({ success: false, message: "DB error" });
 
       if (sales.length === 0)
-        return res
-          .status(404)
-          .json({ success: false, message: "Already refunded or not found" });
+        return res.status(404).json({
+          success: false,
+          message: "Already refunded or not found",
+        });
 
-      // Mark refunded + save refund type
       db.query(
         "UPDATE sales SET refunded = 1, refund_type = ? WHERE receipt_id = ?",
         [refundType, receiptId],
         async (err) => {
           if (err)
-            return res.status(500).json({ success: false, message: "Refund failed" });
+            return res
+              .status(500)
+              .json({ success: false, message: "Refund failed" });
 
-          // Return stock if resellable
           if (resellable) {
             for (const item of sales) {
               await new Promise((resolve, reject) => {
@@ -331,6 +373,5 @@ router.put("/refund/:receiptId", (req, res) => {
     }
   );
 });
-
 
 module.exports = router;

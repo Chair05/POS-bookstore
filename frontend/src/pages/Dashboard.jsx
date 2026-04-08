@@ -1,18 +1,14 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import LccbLogo from "../assets/Lccb-logo.jpeg";
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const location = useLocation();
+
   const [user, setUser] = useState(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  useEffect(() => {
-    const storedUser = JSON.parse(localStorage.getItem("user"));
-    if (!storedUser) navigate("/");
-    else setUser(storedUser);
-  }, [navigate]);
-
-  const isAdmin = user?.role === "admin";
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [checkoutItems, setCheckoutItems] = useState([]);
@@ -20,30 +16,33 @@ export default function Dashboard() {
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
   const [notifications, setNotifications] = useState([]);
+
   const barcodeRef = useRef("");
 
+  // AUTH
+  useEffect(() => {
+    const storedUser = JSON.parse(localStorage.getItem("user"));
+    if (!storedUser) navigate("/");
+    else setUser(storedUser);
+  }, [navigate]);
+
+  const isAdmin = user?.role === "admin";
+
+  // LOAD DATA
   const loadProducts = async () => {
-    try {
-      const res = await fetch("http://localhost:5000/api/products");
-      const data = await res.json();
-      if (data.success) setProducts(data.products);
-    } catch (err) {
-      console.error("Error loading products:", err);
-    }
+    const res = await fetch("http://localhost:5000/api/products");
+    const data = await res.json();
+    if (data.success) setProducts(data.products);
   };
 
   const loadCategories = async () => {
-    try {
-      const res = await fetch("http://localhost:5000/api/categories");
-      const data = await res.json();
-      if (data.success) {
-        const cats = data.categories.map((c) =>
-          typeof c === "string" ? c : c.name
-        );
-        setCategories(cats);
-      }
-    } catch (err) {
-      console.error("Error loading categories:", err);
+    const res = await fetch("http://localhost:5000/api/categories");
+    const data = await res.json();
+    if (data.success) {
+      const cats = data.categories.map((c) =>
+        typeof c === "string" ? c : c.name
+      );
+      setCategories(cats);
     }
   };
 
@@ -52,6 +51,7 @@ export default function Dashboard() {
     loadCategories();
   }, []);
 
+  // NOTIFICATIONS
   const addNotification = (message) => {
     const id = Date.now();
     setNotifications((prev) => [...prev, { id, message }]);
@@ -60,14 +60,10 @@ export default function Dashboard() {
     }, 3000);
   };
 
+  // BARCODE
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (
-        e.target.tagName === "INPUT" ||
-        e.target.tagName === "TEXTAREA" ||
-        e.target.isContentEditable
-      )
-        return;
+      if (e.target.tagName === "INPUT") return;
 
       if (e.key === "Enter") {
         const code = barcodeRef.current.trim();
@@ -84,16 +80,14 @@ export default function Dashboard() {
 
   const handleBarcodeScan = (code) => {
     const product = products.find((p) => String(p.barcode) === String(code));
-    if (!product)
-      return addNotification(`❌ Product not found. Scanned: "${code}"`);
 
-    const inCheckoutQty = checkoutItems.filter((c) => c.id === product.id).length;
-    const remainingStock = product.stock - inCheckoutQty;
+    if (!product) return addNotification("Product not found");
 
-    if (remainingStock <= 0) return addNotification("❌ Out of stock");
+    const inCart = checkoutItems.filter((c) => c.id === product.id).length;
 
-    if (remainingStock <= 30)
-      addNotification(`⚠ Only ${remainingStock} left in stock!`);
+    if (product.stock - inCart <= 0) {
+      return addNotification("Out of stock");
+    }
 
     setCheckoutItems((prev) => [...prev, product]);
     setTotal((prev) => prev + Number(product.price));
@@ -105,44 +99,26 @@ export default function Dashboard() {
     setTotal((prev) => prev - Number(removed.price));
   };
 
-  const printReceipt = () => {
-    const grouped = checkoutItems.reduce((acc, item) => {
-      if (!acc[item.id]) acc[item.id] = { ...item, quantity: 0 };
-      acc[item.id].quantity += 1;
-      return acc;
-    }, {});
-    const groupedArr = Object.values(grouped);
-
-    const win = window.open("", "", "width=400,height=600");
-    win.document.write(`
-      <html>
-        <body style="font-family:Arial">
-          <h2 style="text-align:center">📚 LCCB Bookstore Receipt</h2>
-          <hr/>
-          ${groupedArr
-            .map(
-              (i) =>
-                `<p>${i.name} x${i.quantity} <span style="float:right">₱${(
-                  i.price * i.quantity
-                ).toFixed(2)}</span></p>`
-            )
-            .join("")}
-          <hr/>
-          <h3>Total: ₱${total.toFixed(2)}</h3>
-          <p style="text-align:center">Thank you!</p>
-        </body>
-      </html>
-    `);
-    win.print();
-    win.close();
-  };
-
+  // PAYMENT
   const handlePay = async () => {
-    if (!checkoutItems.length) return addNotification("Checkout is empty");
-
-    const items = checkoutItems.map((i) => ({ barcode: i.barcode, quantity: 1 }));
+    if (!checkoutItems.length) {
+      addNotification("Checkout is empty");
+      return;
+    }
 
     try {
+      const grouped = {};
+
+      checkoutItems.forEach((item) => {
+        if (!grouped[item.barcode]) grouped[item.barcode] = 0;
+        grouped[item.barcode]++;
+      });
+
+      const items = Object.keys(grouped).map((barcode) => ({
+        barcode,
+        quantity: grouped[barcode],
+      }));
+
       const res = await fetch("http://localhost:5000/api/products/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -150,161 +126,168 @@ export default function Dashboard() {
       });
 
       const data = await res.json();
-      if (!data.success) return addNotification(data.message || "Purchase failed");
 
-      printReceipt();
+      if (!data.success) {
+        addNotification(data.message || "Payment failed");
+        return;
+      }
+
       setCheckoutItems([]);
       setTotal(0);
       loadProducts();
-      loadCategories();
+
+      addNotification("Payment successful");
+
     } catch (err) {
       console.error(err);
-      addNotification("An error occurred while processing the payment.");
+      addNotification("Error processing payment");
     }
   };
 
   const filtered = products.filter((p) => {
-    const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase());
-    const matchesCategory = categoryFilter ? p.category === categoryFilter : true;
-    return matchesSearch && matchesCategory;
+    const matchSearch = p.name.toLowerCase().includes(search.toLowerCase());
+    const matchCategory = categoryFilter
+      ? p.category === categoryFilter
+      : true;
+    return matchSearch && matchCategory;
   });
 
+  const linkClass = (path) =>
+    `block px-3 py-2 rounded ${
+      location.pathname === path
+        ? "bg-blue-500 text-white"
+        : "text-white hover:bg-blue-600"
+    }`;
+
   return (
-    <div className="flex flex-col h-screen w-screen bg-white relative">
-      {/* Notifications */}
-      <div className="absolute top-4 right-4 flex flex-col gap-2 z-50">
-        {notifications.map((n) => (
-          <div
-            key={n.id}
-            className="bg-yellow-300 text-black px-4 py-2 rounded shadow-md animate-slide-in"
-          >
-            {n.message}
-          </div>
-        ))}
+    <div className="flex h-screen w-screen bg-white">
+
+      {/* SIDEBAR */}
+      <div className={`fixed top-0 left-0 h-full w-64 bg-blue-700 p-5 z-50 transform transition ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}>
+        <h2 className="text-xl font-bold text-white mb-6">Menu</h2>
+
+        <Link to="/dashboard" className={linkClass("/dashboard")} onClick={() => setSidebarOpen(false)}>Home</Link>
+
+        {isAdmin && (
+          <Link to="/stock" className={linkClass("/stock")} onClick={() => setSidebarOpen(false)}>Inventory</Link>
+        )}
+
+        <Link to="/sales" className={linkClass("/sales")} onClick={() => setSidebarOpen(false)}>Sales</Link>
+
+        <button
+          onClick={() => {
+            localStorage.removeItem("user");
+            navigate("/");
+          }}
+          className="mt-6 w-full bg-white text-blue-600 py-2 rounded font-semibold"
+        >
+          Logout
+        </button>
       </div>
 
-      {/* Navbar */}
-      <header className="flex justify-between items-center bg-blue-600 shadow-md py-3 px-4 md:px-6 flex-shrink-0">
-        <div className="flex items-center gap-3">
-          <img src={LccbLogo} alt="LCCB Logo" className="h-12 w-12 rounded-lg" />
-          <h1 className="text-2xl md:text-3xl font-bold text-white">
-            LCCB Bookstore
-          </h1>
-        </div>
-        <div className="flex items-center gap-6 md:gap-8">
-          {isAdmin && (
-            <Link to="/stock" className="text-white text-sm md:text-base font-semibold hover:underline">
-              Inventory
-            </Link>
-          )}
-          <Link to="/sales" className="text-white text-sm md:text-base font-semibold hover:underline">
-            Sales
-          </Link>
-          <button
-            onClick={() => {
-              const confirmed = window.confirm("Are you sure you want to log out?");
-              if (confirmed) {
-                localStorage.removeItem("user");
-                navigate("/");
-              }
-            }}
-            className="bg-red-600 hover:bg-red-700 text-white px-6 md:px-8 font-semibold transition"
-            style={{ height: "3rem", borderRadius: "9999px" }}
-          >
-            Logout
-          </button>
-        </div>
-      </header>
+      {sidebarOpen && (
+        <div className="fixed inset-0 bg-black/30 z-40" onClick={() => setSidebarOpen(false)} />
+      )}
 
-      {/* Main Content */}
-      <div className="flex flex-1 flex-col lg:flex-row gap-4 overflow-hidden p-4 md:p-6">
-        {/* Products */}
-        <div className="lg:flex-1 bg-white p-4 shadow-md overflow-auto">
-          <div className="flex flex-col sm:flex-row sm:gap-2 mb-4">
-            <input
-              placeholder="Search product..."
-              className="flex-1 rounded-xl border px-3 py-2 text-sm md:text-base focus:ring-2 focus:ring-blue-500 outline-none mb-2 sm:mb-0"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-            <select
-              className="rounded-xl border px-3 py-2 text-sm md:text-base focus:ring-2 focus:ring-blue-500 outline-none"
-              value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value)}
-            >
-              <option value="">All Categories</option>
-              {categories.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-          </div>
+      {/* MAIN */}
+      <div className="flex flex-col flex-1">
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
-            {filtered.map((p) => (
-              <div
-                key={p.id}
-                className="bg-gray-50 rounded-md p-2 shadow hover:shadow-md transition flex flex-col"
+     <header className="flex items-center justify-between bg-blue-600 text-white px-4 py-3 shadow">
+
+  {/* LEFT: Burger */}
+  <button
+    onClick={() => setSidebarOpen(true)}
+    className="text-2xl relative -top-2"
+  >
+    ☰
+  </button>
+
+  {/* CENTER: Logo + Title */}
+  <div className="flex items-center gap-2">
+    <img src={LccbLogo} className="h-10 w-10 rounded" />
+    <h1 className="text-xl font-bold whitespace-nowrap">
+      LCCB Bookstore
+    </h1>
+  </div>
+
+   {/* RIGHT (empty spacer) */}
+    <div className="w-10"></div>
+
+  </header>
+  
+        {/* CONTENT */}
+        <div className="flex flex-1 p-4 gap-4 overflow-hidden">
+
+          {/* PRODUCTS */}
+          <div className="flex-1 bg-white shadow p-4 overflow-auto rounded">
+            <div className="flex gap-2 mb-3">
+              <input
+                placeholder="Search..."
+                className="border p-2 flex-1 rounded"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+              <select
+                className="border p-2 rounded"
+                value={categoryFilter}
+                onChange={(e) => setCategoryFilter(e.target.value)}
               >
-                <img
-                  src={`http://localhost:5000${p.image}`}
-                  className="h-20 w-full object-contain rounded-md mb-2"
-                  alt={p.name}
-                />
-                <p className="font-medium text-sm text-gray-800">
-                  {p.name}
-                </p>
-                <p className="text-xs text-gray-600 mb-1">₱{p.price}</p>
-                <p
-                  className={`text-xs mb-1 ${
-                    p.stock <= 30 ? "text-red-600 font-semibold" : "text-gray-500"
-                  }`}
-                >
-                  {p.stock <= 30 ? `⚠ Only ${p.stock} left!` : `Stock: ${p.stock}`}
-                </p>
-                <button
-                  onClick={() => handleBarcodeScan(p.barcode)}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-full py-1 text-sm font-semibold transition mt-auto"
-                >
-                  Add
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
+                <option value="">All</option>
+                {categories.map((c) => (
+                  <option key={c}>{c}</option>
+                ))}
+              </select>
+            </div>
 
-        {/* Checkout */}
-        <div className="lg:w-96 bg-white rounded-3xl p-6 shadow-md flex flex-col h-full overflow-auto">
-          <h2 className="font-semibold text-lg md:text-xl mb-4">🛒 Checkout</h2>
-          {checkoutItems.length === 0 && (
-            <p className="text-gray-500 text-sm md:text-base">Checkout is empty</p>
-          )}
-          <div className="flex-1 overflow-auto">
-            {checkoutItems.map((item, i) => (
-              <div
-                key={i}
-                className="flex justify-between items-center bg-gray-50 rounded-xl px-4 py-2 mb-2 shadow-sm"
-              >
-                <div>
-                  <p className="text-sm md:text-base font-medium">{item.name}</p>
-                  <p className="text-xs md:text-sm text-gray-600">₱{item.price}</p>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+              {filtered.map((p) => (
+                <div key={p.id} className="border p-3 rounded shadow-sm">
+                  <img src={`http://localhost:5000${p.image}`} className="h-20 w-full object-contain mb-2" />
+
+                  <p className="font-medium">{p.name}</p>
+                  <p className="text-sm text-gray-600">₱{p.price}</p>
+
+                  <p className={`text-xs mt-1 ${p.stock <= 30 ? "text-red-600 font-semibold" : "text-gray-500"}`}>
+                    {p.stock <= 30 ? `Only ${p.stock} left` : `Stock: ${p.stock}`}
+                  </p>
+
+                  <button
+                    onClick={() => handleBarcodeScan(p.barcode)}
+                    className="bg-blue-600 hover:bg-blue-700 text-white w-full mt-2 py-1 rounded"
+                  >
+                    Add
+                  </button>
                 </div>
-                <button
-                  onClick={() => removeFromCheckout(i)}
-                  className="bg-blue-600 hover:bg-blue-700 text-white rounded-full px-3 py-1 md:py-2 text-sm md:text-base font-semibold transition"
-                >
-                  ✖
-                </button>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-          <button
-            onClick={handlePay}
-            className="w-full mt-4 bg-blue-600 hover:bg-blue-700 text-white rounded-full py-3 md:py-4 text-lg md:text-xl font-semibold transition"
-          >
-            Pay
-          </button>
+
+          {/* CHECKOUT */}
+          <div className="w-80 bg-white shadow p-4 flex flex-col rounded">
+            <h2 className="font-bold mb-3">Checkout</h2>
+
+            <div className="flex-1 overflow-auto">
+              {checkoutItems.map((item, i) => (
+                <div key={i} className="flex justify-between items-center mb-2">
+                  <span>{item.name}</span>
+                  <button
+                    onClick={() => removeFromCheckout(i)}
+                    className="text-sm leading-none text-red-500 hover:text-red-700"
+                  >
+                    ✖
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            <button
+              onClick={handlePay}
+              className="bg-green-600 hover:bg-green-700 text-white py-2 mt-3 rounded"
+            >
+              Pay ₱{total.toFixed(2)}
+            </button>
+          </div>
+
         </div>
       </div>
     </div>
