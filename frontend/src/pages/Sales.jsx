@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useMemo } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+
 
 export default function SalesPage() {
   const [sales, setSales] = useState([]);
@@ -9,6 +10,8 @@ export default function SalesPage() {
   const [openPanel, setOpenPanel] = useState(null);
   const [showDropdown, setShowDropdown] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [userRole, setUserRole] = useState("");
+  const navigate = useNavigate();
 
   /* ================= LOAD ================= */
   const loadSales = async () => {
@@ -22,6 +25,12 @@ export default function SalesPage() {
   };
 
   useEffect(() => {
+    const savedUser = JSON.parse(localStorage.getItem("user"));
+
+    if (savedUser) {
+      setUserRole(savedUser.role); // "admin" or "sub"
+    }
+
     loadSales();
   }, []);
 
@@ -168,7 +177,6 @@ export default function SalesPage() {
 
   return (
     <div className="h-screen w-screen flex flex-col bg-gray-100">
-
       {/* SIDEBAR */}
       <div
         className={`fixed top-0 left-0 h-full w-64 bg-blue-700 p-5 z-50 transform transition ${
@@ -177,17 +185,41 @@ export default function SalesPage() {
       >
         <h2 className="text-xl font-bold text-white mb-6">Menu</h2>
 
-        <Link to="/dashboard" onClick={() => setSidebarOpen(false)} className="block text-white py-2 hover:bg-blue-600 px-3 rounded">
+        <Link
+          to="/dashboard"
+          onClick={() => setSidebarOpen(false)}
+          className="block text-white py-2 hover:bg-blue-600 px-3 rounded"
+        >
           Home
         </Link>
 
-        <Link to="/stock" onClick={() => setSidebarOpen(false)} className="block text-white py-2 hover:bg-blue-600 px-3 rounded">
-          Inventory
-        </Link>
+        {userRole !== "sub" && (
+          <Link
+            to="/stock"
+            onClick={() => setSidebarOpen(false)}
+            className="block text-white py-2 hover:bg-blue-600 px-3 rounded"
+          >
+            Inventory
+          </Link>
+        )}
 
-        <Link to="/sales" onClick={() => setSidebarOpen(false)} className="block text-white py-2 bg-blue-500 px-3 rounded">
+        <Link
+          to="/sales"
+          onClick={() => setSidebarOpen(false)}
+          className="block text-white py-2 bg-blue-500 px-3 rounded"
+        >
           Sales
         </Link>
+        
+              <button
+          onClick={() => {
+            localStorage.removeItem("user");
+            navigate("/");
+          }}
+          className="mt-6 w-full bg-white text-blue-600 py-2 rounded font-semibold"
+        >
+          Logout
+        </button>
       </div>
 
       {/* OVERLAY */}
@@ -200,7 +232,6 @@ export default function SalesPage() {
 
       {/* HEADER */}
       <header className="flex items-center justify-between bg-blue-600 px-6 py-4 shadow-md text-white">
-
         {/* LEFT */}
         <div className="flex items-center gap-3">
           <button
@@ -210,26 +241,21 @@ export default function SalesPage() {
             ☰
           </button>
 
-          <h1 className="text-2xl font-semibold">
-            Sales
-          </h1>
+          <h1 className="text-2xl font-semibold">Sales</h1>
         </div>
 
         {/* RIGHT */}
         <div className="flex items-center gap-3 relative">
-
           <div className="relative">
-       <button
-      onClick={() => setShowDropdown(!showDropdown)}
-      className="bg-blue-500 px-4 py-2 rounded-full hover:bg-blue-700 transition relative -top-[8px]"
-  >
-  Options
-    </button>
+            <button
+              onClick={() => setShowDropdown(!showDropdown)}
+              className="bg-blue-500 px-4 py-2 rounded-full hover:bg-blue-700 transition relative -top-[8px]"
+            >
+              Options
+            </button>
 
             <div
-              className={`absolute right-0 mt-2 w-48 backdrop-blur-md bg-white/90 shadow-xl
-              transition-all duration-300
-              ${
+              className={`absolute right-0 mt-2 w-48 backdrop-blur-md bg-white/90 shadow-xl transition-all duration-300 ${
                 showDropdown
                   ? "opacity-100 translate-y-0"
                   : "opacity-0 -translate-y-2 pointer-events-none"
@@ -255,20 +281,17 @@ export default function SalesPage() {
               </Link>
             </div>
           </div>
-
         </div>
       </header>
 
       {/* BODY */}
       <div className="flex-1 p-6 overflow-y-auto space-y-4">
-
         {groupedByReceipt.map((sale) => (
           <div
             key={sale.receiptId}
             className="bg-white rounded-2xl p-4 shadow hover:shadow-lg transition"
           >
             <div className="flex justify-between">
-
               <div>
                 <p className="font-semibold text-lg">
                   Receipt {sale.receiptId}
@@ -291,33 +314,30 @@ export default function SalesPage() {
                   ₱{sale.total}
                 </p>
 
-                {!sale.refunded ? (
+                {!sale.refunded && userRole !== "sub" ? (
                   <button
                     onClick={() => handleRefund(sale.receiptId)}
                     className="bg-red-500 text-white px-3 py-1 rounded-full text-sm hover:bg-red-600"
                   >
                     Refund
                   </button>
-                ) : (
+                ) : sale.refunded ? (
                   <span className="text-xs text-red-500">
                     {sale.refund_type === "resellable"
                       ? "Resellable"
                       : "Defective"}
                   </span>
-                )}
+                ) : null}
               </div>
-
             </div>
           </div>
         ))}
-
       </div>
 
       {/* MODAL */}
       {openPanel && (
         <div className="fixed inset-0 bg-black/40 flex justify-center items-center backdrop-blur-sm">
           <div className="bg-white rounded-2xl p-6 w-80 shadow-lg">
-
             <button
               onClick={() => setOpenPanel(null)}
               className="mb-3 text-sm text-gray-500"
@@ -327,9 +347,24 @@ export default function SalesPage() {
 
             {openPanel === "filter" && (
               <>
-                <button onClick={() => setFilter("today")} className="block mb-2">Today</button>
-                <button onClick={() => setFilter("month")} className="block mb-2">Month</button>
-                <button onClick={() => setFilter("all")} className="block mb-2">All</button>
+                <button
+                  onClick={() => setFilter("today")}
+                  className="block mb-2"
+                >
+                  Today
+                </button>
+                <button
+                  onClick={() => setFilter("month")}
+                  className="block mb-2"
+                >
+                  Month
+                </button>
+                <button
+                  onClick={() => setFilter("all")}
+                  className="block mb-2"
+                >
+                  All
+                </button>
                 <input
                   type="date"
                   className="border p-2 w-full mt-2"
@@ -346,16 +381,16 @@ export default function SalesPage() {
                 <h2 className="text-lg font-semibold mb-3">Summary</h2>
 
                 <p>Total Sales: {filtered.length}</p>
-                <p className="text-green-600 font-bold">
-                  ₱{totalEarnings}
-                </p>
+                <p className="text-green-600 font-bold">₱{totalEarnings}</p>
               </>
             )}
 
             {openPanel === "most" && (
               <>
                 {mostBoughtItems.map(([n, q]) => (
-                  <p key={n}>{n} - {q}</p>
+                  <p key={n}>
+                    {n} - {q}
+                  </p>
                 ))}
               </>
             )}
@@ -375,11 +410,10 @@ export default function SalesPage() {
                 </button>
               </>
             )}
-
           </div>
         </div>
       )}
-
     </div>
   );
 }
+
