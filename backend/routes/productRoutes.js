@@ -322,52 +322,68 @@ router.get("/sales", (req, res) => {
 });
 
 // -------------------------
-// REFUND
+// REFUND (FIXED: ITEM LEVEL)
 // -------------------------
-router.put("/refund/:receiptId", (req, res) => {
-  const { receiptId } = req.params;
+router.put("/refund/:receiptId/:saleId", (req, res) => {
+  const { receiptId, saleId } = req.params;
   const { resellable } = req.body;
 
   const refundType = resellable ? "resellable" : "defective";
 
+  // Step 1: get ONLY the specific item
   db.query(
-    "SELECT * FROM sales WHERE receipt_id = ? AND refunded = 0",
-    [receiptId],
-    async (err, sales) => {
+    "SELECT * FROM sales WHERE id = ? AND receipt_id = ? AND refunded = 0",
+    [saleId, receiptId],
+    (err, results) => {
       if (err)
-        return res.status(500).json({ success: false, message: "DB error" });
-
-      if (sales.length === 0)
-        return res.status(404).json({
+        return res.status(500).json({
           success: false,
-          message: "Already refunded or not found",
+          message: "DB error",
         });
 
+      if (results.length === 0)
+        return res.status(404).json({
+          success: false,
+          message: "Item already refunded or not found",
+        });
+
+      const item = results[0];
+
+      // Step 2: mark ONLY that item as refunded
       db.query(
-        "UPDATE sales SET refunded = 1, refund_type = ? WHERE receipt_id = ?",
-        [refundType, receiptId],
-        async (err) => {
+        "UPDATE sales SET refunded = 1, refund_type = ? WHERE id = ?",
+        [refundType, saleId],
+        (err) => {
           if (err)
-            return res
-              .status(500)
-              .json({ success: false, message: "Refund failed" });
+            return res.status(500).json({
+              success: false,
+              message: "Refund update failed",
+            });
 
+          // Step 3: return stock ONLY for that item (if resellable)
           if (resellable) {
-            for (const item of sales) {
-              await new Promise((resolve, reject) => {
-                db.query(
-                  "UPDATE products SET stock = stock + ? WHERE id = ?",
-                  [item.quantity, item.product_id],
-                  (err) => (err ? reject(err) : resolve())
-                );
-              });
-            }
-          }
+            db.query(
+              "UPDATE products SET stock = stock + ? WHERE id = ?",
+              [item.quantity, item.product_id],
+              (err) => {
+                if (err)
+                  return res.status(500).json({
+                    success: false,
+                    message: "Stock update failed",
+                  });
 
-          res.json({
-            success: true,
-            message: `Refunded (${refundType})`,
-          });
+                return res.json({
+                  success: true,
+                  message: "Item refunded (resellable)",
+                });
+              }
+            );
+          } else {
+            return res.json({
+              success: true,
+              message: "Item refunded (defective)",
+            });
+          }
         }
       );
     }

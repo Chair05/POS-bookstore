@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useMemo } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
+import {LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, } from "recharts";
 
 
 export default function SalesPage() {
@@ -10,9 +11,9 @@ export default function SalesPage() {
   const [openPanel, setOpenPanel] = useState(null);
   const [showDropdown, setShowDropdown] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [userRole, setUserRole] = useState("");
-  const navigate = useNavigate();
-
+  const [chartFilter, setChartFilter] = useState("month");
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
   /* ================= LOAD ================= */
   const loadSales = async () => {
     try {
@@ -25,12 +26,6 @@ export default function SalesPage() {
   };
 
   useEffect(() => {
-    const savedUser = JSON.parse(localStorage.getItem("user"));
-
-    if (savedUser) {
-      setUserRole(savedUser.role); // "admin" or "sub"
-    }
-
     loadSales();
   }, []);
 
@@ -103,51 +98,26 @@ export default function SalesPage() {
             created_at: row.created_at,
             items: [],
             total: 0,
-            refunded: row.refunded,
-            refund_type: row.refund_type,
           };
         }
 
-        acc[key].items.push(row);
-        acc[key].total += Number(row.total || 0);
+        acc[key].items.push({
+          ...row,
+          refunded: Number(row.refunded) === 1,
+          refund_type: row.refund_type,
+        });
 
-        if (row.refunded) {
-          acc[key].refunded = 1;
-          acc[key].refund_type = row.refund_type;
-        }
+        acc[key].total += Number(row.total || 0);
 
         return acc;
       }, {})
-    ).sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+    ).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
   }, [filtered]);
 
-  /* ================= REFUND ================= */
-  const handleRefund = async (receiptId) => {
-    const choice = window.prompt(
-      "1 = Resellable (return to stock)\n2 = Defective"
-    );
-
-    if (!choice) return;
-
-    const resellable = choice === "1";
-
-    try {
-      const res = await fetch(
-        `http://localhost:5000/api/products/refund/${receiptId}`,
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ resellable }),
-        }
-      );
-
-      const data = await res.json();
-
-      if (data.success) loadSales();
-    } catch (err) {
-      console.error(err);
-    }
-  };
+  const paginatedSales = useMemo(() => {
+  const start = (currentPage - 1) * itemsPerPage;
+  return groupedByReceipt.slice(start, start + itemsPerPage);
+}, [groupedByReceipt, currentPage]);
 
   /* ================= PRINT ================= */
   const handlePrint = () => {
@@ -175,8 +145,70 @@ export default function SalesPage() {
     w.print();
   };
 
+  const handleRefund = async (receiptId, saleId) => {
+    const resellable = window.confirm("Is the item resellable? (OK for yes, Cancel for defective)");
+    try {
+      const response = await fetch(`http://localhost:5000/api/products/refund/${receiptId}/${saleId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ resellable })
+      });
+      const data = await response.json();
+      if (data.success) {
+        loadSales(); // reload sales
+      } else {
+        alert(data.message || "Refund failed");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Error processing refund");
+    }
+  };
+
+  const chartData = useMemo(() => {
+  const map = {};
+
+  sales.forEach((s) => {
+    if (s.refunded) return;
+
+    const date = new Date(s.created_at);
+
+    let key = "";
+
+    if (chartFilter === "day") {
+      key = date.toISOString().slice(0, 10);
+    }
+
+    if (chartFilter === "week") {
+      const firstDay = new Date(date);
+      firstDay.setDate(date.getDate() - date.getDay());
+      key = firstDay.toISOString().slice(0, 10);
+    }
+
+    if (chartFilter === "month") {
+      key = `${date.getFullYear()}-${date.getMonth() + 1}`;
+    }
+
+    if (chartFilter === "year") {
+      key = `${date.getFullYear()}`;
+    }
+
+    if (chartFilter === "all") {
+      key = "All";
+    }
+
+    map[key] = (map[key] || 0) + Number(s.total || 0);
+  });
+
+  return Object.entries(map).map(([name, total]) => ({
+    name,
+    total,
+  }));
+}, [sales, chartFilter]);
+
   return (
     <div className="h-screen w-screen flex flex-col bg-gray-100">
+
       {/* SIDEBAR */}
       <div
         className={`fixed top-0 left-0 h-full w-64 bg-blue-700 p-5 z-50 transform transition ${
@@ -185,33 +217,19 @@ export default function SalesPage() {
       >
         <h2 className="text-xl font-bold text-white mb-6">Menu</h2>
 
-        <Link
-          to="/dashboard"
-          onClick={() => setSidebarOpen(false)}
-          className="block text-white py-2 hover:bg-blue-600 px-3 rounded"
-        >
+        <Link to="/dashboard" onClick={() => setSidebarOpen(false)} className="block text-white py-2 hover:bg-blue-600 px-3 rounded">
           Home
         </Link>
 
-        {userRole !== "sub" && (
-          <Link
-            to="/stock"
-            onClick={() => setSidebarOpen(false)}
-            className="block text-white py-2 hover:bg-blue-600 px-3 rounded"
-          >
-            Inventory
-          </Link>
-        )}
+        <Link to="/stock" onClick={() => setSidebarOpen(false)} className="block text-white py-2 hover:bg-blue-600 px-3 rounded">
+          Inventory
+        </Link>
 
-        <Link
-          to="/sales"
-          onClick={() => setSidebarOpen(false)}
-          className="block text-white py-2 bg-blue-500 px-3 rounded"
-        >
+        <Link to="/sales" onClick={() => setSidebarOpen(false)} className="block text-white py-2 bg-blue-500 px-3 rounded">
           Sales
         </Link>
-        
-              <button
+
+           <button
           onClick={() => {
             localStorage.removeItem("user");
             navigate("/");
@@ -222,6 +240,7 @@ export default function SalesPage() {
         </button>
       </div>
 
+
       {/* OVERLAY */}
       {sidebarOpen && (
         <div
@@ -229,191 +248,284 @@ export default function SalesPage() {
           onClick={() => setSidebarOpen(false)}
         />
       )}
+<header className="flex items-center justify-between bg-blue-600 px-6 py-4 shadow-md text-white">
 
-      {/* HEADER */}
-      <header className="flex items-center justify-between bg-blue-600 px-6 py-4 shadow-md text-white">
-        {/* LEFT */}
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setSidebarOpen(true)}
-            className="w-10 h-10 flex items-center justify-center text-2xl transition relative -top-[7px]"
-          >
-            ☰
-          </button>
+  {/* LEFT */}
+  <div className="flex items-center gap-3">
+    <button onClick={() => setSidebarOpen(true)}   
+     className="text-2xl transition relative -top-[7px]">☰</button>
+    <h1 className="text-2xl font-semibold">Sales</h1>
+  </div>
 
-          <h1 className="text-2xl font-semibold">Sales</h1>
-        </div>
+</header>
 
-        {/* RIGHT */}
-        <div className="flex items-center gap-3 relative">
-          <div className="relative">
-            <button
-              onClick={() => setShowDropdown(!showDropdown)}
-              className="bg-blue-500 px-4 py-2 rounded-full hover:bg-blue-700 transition relative -top-[8px]"
-            >
-              Options
-            </button>
+{/* BODY */}
+<div className="flex-1 p-6 overflow-y-auto space-y-6">
 
-            <div
-              className={`absolute right-0 mt-2 w-48 backdrop-blur-md bg-white/90 shadow-xl transition-all duration-300 ${
-                showDropdown
-                  ? "opacity-100 translate-y-0"
-                  : "opacity-0 -translate-y-2 pointer-events-none"
-              }`}
-            >
-              {["filter", "summary", "most", "print"].map((item) => (
-                <button
-                  key={item}
-                  onClick={() => {
-                    setOpenPanel(item);
-                    setShowDropdown(false);
-                  }}
-                  className="block w-full px-4 py-2 text-left hover:bg-gray-100 capitalize text-black"
-                >
-                  {item}
-                </button>
+  {/* ================= OVERVIEW ================= */}
+  <div className="space-y-4">
+
+    <h2 className="text-xl font-semibold">Overview</h2>
+
+    {/* KPI CARDS */}
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+
+      <div className="bg-white p-4 rounded-2xl shadow-sm">
+        <p className="text-sm text-gray-500">Total Sales</p>
+        <p className="text-xl font-bold">{filtered.length}</p>
+      </div>
+
+      <div className="bg-white p-4 rounded-2xl shadow-sm">
+        <p className="text-sm text-gray-500">Revenue</p>
+        <p className="text-xl font-bold text-green-600">
+          ₱{totalEarnings}
+        </p>
+      </div>
+
+      <div className="bg-white p-4 rounded-2xl shadow-sm">
+        <p className="text-sm text-gray-500">Top Item</p>
+        <p className="text-sm font-semibold">
+          {mostBoughtItems[0]?.[0] || "N/A"}
+        </p>
+      </div>
+
+    </div>
+
+    {/* SALES CHART */}
+    <div className="bg-white rounded-2xl p-5 shadow-sm">
+      <div className="flex justify-between items-center mb-5">
+        <h2 className="font-semibold text-lg">Sales Chart</h2>
+
+        <select
+          value={chartFilter}
+          onChange={(e) => setChartFilter(e.target.value)}
+          className="border px-3 py-1 rounded-md text-sm"
+        >
+          <option value="all">All</option>
+          <option value="year">Year</option>
+          <option value="month">Month</option>
+          <option value="week">Week</option>
+          <option value="day">Day</option>
+        </select>
+      </div>
+
+      <div className="h-[260px]">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={chartData}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="name" />
+            <YAxis />
+            <Tooltip />
+            <Line
+              type="monotone"
+              dataKey="total"
+              stroke="#2563eb"
+              strokeWidth={2}
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+
+  </div>
+
+  {/* ================= TRANSACTIONS ================= */}
+<div className="space-y-4">
+
+  {/* HEADER ROW */}
+  <div className="flex justify-between items-center flex-wrap gap-2">
+
+    <h2 className="text-xl font-semibold">Transactions</h2>
+
+    <div className="flex items-center gap-2">
+
+      {/* DATE FILTER */}
+      <input
+        type="date"
+        value={customDate}
+        onChange={(e) => {
+          setFilter("custom");
+          setCustomDate(e.target.value);
+        }}
+        className="border px-3 py-1 rounded-md text-sm"
+      />
+
+      {/* FILTER RESET */}
+      <button
+        onClick={() => setFilter("all")}
+        className="px-3 py-1 rounded-md bg-gray-200 text-sm hover:bg-gray-300 transition relative -top-[7px]"
+      >
+        Reset
+      </button>
+
+      {/* PRINT BUTTON */}
+      <button
+        onClick={() => {
+          const selected = customDate || new Date().toISOString().slice(0, 10);
+          setPrintDate(selected);
+          handlePrint();
+        }}
+        className="bg-blue-600 text-white px-4 py-1 rounded-md text-sm hover:bg-blue-700 transition relative -top-[7px]"
+      >
+        Print
+      </button>
+
+    </div>
+  </div>
+
+    {/* SALES LIST */}
+    {paginatedSales.map((sale) => (
+      <div
+        key={sale.receiptId}
+        className="bg-white rounded-2xl p-5 shadow-sm hover:shadow-md transition"
+      >
+        <div className="flex justify-between gap-6 flex-wrap">
+
+          {/* LEFT */}
+          <div className="flex-1 min-w-[250px]">
+            <p className="font-semibold text-lg">
+              Receipt {sale.receiptId}
+            </p>
+
+            <p className="text-sm text-gray-500 mt-1">
+              {formatDate(sale.created_at)}
+            </p>
+
+            <div className="mt-3 space-y-1">
+              {sale.items.map((item) => (
+                <p key={item.id} className="text-sm text-gray-700">
+                  • {item.product_name} × {item.quantity}
+                </p>
               ))}
-
-              <Link to="/sales-chart">
-                <div className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-black">
-                  Sales Chart
-                </div>
-              </Link>
             </div>
           </div>
-        </div>
-      </header>
 
-      {/* BODY */}
-      <div className="flex-1 p-6 overflow-y-auto space-y-4">
-        {groupedByReceipt.map((sale) => (
-          <div
-            key={sale.receiptId}
-            className="bg-white rounded-2xl p-4 shadow hover:shadow-lg transition"
-          >
-            <div className="flex justify-between">
-              <div>
-                <p className="font-semibold text-lg">
-                  Receipt {sale.receiptId}
-                </p>
-                <p className="text-sm text-gray-500">
-                  {formatDate(sale.created_at)}
-                </p>
+          {/* RIGHT */}
+          <div className="min-w-[220px] text-right flex flex-col justify-between">
 
-                <div className="mt-2 space-y-1">
-                  {sale.items.map((item) => (
-                    <p key={item.id} className="text-sm">
-                      {item.product_name} × {item.quantity}
-                    </p>
-                  ))}
-                </div>
-              </div>
+            <p className="text-green-600 font-bold text-xl">
+              ₱{sale.total}
+            </p>
 
-              <div className="text-right flex flex-col justify-between">
-                <p className="text-green-600 font-bold text-lg">
-                  ₱{sale.total}
-                </p>
-
-                {!sale.refunded && userRole !== "sub" ? (
-                  <button
-                    onClick={() => handleRefund(sale.receiptId)}
-                    className="bg-red-500 text-white px-3 py-1 rounded-full text-sm hover:bg-red-600"
-                  >
-                    Refund
-                  </button>
-                ) : sale.refunded ? (
-                  <span className="text-xs text-red-500">
-                    {sale.refund_type === "resellable"
+            <div className="mt-3 flex flex-col items-end gap-2">
+              {sale.items.map((item) => (
+                item.refunded ? (
+                  <span key={item.id} className="text-xs text-red-500">
+                    {item.refund_type === "resellable"
                       ? "Resellable"
                       : "Defective"}
                   </span>
-                ) : null}
-              </div>
+                ) : (
+                  <button
+                    key={item.id}
+                    onClick={() =>
+                      handleRefund(sale.receiptId, item.id)
+                    }
+                    className="bg-red-500 text-white px-3 py-1 rounded text-xs hover:bg-red-600"
+                  >
+                    Refund
+                  </button>
+                )
+              ))}
             </div>
+
           </div>
-        ))}
-      </div>
 
-      {/* MODAL */}
-      {openPanel && (
-        <div className="fixed inset-0 bg-black/40 flex justify-center items-center backdrop-blur-sm">
-          <div className="bg-white rounded-2xl p-6 w-80 shadow-lg">
-            <button
-              onClick={() => setOpenPanel(null)}
-              className="mb-3 text-sm text-gray-500"
-            >
-              Close
-            </button>
-
-            {openPanel === "filter" && (
-              <>
-                <button
-                  onClick={() => setFilter("today")}
-                  className="block mb-2"
-                >
-                  Today
-                </button>
-                <button
-                  onClick={() => setFilter("month")}
-                  className="block mb-2"
-                >
-                  Month
-                </button>
-                <button
-                  onClick={() => setFilter("all")}
-                  className="block mb-2"
-                >
-                  All
-                </button>
-                <input
-                  type="date"
-                  className="border p-2 w-full mt-2"
-                  onChange={(e) => {
-                    setFilter("custom");
-                    setCustomDate(e.target.value);
-                  }}
-                />
-              </>
-            )}
-
-            {openPanel === "summary" && (
-              <>
-                <h2 className="text-lg font-semibold mb-3">Summary</h2>
-
-                <p>Total Sales: {filtered.length}</p>
-                <p className="text-green-600 font-bold">₱{totalEarnings}</p>
-              </>
-            )}
-
-            {openPanel === "most" && (
-              <>
-                {mostBoughtItems.map(([n, q]) => (
-                  <p key={n}>
-                    {n} - {q}
-                  </p>
-                ))}
-              </>
-            )}
-
-            {openPanel === "print" && (
-              <>
-                <input
-                  type="date"
-                  className="border p-2 w-full mb-2"
-                  onChange={(e) => setPrintDate(e.target.value)}
-                />
-                <button
-                  onClick={handlePrint}
-                  className="bg-blue-600 text-white w-full py-2 rounded"
-                >
-                  Print
-                </button>
-              </>
-            )}
-          </div>
         </div>
+      </div>
+    ))}
+
+    {/* PAGINATION */}
+    <div className="flex justify-center items-center gap-2 pt-4">
+      {Array.from(
+        { length: Math.ceil(groupedByReceipt.length / itemsPerPage) },
+        (_, i) => i + 1
+      ).map((page) => (
+        <button
+          key={page}
+          onClick={() => setCurrentPage(page)}
+          className={`px-4 py-1 rounded-md border text-sm transition ${
+            currentPage === page
+              ? "bg-blue-600 text-white"
+              : "bg-white hover:bg-gray-100"
+          }`}
+        >
+          {page}
+        </button>
+      ))}
+    </div>
+
+  </div>
+
+</div>
+
+{/* MODAL (UNCHANGED) */}
+{openPanel && (
+  <div className="fixed inset-0 bg-black/40 flex justify-center items-center backdrop-blur-sm">
+    <div className="bg-white rounded-2xl p-6 w-80 shadow-lg">
+
+      <button
+        onClick={() => setOpenPanel(null)}
+        className="mb-3 text-sm text-gray-500"
+      >
+        Close
+      </button>
+
+      {openPanel === "filter" && (
+        <>
+          <button onClick={() => setFilter("today")} className="block mb-2">Today</button>
+          <button onClick={() => setFilter("month")} className="block mb-2">Month</button>
+          <button onClick={() => setFilter("all")} className="block mb-2">All</button>
+
+          <input
+            type="date"
+            className="border p-2 w-full mt-2"
+            onChange={(e) => {
+              setFilter("custom");
+              setCustomDate(e.target.value);
+            }}
+          />
+        </>
       )}
+
+      {openPanel === "summary" && (
+        <>
+          <h2 className="text-lg font-semibold mb-3">Summary</h2>
+          <p>Total Sales: {filtered.length}</p>
+          <p className="text-green-600 font-bold">
+            ₱{totalEarnings}
+          </p>
+        </>
+      )}
+
+      {openPanel === "most" && (
+        <>
+          {mostBoughtItems.map(([n, q]) => (
+            <p key={n}>{n} - {q}</p>
+          ))}
+        </>
+      )}
+
+      {openPanel === "print" && (
+        <>
+          <input
+            type="date"
+            className="border p-2 w-full mb-2"
+            onChange={(e) => setPrintDate(e.target.value)}
+          />
+          <button
+            onClick={handlePrint}
+            className="bg-blue-600 text-white w-full py-2 rounded"
+          >
+            Print
+          </button>
+        </>
+      )}
+
+    </div>
+  </div>
+)}
+
     </div>
   );
 }
-
