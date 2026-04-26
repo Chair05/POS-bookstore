@@ -5,32 +5,24 @@ import LccbLogo from "../assets/Lccb-logo.jpeg";
 export default function Dashboard() {
   const navigate = useNavigate();
   const location = useLocation();
-
   const [user, setUser] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
-
-  const [checkoutItems, setCheckoutItems] = useState([]);
+  const [checkoutItems, setCheckoutItems] = useState({});
   const [total, setTotal] = useState(0);
-
   const [cash, setCash] = useState("");
   const [change, setChange] = useState(0);
-
   const [receiptId, setReceiptId] = useState(null);
   const [receiptItems, setReceiptItems] = useState([]);
   const [receiptTotal, setReceiptTotal] = useState(0);
   const [receiptCash, setReceiptCash] = useState("");
   const [receiptChange, setReceiptChange] = useState(0);
   const [showReceipt, setShowReceipt] = useState(false);
-
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
   const [notifications, setNotifications] = useState([]);
-
   const barcodeRef = useRef("");
-
   const closeSidebar = () => setSidebarOpen(false);
 
   /* AUTH */
@@ -39,6 +31,17 @@ export default function Dashboard() {
     if (!storedUser) navigate("/");
     else setUser(storedUser);
   }, [navigate]);
+
+  useEffect(() => {
+  const cashNum = Number(cash);
+
+  if (!cash || isNaN(cashNum)) {
+    setChange(0);
+    return;
+  }
+
+  setChange(cashNum - total);
+}, [cash, total]);
 
   const isAdmin = user?.role === "admin";
 
@@ -93,102 +96,136 @@ export default function Dashboard() {
   }, [products, checkoutItems]);
 
   /* ADD TO CART */
-  const handleBarcodeScan = (code) => {
-    const product = products.find(
-      (p) => String(p.barcode) === String(code)
-    );
+const handleBarcodeScan = (code) => {
+  const product = products.find(
+    (p) => String(p.barcode) === String(code)
+  );
 
-    if (!product) return addNotification("Product not found");
+  if (!product) return addNotification("Product not found");
 
-    const inCart = checkoutItems.filter(
-      (c) => c.id === product.id
-    ).length;
+  setCheckoutItems((prev) => {
+    const existing = prev[product.id];
 
-    if (product.stock - inCart <= 0) {
-      return addNotification("Out of stock");
+    return {
+      ...prev,
+      [product.id]: existing
+        ? { ...existing, qty: existing.qty + 1 }
+        : {
+            id: product.id,
+            name: product.name,
+            price: Number(product.price),
+            size: product.size || null,
+            barcode: product.barcode,
+            qty: 1,
+          },
+    };
+  });
+
+  setTotal((prev) => prev + Number(product.price));
+};
+  /* REMOVE ITEM */
+const removeFromCheckout = (id) => {
+  setCheckoutItems((prev) => {
+    const item = prev[id];
+    if (!item) return prev;
+
+    const newState = { ...prev };
+    delete newState[id];
+    return newState;
+  });
+
+  // recompute total
+  setTotal((prev) => {
+    const item = checkoutItems[id];
+    if (!item) return prev;
+    return prev - item.price * item.qty;
+  });
+};
+
+const decreaseQuantity = (id) => {
+  setCheckoutItems((prev) => {
+    const item = prev[id];
+    if (!item) return prev;
+
+    // if qty is 1 → remove item completely
+    if (item.qty <= 1) {
+      const newState = { ...prev };
+      delete newState[id];
+      return newState;
     }
 
-    const item = {
-      id: product.id,
-      name: product.name,
-      price: Number(product.price),
-      size: product.size || null,
-      barcode: product.barcode,
-      stock: product.stock,
+    // otherwise decrease qty
+    return {
+      ...prev,
+      [id]: {
+        ...item,
+        qty: item.qty - 1,
+      },
     };
+  });
 
-    setCheckoutItems((prev) => [...prev, item]);
-    setTotal((prev) => prev + item.price);
-  };
-
-  /* REMOVE ITEM */
-  const removeFromCheckout = (index) => {
-    const removed = checkoutItems[index];
-    setCheckoutItems((prev) => prev.filter((_, i) => i !== index));
-    setTotal((prev) => prev - removed.price);
-  };
+  setTotal((prev) => {
+    const item = checkoutItems[id];
+    if (!item) return prev;
+    return prev - item.price;
+  });
+};
 
   /* PAYMENT */
-  const handlePay = async () => {
-    if (!checkoutItems.length)
-      return addNotification("Checkout empty");
+const handlePay = async () => {
+  if (!Object.keys(checkoutItems).length)
+    return addNotification("Checkout empty");
 
-    const cashNum = Number(cash);
-    if (cashNum < total)
-      return addNotification("Insufficient cash");
+  const cashNum = Number(cash);
+  if (cashNum < total)
+    return addNotification("Insufficient cash");
 
-    try {
-      const grouped = {};
+  try {
+    const items = Object.values(checkoutItems).map((item) => ({
+      barcode: item.barcode,
+      quantity: item.qty,
+    }));
 
-      checkoutItems.forEach((item) => {
-        grouped[item.barcode] = (grouped[item.barcode] || 0) + 1;
-      });
+    const res = await fetch(
+      "http://localhost:5000/api/products/checkout",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items }),
+      }
+    );
 
-      const items = Object.keys(grouped).map((barcode) => ({
-        barcode,
-        quantity: grouped[barcode],
-      }));
+    const data = await res.json();
 
-      const res = await fetch(
-        "http://localhost:5000/api/products/checkout",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ items }),
-        }
-      );
+    if (!data.success)
+      return addNotification("Payment failed");
 
-      const data = await res.json();
-      if (!data.success)
-        return addNotification("Payment failed");
+    const id = data.receiptId;
 
-      const id = data.receiptId || Date.now();
+    setReceiptId(id);
+    setReceiptItems(Object.values(checkoutItems));
+    setReceiptTotal(total);
+    setReceiptCash(cashNum);
+    setReceiptChange(cashNum - total);
 
-      setReceiptId(id);
-      setReceiptItems([...checkoutItems]);
-      setReceiptTotal(total);
-      setReceiptCash(cashNum);
-      setReceiptChange(cashNum - total);
+    setShowReceipt(true);
 
-      setShowReceipt(true);
+    setTimeout(() => {
+      setShowReceipt(false);
+    }, 4000);
 
-      setTimeout(() => {
-        setShowReceipt(false);
-      }, 4000);
+    setCheckoutItems({});
+    setTotal(0);
+    setCash("");
+    setChange(0);
 
-      setCheckoutItems([]);
-      setTotal(0);
-      setCash("");
-      setChange(0);
-
-      loadProducts();
-      addNotification("Successfully purchased ✔");
-    } catch (err) {
-      console.error(err);
-      addNotification("Error processing payment");
-    }
-  };
-
+    loadProducts();
+    addNotification("Successfully purchased ✔");
+  } catch (err) {
+    console.error(err);
+    addNotification("Error processing payment");
+  }
+};
   const filtered = products.filter((p) => {
     const matchSearch = p.name
       .toLowerCase()
@@ -340,25 +377,40 @@ export default function Dashboard() {
             <h2 className="font-bold mb-3">Checkout</h2>
 
             <div className="flex-1 overflow-auto">
-              {checkoutItems.map((item, i) => (
-                <div key={i} className="flex justify-between border-b py-1">
+          {Object.values(checkoutItems).map((item) => (
+             <div key={item.id} className="flex justify-between border-b py-1">
 
-                  <div>
-                    <span>{item.name}</span>
+       <div>
+      <span>{item.name}</span>
 
-                    <p className="text-xs text-gray-500">
-                      Size: {item.size || "N/A"}
-                    </p>
-                  </div>
+     <p className="text-xs text-gray-500">
+      Qty: {item.qty}
+     </p>
 
-                  <span>₱{item.price.toFixed(2)}</span>
+      <p className="text-xs text-gray-500">
+    Size: {item.size || "N/A"}
+         </p>
+         </div>
 
-                  <button
-                    onClick={() => removeFromCheckout(i)}
-                    className="text-red-500 relative -top-6"
-                  >
-                    ✖
-                  </button>
+         <span>₱{(item.price * item.qty).toFixed(2)}</span>
+
+<div className="flex gap-2 items-center">
+  <button
+    onClick={() => decreaseQuantity(item.id)}
+    className="text-blue-500 font-bold px-2 transition relative -top-[7px]"
+  >
+    -
+  </button>
+
+      <span className="text-sm font-medium">
+        {item.qty}
+         </span>
+
+         <button
+          onClick={() => removeFromCheckout(item.id)}
+          className="text-red-500 font-bold text-lg px-2 hover:text-red-700 transition relative -top-[7px]"
+          title="Remove item"> × </button>
+             </div>
 
                 </div>
               ))}

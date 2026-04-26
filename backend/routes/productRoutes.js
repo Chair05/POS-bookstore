@@ -238,12 +238,32 @@ router.delete("/:id", (req, res) => {
 router.post("/checkout", async (req, res) => {
   const { items } = req.body;
 
-  if (!items || !Array.isArray(items) || items.length === 0)
+  if (!items || !Array.isArray(items) || items.length === 0) {
     return res.json({ success: false, message: "Cart is empty" });
-
-  const receiptId = Date.now();
+  }
 
   try {
+    // =========================
+    // Generate short receipt ID
+    // =========================
+   const receiptId = await new Promise((resolve, reject) => {
+  db.query(
+    "SELECT MAX(receipt_id) AS maxReceipt FROM sales",
+    (err, results) => {
+      if (err) return reject(err);
+
+      const max = results[0].maxReceipt;
+
+      // If no sales yet → start clean
+      if (!max || isNaN(max)) return resolve(1001);
+
+      resolve(Number(max) + 1);
+    }
+  );
+});
+    // =========================
+    // Process checkout items
+    // =========================
     await Promise.all(
       items.map(async (item) => {
         const product = await new Promise((resolve, reject) => {
@@ -257,14 +277,17 @@ router.post("/checkout", async (req, res) => {
           );
         });
 
-        if (!product)
+        if (!product) {
           throw new Error(`Product ${item.barcode} not found`);
+        }
 
         const quantity = item.quantity || 1;
 
-        if (product.stock < quantity)
+        if (product.stock < quantity) {
           throw new Error(`${product.name} is out of stock`);
+        }
 
+        // deduct stock
         await new Promise((resolve, reject) => {
           db.query(
             "UPDATE products SET stock = stock - ? WHERE id = ?",
@@ -273,6 +296,7 @@ router.post("/checkout", async (req, res) => {
           );
         });
 
+        // insert sale row
         await new Promise((resolve, reject) => {
           db.query(
             `INSERT INTO sales 
@@ -300,7 +324,10 @@ router.post("/checkout", async (req, res) => {
     });
   } catch (err) {
     console.error("Checkout error:", err);
-    res.status(500).json({ success: false, message: err.message });
+    res.status(500).json({
+      success: false,
+      message: err.message,
+    });
   }
 });
 
