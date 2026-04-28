@@ -23,6 +23,7 @@ export default function Dashboard() {
   const [categoryFilter, setCategoryFilter] = useState("");
   const [notifications, setNotifications] = useState([]);
   const barcodeRef = useRef("");
+  const scanLock = useRef(false);
   const closeSidebar = () => setSidebarOpen(false);
 
   /* AUTH */
@@ -69,14 +70,15 @@ export default function Dashboard() {
   }, []);
 
   /* NOTIFICATIONS */
-  const addNotification = (message) => {
-    const id = Date.now();
-    setNotifications((prev) => [...prev, { id, message }]);
-    setTimeout(() => {
-      setNotifications((prev) => prev.filter((n) => n.id !== id));
-    }, 3000);
-  };
+const addNotification = (message) => {
+  const id = crypto.randomUUID(); // BEST FIX
 
+  setNotifications((prev) => [...prev, { id, message }]);
+
+  setTimeout(() => {
+    setNotifications((prev) => prev.filter((n) => n.id !== id));
+  }, 3000);
+};
   /* BARCODE */
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -95,16 +97,33 @@ export default function Dashboard() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [products, checkoutItems]);
 
-  /* ADD TO CART */
+  /*barcode scan*/
 const handleBarcodeScan = (code) => {
+  if (scanLock.current) return;
+  scanLock.current = true;
+
+  setTimeout(() => {
+    scanLock.current = false;
+  }, 300);
+
   const product = products.find(
     (p) => String(p.barcode) === String(code)
   );
 
   if (!product) return addNotification("Product not found");
 
+  if (!product.stock || product.stock <= 0) {
+    return addNotification("Invalid stocks");
+  }
+
   setCheckoutItems((prev) => {
     const existing = prev[product.id];
+    const currentQty = existing ? existing.qty : 0;
+
+    if (currentQty >= product.stock) {
+      addNotification("Out of stock");
+      return prev;
+    }
 
     return {
       ...prev,
@@ -120,9 +139,8 @@ const handleBarcodeScan = (code) => {
           },
     };
   });
-
-  setTotal((prev) => prev + Number(product.price));
 };
+
   /* REMOVE ITEM */
 const removeFromCheckout = (id) => {
   setCheckoutItems((prev) => {
@@ -245,6 +263,36 @@ const handlePay = async () => {
 
   return (
     <div className="relative flex h-screen w-screen bg-white overflow-hidden">
+
+<div className="fixed top-4 right-4 z-[9999] flex flex-col gap-3">
+  {notifications.map((n) => (
+    <div
+      key={n.id}
+      className="w-80 bg-white border border-gray-200 shadow-lg rounded-xl px-4 py-3 flex items-start justify-between animate-fadeIn"
+    >
+      <div className="flex gap-3">
+        <div className="w-2 h-2 mt-2 rounded-full bg-blue-500" />
+        <div>
+          <p className="text-sm font-semibold text-gray-800">
+            Notification
+          </p>
+          <p className="text-sm text-gray-600">{n.message}</p>
+        </div>
+      </div>
+
+      <button
+        onClick={() =>
+          setNotifications((prev) =>
+            prev.filter((item) => item.id !== n.id)
+          )
+        }
+        className="text-gray-400 hover:text-red-500 text-lg font-bold"
+      >
+        ×
+      </button>
+    </div>
+  ))}
+</div>
 
       {/* BACKDROP */}
       {sidebarOpen && (

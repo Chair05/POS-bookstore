@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, } from "recharts";
 
 
@@ -13,6 +13,7 @@ export default function SalesPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [chartFilter, setChartFilter] = useState("month");
   const [currentPage, setCurrentPage] = useState(1);
+  const navigate = useNavigate();
   const itemsPerPage = 10;
   /* ================= LOAD ================= */
   const loadSales = async () => {
@@ -229,7 +230,7 @@ export default function SalesPage() {
           Sales
         </Link>
 
-           <button
+         <button
           onClick={() => {
             localStorage.removeItem("user");
             navigate("/");
@@ -374,67 +375,43 @@ export default function SalesPage() {
   </div>
 
     {/* SALES LIST */}
-    {paginatedSales.map((sale) => (
-      <div
-        key={sale.receiptId}
-        className="bg-white rounded-2xl p-5 shadow-sm hover:shadow-md transition"
-      >
-        <div className="flex justify-between gap-6 flex-wrap">
+{paginatedSales.map((sale) => (
+  <div
+    key={sale.receiptId}
+    className="bg-white rounded-2xl p-5 shadow-sm hover:shadow-md transition"
+  >
+    <div className="flex justify-between gap-6 flex-wrap">
 
-          {/* LEFT */}
-          <div className="flex-1 min-w-[250px]">
-            <p className="font-semibold text-lg">
-              Receipt {sale.receiptId}
+      {/* LEFT */}
+      <div className="flex-1 min-w-[250px]">
+        <p className="font-semibold text-lg">
+          Receipt {sale.receiptId}
+        </p>
+
+        <p className="text-sm text-gray-500 mt-1">
+          {formatDate(sale.created_at)}
+        </p>
+
+        <div className="mt-3 space-y-1">
+          {sale.items.map((item) => (
+            <p key={item.id} className="text-sm text-gray-700">
+              • {item.product_name} × {item.quantity}
             </p>
-
-            <p className="text-sm text-gray-500 mt-1">
-              {formatDate(sale.created_at)}
-            </p>
-
-            <div className="mt-3 space-y-1">
-              {sale.items.map((item) => (
-                <p key={item.id} className="text-sm text-gray-700">
-                  • {item.product_name} × {item.quantity}
-                </p>
-              ))}
-            </div>
-          </div>
-
-          {/* RIGHT */}
-          <div className="min-w-[220px] text-right flex flex-col justify-between">
-
-            <p className="text-green-600 font-bold text-xl">
-              ₱{sale.total}
-            </p>
-
-            <div className="mt-3 flex flex-col items-end gap-2">
-              {sale.items.map((item) => (
-                item.refunded ? (
-                  <span key={item.id} className="text-xs text-red-500">
-                    {item.refund_type === "resellable"
-                      ? "Resellable"
-                      : "Defective"}
-                  </span>
-                ) : (
-                  <button
-                    key={item.id}
-                    onClick={() =>
-                      handleRefund(sale.receiptId, item.id)
-                    }
-                    className="bg-red-500 text-white px-3 py-1 rounded text-xs hover:bg-red-600"
-                  >
-                    Refund
-                  </button>
-                )
-              ))}
-            </div>
-
-          </div>
-
+          ))}
         </div>
       </div>
-    ))}
 
+      {/* RIGHT - TOTAL */}
+      <div className="flex flex-col justify-end items-end min-w-[120px]">
+        <p className="text-sm text-gray-500">Total</p>
+        <p className="text-xl font-bold text-green-600">
+          ₱{sale.total}
+        </p>
+      </div>
+
+    </div>
+  </div>
+))}
     {/* PAGINATION */}
     <div className="flex justify-center items-center gap-2 pt-4">
       {Array.from(
