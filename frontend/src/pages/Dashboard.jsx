@@ -44,6 +44,14 @@ export default function Dashboard() {
   setChange(cashNum - total);
 }, [cash, total]);
 
+  useEffect(() => {
+    const newTotal = Object.values(checkoutItems).reduce(
+      (sum, item) => sum + item.price * item.qty,
+      0
+    );
+    setTotal(newTotal);
+  }, [checkoutItems]);
+
   const isAdmin = user?.role === "admin";
 
   /* LOAD DATA */
@@ -151,13 +159,6 @@ const removeFromCheckout = (id) => {
     delete newState[id];
     return newState;
   });
-
-  // recompute total
-  setTotal((prev) => {
-    const item = checkoutItems[id];
-    if (!item) return prev;
-    return prev - item.price * item.qty;
-  });
 };
 
 const decreaseQuantity = (id) => {
@@ -180,12 +181,6 @@ const decreaseQuantity = (id) => {
         qty: item.qty - 1,
       },
     };
-  });
-
-  setTotal((prev) => {
-    const item = checkoutItems[id];
-    if (!item) return prev;
-    return prev - item.price;
   });
 };
 
@@ -302,44 +297,57 @@ const handlePay = async () => {
         />
       )}
 
-      {/* SIDEBAR */}
-      <div
-        className={`fixed top-0 left-0 h-full w-64 bg-blue-700 p-5 z-50 transform transition-transform duration-300 ${
-          sidebarOpen ? "translate-x-0" : "-translate-x-full"
-        }`}
-      >
-        <h2 className="text-xl font-bold text-white mb-6">Menu</h2>
+    {/* SIDEBAR */}
+<div
+  className={`fixed top-0 left-0 h-full w-64 bg-gradient-to-b from-blue-700 to-blue-900 p-5 z-50 transform transition-transform duration-300 ${
+    sidebarOpen ? "translate-x-0" : "-translate-x-full"
+  }`}
+>
+  <h2 className="text-xl font-bold text-white mb-6">Menu</h2>
 
-        <Link onClick={closeSidebar} to="/dashboard" className={linkClass("/dashboard")}>
-          Home
-        </Link>
+  <Link onClick={closeSidebar} to="/dashboard" className={linkClass("/dashboard")}>
+    Home
+  </Link>
 
-        {isAdmin && (
-          <Link onClick={closeSidebar} to="/stock" className={linkClass("/stock")}>
-            Inventory
-          </Link>
-        )}
+  {isAdmin && (
+    <>
+      <Link onClick={closeSidebar} to="/stock" className={linkClass("/stock")}>
+        Inventory
+      </Link>
 
-        <Link onClick={closeSidebar} to="/sales" className={linkClass("/sales")}>
-          Sales
-        </Link>
+      <Link onClick={closeSidebar} to="/restock" className={linkClass("/restock")}>
+        Restock
+      </Link>
+    </>
+  )}
+  <Link
+  to="/inventory-log"
+  onClick={() => setSidebarOpen(false)}
+  className={linkClass("/inventory-log")}
+>
+  Inventory Log
+</Link>
 
-        <button
-          onClick={() => {
-            localStorage.removeItem("user");
-            navigate("/");
-          }}
-          className="mt-6 w-full bg-white text-blue-600 py-2 rounded font-semibold"
-        >
-          Logout
-        </button>
-      </div>
+  <Link onClick={closeSidebar} to="/sales" className={linkClass("/sales")}>
+    Sales
+  </Link>
+
+  <button
+    onClick={() => {
+      localStorage.removeItem("user");
+      navigate("/");
+    }}
+    className="mt-6 w-full bg-white hover:bg-gray-100 text-blue-600 py-2 rounded font-semibold transition"
+  >
+    Logout
+  </button>
+</div>
 
       {/* MAIN */}
       <div className="flex flex-col flex-1">
 
         {/* HEADER */}
-        <header className="flex items-center justify-between bg-blue-600 text-white px-4 py-3 shadow">
+        <header className="flex items-center justify-between bg-gradient-to-r from-blue-600 to-blue-800 text-white px-4 py-3 shadow">
           <div className="flex items-center gap-3">
             <button
               onClick={() => setSidebarOpen(true)}
@@ -383,7 +391,7 @@ const handlePay = async () => {
 
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
               {filtered.map((p) => (
-                <div key={p.id} className="border p-3 rounded shadow-sm">
+                <div key={p.id} className="border p-3 rounded shadow-sm hover:shadow-lg transition duration-200">
 
                   <img
                     src={`http://localhost:5000${p.image}`}
@@ -410,7 +418,7 @@ const handlePay = async () => {
 
                   <button
                     onClick={() => handleBarcodeScan(p.barcode)}
-                    className="bg-blue-600 text-white w-full mt-2 py-1 rounded"
+                    className="bg-blue-600 hover:bg-blue-700 text-white w-full mt-2 py-1 rounded transition"
                   >
                     Add
                   </button>
@@ -445,7 +453,7 @@ const handlePay = async () => {
 <div className="flex gap-2 items-center">
   <button
     onClick={() => decreaseQuantity(item.id)}
-    className="text-blue-500 font-bold px-2 transition relative -top-[7px]"
+    className="text-blue-500 hover:text-blue-700 font-bold px-2 transition relative -top-[7px]"
   >
     -
   </button>
@@ -482,18 +490,18 @@ const handlePay = async () => {
 
             <button
               onClick={handlePay}
-              className="bg-green-600 text-white py-2 mt-3 rounded"
+              className="bg-green-600 hover:bg-green-700 text-white py-2 mt-3 rounded transition"
             >
               Pay
             </button>
 
             {showReceipt && (
-              <div className="mt-4 border-t pt-3 text-sm">
+              <div className="mt-4 border-t pt-3 text-sm bg-gray-50 p-3 rounded shadow-sm">
                 <p className="font-bold">Receipt #{receiptId}</p>
 
           {receiptItems.map((item, i) => (
       <p key={i}>
-       {item.name} ({item.size || "N/A"}) - ₱{item.price.toFixed(2)}
+       {item.name} ({item.size || "N/A"}) x{item.qty} - ₱{(item.price * item.qty).toFixed(2)}
      </p>
             ))}
 

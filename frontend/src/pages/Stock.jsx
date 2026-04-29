@@ -23,8 +23,6 @@ export default function Stock() {
     size: "",
   });
 
-  const [scanInputs, setScanInputs] = useState({});
-  const [amountInputs, setAmountInputs] = useState({});
   const [openActionMenuId, setOpenActionMenuId] = useState(null);
   const [search, setSearch] = useState("");
 
@@ -67,24 +65,6 @@ export default function Stock() {
         ? "bg-blue-500 text-white"
         : "text-white hover:bg-blue-600"
     }`;
-
-  const updateStock = async (id, amount) => {
-    setStock((prev) =>
-      prev.map((p) =>
-        p.id === id ? { ...p, stock: (p.stock || 0) + amount } : p
-      )
-    );
-
-    try {
-      await fetch(`http://localhost:5000/api/products/${id}/add-stock`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amount }),
-      });
-    } catch {
-      loadStock();
-    }
-  };
 
   const addProduct = async () => {
     let { name, category, price, barcode } = newProduct;
@@ -166,21 +146,6 @@ export default function Stock() {
     loadStock();
   };
 
-  const handleScanEnter = (id) => {
-    const barcode = scanInputs[id];
-    const amount = Number(amountInputs[id]) || 1;
-
-    const product = stock.find((p) => p.id === id);
-
-    if (product?.barcode === barcode) {
-      updateStock(id, amount);
-      setScanInputs((p) => ({ ...p, [id]: "" }));
-      setAmountInputs((p) => ({ ...p, [id]: 1 }));
-    } else {
-      alert("Barcode mismatch");
-    }
-  };
-
   const filteredStock = stock.filter((item) => {
     const query = search.toLowerCase();
 
@@ -190,35 +155,84 @@ export default function Stock() {
     );
   });
 
-  if (loading) return <p className="p-6">Loading...</p>;
-  if (error) return <p className="p-6 text-red-600">{error}</p>;
+  if (loading) return (
+    <div className="h-screen w-screen bg-gray-100 flex justify-center items-center">
+      <div className="text-center">
+        <div className="text-4xl mb-4">⏳</div>
+        <p className="text-lg font-semibold text-gray-600">Loading...</p>
+      </div>
+    </div>
+  );
+  if (error) return (
+    <div className="h-screen w-screen bg-gray-100 flex justify-center items-center">
+      <div className="text-center">
+        <div className="text-4xl mb-4">❌</div>
+        <p className="text-lg font-semibold text-red-600">{error}</p>
+      </div>
+    </div>
+  );
 
   return (
     <div className="h-screen w-screen bg-gray-100 flex flex-col">
 
-      {/* SIDEBAR */}
-      <div
-        className={`fixed top-0 left-0 h-full w-64 bg-blue-700 p-5 z-50 transform transition ${
-          sidebarOpen ? "translate-x-0" : "-translate-x-full"
-        }`}
-      >
-        <h2 className="text-xl font-bold text-white mb-6">Menu</h2>
+{/* SIDEBAR */}
+<div
+  className={`fixed top-0 left-0 h-full w-64 bg-blue-700 p-5 z-50 transform transition ${
+    sidebarOpen ? "translate-x-0" : "-translate-x-full"
+  }`}
+>
+  <h2 className="text-xl font-bold text-white mb-6">Menu</h2>
 
-        <Link to="/dashboard" className={linkClass("/dashboard")} onClick={() => setSidebarOpen(false)}>Home</Link>
-        <Link to="/stock" className={linkClass("/stock")} onClick={() => setSidebarOpen(false)}>Inventory</Link>
-        <Link to="/sales" className={linkClass("/sales")} onClick={() => setSidebarOpen(false)}>Sales</Link>
+  <Link
+    to="/dashboard"
+    className={linkClass("/dashboard")}
+    onClick={() => setSidebarOpen(false)}
+  >
+    Home
+  </Link>
 
-        <button
-          onClick={() => {
-            localStorage.removeItem("user");
-            navigate("/");
-          }}
-          className="mt-6 w-full bg-white text-blue-600 py-2 rounded font-semibold"
-        >
-          Logout
-        </button>
-      </div>
+  <Link
+    to="/stock"
+    className={linkClass("/stock")}
+    onClick={() => setSidebarOpen(false)}
+  >
+    Inventory
+  </Link>
 
+  <Link
+    to="/restock"
+    className={linkClass("/restock")}
+    onClick={() => setSidebarOpen(false)}
+  >
+    Restock
+  </Link>
+
+  <Link
+    to="/inventory-log"
+    className={linkClass("/inventory-log")}
+    onClick={() => setSidebarOpen(false)}
+  >
+    Inventory Log
+  </Link>
+
+  <Link
+    to="/sales"
+    className={linkClass("/sales")}
+    onClick={() => setSidebarOpen(false)}
+  >
+    Sales
+  </Link>
+
+  <button
+    onClick={() => {
+      localStorage.removeItem("user");
+      navigate("/");
+    }}
+    className="mt-6 w-full bg-white text-blue-600 py-2 rounded font-semibold"
+  >
+    Logout
+  </button>
+</div>
       {sidebarOpen && (
         <div
           className="fixed inset-0 bg-black/30 z-40"
@@ -253,7 +267,7 @@ export default function Stock() {
           onClick={() => setShowAddModal(true)}
           className="h-11 px-6 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition flex items-center justify-center whitespace-nowrap relative -top-[9px]"
         >
-          Add Product
+          ➕ Add Product
         </button>
       </div>
 
@@ -270,7 +284,6 @@ export default function Stock() {
                 <th className="p-3 text-left">Barcode</th>
                 <th className="p-3 text-left">Price</th>
                 <th className="p-3 text-left">Stock</th>
-                <th className="p-3 text-left">Scan</th>
                 <th className="p-3"></th>
               </tr>
             </thead>
@@ -296,35 +309,6 @@ export default function Stock() {
                   <td className="p-3 font-semibold text-blue-600">₱{item.price}</td>
                   <td className="p-3 font-semibold">{item.stock}</td>
 
-                  <td className="p-3 flex gap-1">
-                    <input
-                      placeholder="Scan"
-                      className="border px-2 py-1 text-xs rounded"
-                      value={scanInputs[item.id] || ""}
-                      onChange={(e) =>
-                        setScanInputs((p) => ({
-                          ...p,
-                          [item.id]: e.target.value,
-                        }))
-                      }
-                      onKeyDown={(e) =>
-                        e.key === "Enter" && handleScanEnter(item.id)
-                      }
-                    />
-
-                    <input
-                      type="number"
-                      className="border px-2 py-1 w-14 text-xs rounded"
-                      value={amountInputs[item.id] || 1}
-                      onChange={(e) =>
-                        setAmountInputs((p) => ({
-                          ...p,
-                          [item.id]: e.target.value,
-                        }))
-                      }
-                    />
-                  </td>
-
                   <td className="p-3 relative">
                     <button
                       onClick={() =>
@@ -340,7 +324,7 @@ export default function Stock() {
                     {openActionMenuId === item.id && (
                       <div className="absolute right-0 mt-2 bg-white shadow-lg rounded-xl overflow-hidden w-40 z-50">
                         <label className="block px-4 py-2 hover:bg-gray-100 cursor-pointer">
-                          Upload Image
+                          📷 Upload Image
                           <input
                             type="file"
                             className="hidden"
@@ -369,7 +353,7 @@ export default function Stock() {
                           onClick={() => deleteProduct(item.id)}
                           className="px-4 py-2 text-red-600 hover:bg-red-100 cursor-pointer"
                         >
-                          Delete
+                          🗑️ Delete
                         </div>
                       </div>
                     )}
@@ -386,7 +370,7 @@ export default function Stock() {
         <div className="fixed inset-0 bg-black/40 flex justify-center backdrop-blur-sm items-center z-50">
           <div className="bg-white rounded-2xl p-6 w-full max-w-md">
             <h2 className="text-xl font-semibold mb-4 text-center">
-              Add Product
+              ➕ Add Product
             </h2>
 
             <div className="flex flex-col gap-3">
@@ -482,7 +466,7 @@ export default function Stock() {
         <div className="fixed inset-0 bg-black/40 flex justify-center items-center z-50">
           <div className="bg-white rounded-2xl p-6 w-full max-w-sm">
             <h2 className="text-xl font-semibold mb-4 text-center">
-              Add Category
+              📂 Add Category
             </h2>
 
             <input

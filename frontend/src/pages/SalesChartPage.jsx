@@ -23,7 +23,6 @@ export default function SalesChartPage() {
 
   const chartData = useMemo(() => {
     const earningsByDate = sales
-      .filter((s) => !s.refunded)
       .reduce((acc, sale) => {
         const day = toDateStr(new Date(sale.created_at));
         acc[day] = (acc[day] || 0) + Number(sale.total || 0);

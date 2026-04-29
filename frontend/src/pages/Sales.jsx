@@ -63,14 +63,12 @@ export default function SalesPage() {
   const totalEarnings = useMemo(
     () =>
       filtered
-        .filter((s) => !s.refunded)
         .reduce((sum, sale) => sum + Number(sale.total || 0), 0),
     [filtered]
   );
 
   const productSummary = useMemo(() => {
     return filtered
-      .filter((s) => !s.refunded)
       .reduce((acc, sale) => {
         const name = sale.product_name;
         const qty = Number(sale.quantity) || 0;
@@ -102,11 +100,7 @@ export default function SalesPage() {
           };
         }
 
-        acc[key].items.push({
-          ...row,
-          refunded: Number(row.refunded) === 1,
-          refund_type: row.refund_type,
-        });
+        acc[key].items.push(row);
 
         acc[key].total += Number(row.total || 0);
 
@@ -146,32 +140,10 @@ export default function SalesPage() {
     w.print();
   };
 
-  const handleRefund = async (receiptId, saleId) => {
-    const resellable = window.confirm("Is the item resellable? (OK for yes, Cancel for defective)");
-    try {
-      const response = await fetch(`http://localhost:5000/api/products/refund/${receiptId}/${saleId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ resellable })
-      });
-      const data = await response.json();
-      if (data.success) {
-        loadSales(); // reload sales
-      } else {
-        alert(data.message || "Refund failed");
-      }
-    } catch (err) {
-      console.error(err);
-      alert("Error processing refund");
-    }
-  };
-
   const chartData = useMemo(() => {
   const map = {};
 
   sales.forEach((s) => {
-    if (s.refunded) return;
-
     const date = new Date(s.created_at);
 
     let key = "";
@@ -210,37 +182,64 @@ export default function SalesPage() {
   return (
     <div className="h-screen w-screen flex flex-col bg-gray-100">
 
-      {/* SIDEBAR */}
-      <div
-        className={`fixed top-0 left-0 h-full w-64 bg-blue-700 p-5 z-50 transform transition ${
-          sidebarOpen ? "translate-x-0" : "-translate-x-full"
-        }`}
-      >
-        <h2 className="text-xl font-bold text-white mb-6">Menu</h2>
+     {/* SIDEBAR */}
+<div
+  className={`fixed top-0 left-0 h-full w-64 bg-gradient-to-b from-blue-700 to-blue-900 p-5 z-50 transform transition ${
+    sidebarOpen ? "translate-x-0" : "-translate-x-full"
+  }`}
+>
+  <h2 className="text-xl font-bold text-white mb-6">Menu</h2>
 
-        <Link to="/dashboard" onClick={() => setSidebarOpen(false)} className="block text-white py-2 hover:bg-blue-600 px-3 rounded">
-          Home
-        </Link>
+  <Link
+    to="/dashboard"
+    onClick={() => setSidebarOpen(false)}
+    className="block text-white py-2 hover:bg-blue-600 px-3 rounded"
+  >
+    Home
+  </Link>
 
-        <Link to="/stock" onClick={() => setSidebarOpen(false)} className="block text-white py-2 hover:bg-blue-600 px-3 rounded">
-          Inventory
-        </Link>
+  <Link
+    to="/stock"
+    onClick={() => setSidebarOpen(false)}
+    className="block text-white py-2 hover:bg-blue-600 px-3 rounded"
+  >
+    Inventory
+  </Link>
 
-        <Link to="/sales" onClick={() => setSidebarOpen(false)} className="block text-white py-2 bg-blue-500 px-3 rounded">
-          Sales
-        </Link>
+  <Link
+    to="/restock"
+    onClick={() => setSidebarOpen(false)}
+    className="block text-white py-2 hover:bg-blue-600 px-3 rounded"
+  >
+    Restock
+  </Link>
 
-         <button
-          onClick={() => {
-            localStorage.removeItem("user");
-            navigate("/");
-          }}
-          className="mt-6 w-full bg-white text-blue-600 py-2 rounded font-semibold"
-        >
-          Logout
-        </button>
-      </div>
+  <Link
+    to="/inventory-log"
+    onClick={() => setSidebarOpen(false)}
+    className="block text-white py-2 hover:bg-blue-600 px-3 rounded"
+  >
+    Inventory Log
+  </Link>
 
+  <Link
+    to="/sales"
+    onClick={() => setSidebarOpen(false)}
+    className="block text-white py-2 bg-blue-500 px-3 rounded"
+  >
+    Sales
+  </Link>
+
+  <button
+    onClick={() => {
+      localStorage.removeItem("user");
+      navigate("/");
+    }}
+    className="mt-6 w-full bg-white text-blue-600 py-2 rounded font-semibold"
+  >
+    Logout
+  </button>
+</div>
 
       {/* OVERLAY */}
       {sidebarOpen && (
@@ -249,7 +248,7 @@ export default function SalesPage() {
           onClick={() => setSidebarOpen(false)}
         />
       )}
-<header className="flex items-center justify-between bg-blue-600 px-6 py-4 shadow-md text-white">
+<header className="flex items-center justify-between bg-gradient-to-r from-blue-600 to-blue-800 px-6 py-4 shadow-md text-white">
 
   {/* LEFT */}
   <div className="flex items-center gap-3">

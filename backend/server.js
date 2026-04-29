@@ -27,6 +27,14 @@ app.get("/", (req, res) => {
   res.send("POS Backend Running ✅");
 });
 
+// JSON fallback for unknown routes
+app.use((req, res) => {
+  if (req.path.startsWith("/api/")) {
+    return res.status(404).json({ success: false, message: "API endpoint not found" });
+  }
+  res.status(404).send("Not found");
+});
+
 // -------------------------
 // Test DB Connection
 // -------------------------
@@ -63,29 +71,6 @@ app.get("/api/sales", (req, res) => {
       return res.status(500).json({ success: false, message: "Database error" });
     }
     res.json({ success: true, sales: results });
-  });
-});
-
-// Refund a sale (increase stock and delete sale)
-app.put("/api/sales/refund/:id", (req, res) => {
-  const { id } = req.params;
-  const getSale = "SELECT * FROM sales WHERE id = ?";
-  db.query(getSale, [id], (err, results) => {
-    if (err) return res.status(500).json({ success: false, message: "Database error" });
-    if (results.length === 0) return res.status(404).json({ success: false, message: "Sale not found" });
-
-    const sale = results[0];
-    const updateStock = "UPDATE products SET stock = stock + ? WHERE barcode = ?";
-    db.query(updateStock, [sale.quantity, sale.barcode], (err2) => {
-      if (err2) return res.status(500).json({ success: false, message: "Failed to restock product" });
-
-      const deleteSale = "DELETE FROM sales WHERE id = ?";
-      db.query(deleteSale, [id], (err3) => {
-        if (err3) return res.status(500).json({ success: false, message: "Failed to delete sale" });
-
-        res.json({ success: true, message: "Sale refunded and stock restored" });
-      });
-    });
   });
 });
 

@@ -66,6 +66,66 @@ router.get("/barcode/:barcode", (req, res) => {
   );
 });
 
+router.post("/restock", (req, res) => {
+  const { productId, amount, supplier, costPrice, notes } = req.body;
+
+  if (!productId || !amount || amount <= 0) {
+    return res.status(400).json({
+      success: false,
+      message: "Invalid restock data",
+    });
+  }
+
+  db.query(
+    "SELECT stock FROM products WHERE id = ?",
+    [productId],
+    (err, results) => {
+      if (err) return res.status(500).json({ success: false });
+
+      if (results.length === 0)
+        return res.status(404).json({ success: false, message: "Product not found" });
+
+      const previousStock = results[0].stock;
+      const newStock = previousStock + Number(amount);
+      const parsedCostPrice = costPrice ? Number(costPrice) : null;
+
+      // 1. update product stock
+      db.query(
+        "UPDATE products SET stock = ? WHERE id = ?",
+        [newStock, productId],
+        (err) => {
+          if (err) return res.status(500).json({ success: false });
+
+          // 2. log restock
+          db.query(
+            `INSERT INTO restocks 
+            (product_id, quantity_added, previous_stock, new_stock, reason, supplier, cost_price, notes)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+              productId,
+              amount,
+              previousStock,
+              newStock,
+              `${supplier || "N/A"} | ${notes || ""}`,
+              supplier || null,
+              parsedCostPrice,
+              notes || null,
+            ],
+            (err) => {
+              if (err) return res.status(500).json({ success: false });
+
+              res.json({
+                success: true,
+                message: "Restock successful",
+                newStock,
+              });
+            }
+          );
+        }
+      );
+    }
+  );
+});
 // -------------------------
 // ADD new product (WITH SIZE FIX)
 // -------------------------
@@ -155,16 +215,22 @@ router.put("/:id/add-stock", (req, res) => {
   const { id } = req.params;
   const { amount } = req.body;
 
-  if (!amount || amount <= 0)
+  const productId = parseInt(id, 10);
+  const stockAmount = parseInt(amount, 10);
+
+  if (!stockAmount || stockAmount <= 0)
     return res
       .status(400)
       .json({ success: false, message: "Invalid stock amount" });
 
   db.query(
     "UPDATE products SET stock = stock + ? WHERE id = ?",
-    [amount, id],
+    [stockAmount, productId],
     (err, result) => {
-      if (err) return res.status(500).json({ success: false });
+      if (err) {
+        console.error("Add stock error:", err);
+        return res.status(500).json({ success: false, message: "Database error" });
+      }
 
       if (result.affectedRows === 0)
         return res.json({ success: false, message: "Product not found" });
@@ -300,8 +366,8 @@ router.post("/checkout", async (req, res) => {
         await new Promise((resolve, reject) => {
           db.query(
             `INSERT INTO sales 
-            (product_id, barcode, quantity, price, total, product_name, receipt_id, refunded)
-            VALUES (?, ?, ?, ?, ?, ?, ?, 0)`,
+            (product_id, barcode, quantity, price, total, product_name, receipt_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?)`,
             [
               product.id,
               product.barcode,
@@ -336,7 +402,7 @@ router.post("/checkout", async (req, res) => {
 // -------------------------
 router.get("/sales", (req, res) => {
   db.query(
-    `SELECT id, product_name, barcode, quantity, price, total, created_at, receipt_id, refunded, refund_type
+    `SELECT id, product_name, barcode, quantity, price, total, created_at, receipt_id
      FROM sales
      ORDER BY created_at DESC`,
     (err, results) => {
@@ -349,70 +415,21 @@ router.get("/sales", (req, res) => {
 });
 
 // -------------------------
-// REFUND (FIXED: ITEM LEVEL)
+// GET restock logs
 // -------------------------
-router.put("/refund/:receiptId/:saleId", (req, res) => {
-  const { receiptId, saleId } = req.params;
-  const { resellable } = req.body;
-
-  const refundType = resellable ? "resellable" : "defective";
-
-  // Step 1: get ONLY the specific item
+router.get("/restocks", (req, res) => {
   db.query(
-    "SELECT * FROM sales WHERE id = ? AND receipt_id = ? AND refunded = 0",
-    [saleId, receiptId],
+    `SELECT r.*, p.name as product_name 
+     FROM restocks r 
+     LEFT JOIN products p ON r.product_id = p.id 
+     ORDER BY r.created_at DESC`,
     (err, results) => {
-      if (err)
-        return res.status(500).json({
-          success: false,
-          message: "DB error",
-        });
+      if (err) return res.status(500).json({ success: false });
 
-      if (results.length === 0)
-        return res.status(404).json({
-          success: false,
-          message: "Item already refunded or not found",
-        });
-
-      const item = results[0];
-
-      // Step 2: mark ONLY that item as refunded
-      db.query(
-        "UPDATE sales SET refunded = 1, refund_type = ? WHERE id = ?",
-        [refundType, saleId],
-        (err) => {
-          if (err)
-            return res.status(500).json({
-              success: false,
-              message: "Refund update failed",
-            });
-
-          // Step 3: return stock ONLY for that item (if resellable)
-          if (resellable) {
-            db.query(
-              "UPDATE products SET stock = stock + ? WHERE id = ?",
-              [item.quantity, item.product_id],
-              (err) => {
-                if (err)
-                  return res.status(500).json({
-                    success: false,
-                    message: "Stock update failed",
-                  });
-
-                return res.json({
-                  success: true,
-                  message: "Item refunded (resellable)",
-                });
-              }
-            );
-          } else {
-            return res.json({
-              success: true,
-              message: "Item refunded (defective)",
-            });
-          }
-        }
-      );
+      res.json({
+        success: true,
+        restocks: results,
+      });
     }
   );
 });
