@@ -29,3 +29,10 @@ button {
   margin-top: 1rem;
   cursor: pointer;
 }
+
+/* Custom dropdown option hover color */
+select option:hover,
+select option:focus {
+  background-color: #dbeafe;
+  color: #1d4ed8;
+}

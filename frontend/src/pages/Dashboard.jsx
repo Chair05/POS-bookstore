@@ -62,20 +62,60 @@ export default function Dashboard() {
   };
 
   const loadCategories = async () => {
-    const res = await fetch("http://localhost:5000/api/categories");
-    const data = await res.json();
-    if (data.success) {
-      const cats = data.categories.map((c) =>
-        typeof c === "string" ? c : c.name
-      );
-      setCategories(cats);
+    try {
+      const res = await fetch("http://localhost:5000/api/categories");
+      const data = await res.json();
+
+      if (data.success && Array.isArray(data.categories)) {
+        const cats = Array.from(
+          new Set(
+            data.categories
+              .map((c) =>
+                typeof c === "string"
+                  ? c.trim()
+                  : c?.name?.toString().trim()
+              )
+              .filter(Boolean)
+          )
+        );
+
+        if (cats.length > 0) {
+          setCategories(cats);
+          return;
+        }
+      }
+    } catch (err) {
+      console.error("Failed to load categories", err);
     }
+
+    // Fallback: derive categories from loaded products if API returns none
+    const derived = Array.from(
+      new Set(
+        products
+          .map((p) => p.category?.toString().trim())
+          .filter(Boolean)
+      )
+    );
+    setCategories(derived);
   };
 
   useEffect(() => {
     loadProducts();
     loadCategories();
   }, []);
+
+  useEffect(() => {
+    if (categories.length === 0 && products.length > 0) {
+      const derived = Array.from(
+        new Set(
+          products
+            .map((p) => p.category?.toString().trim())
+            .filter(Boolean)
+        )
+      );
+      setCategories(derived);
+    }
+  }, [categories.length, products]);
 
   /* NOTIFICATIONS */
 const addNotification = (message) => {
@@ -243,18 +283,13 @@ const handlePay = async () => {
     const matchSearch = p.name
       .toLowerCase()
       .includes(search.toLowerCase());
+
     const matchCategory = categoryFilter
-      ? p.category === categoryFilter
+      ? String(p.category).trim() === String(categoryFilter).trim()
       : true;
+
     return matchSearch && matchCategory;
   });
-
-  const linkClass = (path) =>
-    `block px-3 py-2 rounded ${
-      location.pathname === path
-        ? "bg-blue-500 text-white"
-        : "text-white hover:bg-blue-600"
-    }`;
 
   return (
     <div className="relative flex h-screen w-screen bg-white overflow-hidden">
@@ -299,48 +334,98 @@ const handlePay = async () => {
 
     {/* SIDEBAR */}
 <div
-  className={`fixed top-0 left-0 h-full w-64 bg-gradient-to-b from-blue-700 to-blue-900 p-5 z-50 transform transition-transform duration-300 ${
+  className={`fixed top-0 left-0 h-full w-64 bg-gradient-to-b from-blue-700 via-blue-800 to-blue-900 p-6 z-50 transform transition-all duration-300 shadow-2xl ${
     sidebarOpen ? "translate-x-0" : "-translate-x-full"
   }`}
 >
-  <h2 className="text-xl font-bold text-white mb-6">Menu</h2>
+  <div className="flex items-center gap-3 mb-8">
+    <img src={LccbLogo} className="h-10 w-10 rounded-full border-2 border-white/20" />
+    <h2 className="text-xl font-bold text-white">Menu</h2>
+  </div>
 
-  <Link onClick={closeSidebar} to="/dashboard" className={linkClass("/dashboard")}>
-    Home
-  </Link>
+  <nav className="space-y-2">
+    <Link
+      onClick={closeSidebar}
+      to="/dashboard"
+      className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ${
+        location.pathname === "/dashboard"
+          ? "bg-white/20 text-white shadow-lg"
+          : "text-white hover:bg-white/10"
+      }`}
+    >
+      <span className="text-xl text-white">⌂</span>
+      <span className="font-medium">Home</span>
+    </Link>
 
-  {isAdmin && (
-    <>
-      <Link onClick={closeSidebar} to="/stock" className={linkClass("/stock")}>
-        Inventory
-      </Link>
+    {isAdmin && (
+      <>
+        <Link
+          onClick={closeSidebar}
+          to="/stock"
+          className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ${
+            location.pathname === "/stock"
+              ? "bg-white/20 text-white shadow-lg"
+              : "text-white hover:bg-white/10"
+          }`}
+        >
+          <span className="text-xl text-white">▢</span>
+          <span className="font-medium">Inventory</span>
+        </Link>
 
-      <Link onClick={closeSidebar} to="/restock" className={linkClass("/restock")}>
-        Restock
-      </Link>
-    </>
-  )}
-  <Link
-  to="/inventory-log"
-  onClick={() => setSidebarOpen(false)}
-  className={linkClass("/inventory-log")}
->
-  Inventory Log
-</Link>
+        <Link
+          onClick={closeSidebar}
+          to="/restock"
+          className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ${
+            location.pathname === "/restock"
+              ? "bg-white/20 text-white shadow-lg"
+              : "text-white hover:bg-white/10"
+          }`}
+        >
+          <span className="text-xl text-white">↻</span>
+          <span className="font-medium">Restock</span>
+        </Link>
+      </>
+    )}
 
-  <Link onClick={closeSidebar} to="/sales" className={linkClass("/sales")}>
-    Sales
-  </Link>
+    <Link
+      to="/inventory-log"
+      onClick={() => setSidebarOpen(false)}
+      className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ${
+        location.pathname === "/inventory-log"
+          ? "bg-white/20 text-white shadow-lg"
+          : "text-white hover:bg-white/10"
+      }`}
+    >
+      <span className="text-xl text-white">≡</span>
+      <span className="font-medium">Inventory Log</span>
+    </Link>
 
-  <button
-    onClick={() => {
-      localStorage.removeItem("user");
-      navigate("/");
-    }}
-    className="mt-6 w-full bg-white hover:bg-gray-100 text-blue-600 py-2 rounded font-semibold transition"
-  >
-    Logout
-  </button>
+    <Link
+      onClick={closeSidebar}
+      to="/sales"
+      className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ${
+        location.pathname === "/sales"
+          ? "bg-white/20 text-white shadow-lg"
+          : "text-white hover:bg-white/10"
+      }`}
+    >
+      <span className="text-xl text-white ml-[-4px]">▴</span>
+      <span className="font-medium">Sales</span>
+    </Link>
+  </nav>
+
+  <div className="absolute bottom-6 left-6 right-6">
+    <button
+      onClick={() => {
+        localStorage.removeItem("user");
+        navigate("/");
+      }}
+      className="w-full flex items-center gap-3 px-4 py-3 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-all duration-200 border border-white/20"
+    >
+      <span className="text-xl text-white">⇥</span>
+      <span className="font-medium">Logout</span>
+    </button>
+  </div>
 </div>
 
       {/* MAIN */}
@@ -378,50 +463,71 @@ const handlePay = async () => {
               />
 
               <select
-                className="border p-2 rounded"
+                className="border border-gray-300 bg-white px-3 py-1.5 rounded-lg shadow-sm hover:bg-blue-50 hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 min-w-[120px] cursor-pointer"
                 value={categoryFilter}
                 onChange={(e) => setCategoryFilter(e.target.value)}
               >
-                <option value="">All</option>
+                <option value="">All Categories</option>
                 {categories.map((c) => (
-                  <option key={c}>{c}</option>
+                  <option key={c} value={c} className="bg-white text-gray-700">
+                    {c}
+                  </option>
                 ))}
               </select>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {filtered.map((p) => (
-                <div key={p.id} className="border p-3 rounded shadow-sm hover:shadow-lg transition duration-200">
+                <div
+                  key={p.id}
+                  className="group bg-white border border-slate-200 rounded-[28px] p-4 shadow-sm hover:shadow-xl transition-all duration-300"
+                >
+                  <div className="relative mb-4 rounded-3xl bg-slate-50 p-4 flex h-40 items-center justify-center overflow-hidden">
+                    <img
+                      src={`http://localhost:5000${p.image}`}
+                      alt={p.name}
+                      className="max-h-full max-w-full object-contain transition-transform duration-300 group-hover:scale-105"
+                    />
+                  </div>
 
-                  <img
-                    src={`http://localhost:5000${p.image}`}
-                    className="h-20 w-full object-contain mb-2"
-                  />
+                  <div className="space-y-3">
+                    <div>
+                      <h3 className="text-sm font-semibold text-slate-900 leading-tight">{p.name}</h3>
+                      <p className="text-xs text-slate-500 mt-1">Size: {p.size || "N/A"}</p>
+                    </div>
 
-                  <p>{p.name}</p>
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Stock</p>
+                        <p className="text-sm font-semibold text-slate-700">{p.stock ?? 0}</p>
+                      </div>
+                      <p className="text-lg font-bold text-blue-600">₱{p.price}</p>
+                    </div>
 
-                  <p className="text-sm text-gray-500">
-                    Size: {p.size || "N/A"}
-                  </p>
+                    <div className="flex items-center justify-between gap-3">
+                      {p.stock <= 0 ? (
+                        <span className="inline-flex items-center rounded-full bg-red-50 px-3 py-1 text-xs font-semibold text-red-600">
+                          Out of Stock
+                        </span>
+                      ) : p.stock <= 5 ? (
+                        <span className="inline-flex items-center rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">
+                          Low Stock
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+                          In Stock
+                        </span>
+                      )}
 
-                  <p className="text-sm text-gray-500">
-                    Stock: {p.stock ?? 0}
-                  </p>
-
-                  {p.stock <= 5 && (
-                    <p className="text-xs text-red-500 font-bold">
-                      Low Stock
-                    </p>
-                  )}
-
-                  <p>₱{p.price}</p>
-
-                  <button
-                    onClick={() => handleBarcodeScan(p.barcode)}
-                    className="bg-blue-600 hover:bg-blue-700 text-white w-full mt-2 py-1 rounded transition"
-                  >
-                    Add
-                  </button>
+                      <button
+                        onClick={() => handleBarcodeScan(p.barcode)}
+                        disabled={p.stock <= 0}
+                        className="inline-flex items-center justify-center rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition duration-200 hover:bg-blue-700 disabled:bg-slate-300 disabled:text-slate-500"
+                      >
+                        Add
+                      </button>
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
