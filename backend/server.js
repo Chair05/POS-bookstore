@@ -27,14 +27,6 @@ app.get("/", (req, res) => {
   res.send("POS Backend Running ✅");
 });
 
-// JSON fallback for unknown routes
-app.use((req, res) => {
-  if (req.path.startsWith("/api/")) {
-    return res.status(404).json({ success: false, message: "API endpoint not found" });
-  }
-  res.status(404).send("Not found");
-});
-
 // -------------------------
 // Test DB Connection
 // -------------------------
@@ -112,10 +104,27 @@ app.delete("/api/categories/:id", (req, res) => {
   });
 });
 
+// JSON fallback for unknown routes
+app.use((req, res) => {
+  if (req.path.startsWith("/api/")) {
+    return res.status(404).json({ success: false, message: "API endpoint not found" });
+  }
+  res.status(404).send("Not found");
+});
+
 // -------------------------
 // Start Server
 // -------------------------
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
+});
+
+server.on("error", (error) => {
+  if (error.code === "EADDRINUSE") {
+    console.error(`🚨 Port ${PORT} is already in use. Stop the existing backend process or change the PORT.`);
+  } else {
+    console.error("🚨 Server error:", error);
+  }
+  process.exit(1);
 });

@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, } from "recharts";
+import Sidebar from "./Sidebar";
 
 
 export default function SalesPage() {
@@ -89,30 +90,50 @@ export default function SalesPage() {
   const groupedByReceipt = useMemo(() => {
     return Object.values(
       filtered.reduce((acc, row) => {
-        const key = row.receipt_id || row.id;
+        const key = row.receipt_id != null ? row.receipt_id : row.id;
 
         if (!acc[key]) {
           acc[key] = {
             receiptId: key,
             created_at: row.created_at,
-            items: [],
+            items: {},
             total: 0,
           };
         }
 
-        acc[key].items.push(row);
+        const itemKey = `${row.product_name}-${row.barcode}`;
+        const existingItem = acc[key].items[itemKey];
+        const quantity = Number(row.quantity) || 0;
+        const total = Number(row.total) || 0;
 
-        acc[key].total += Number(row.total || 0);
+        if (existingItem) {
+          existingItem.quantity += quantity;
+          existingItem.total += total;
+        } else {
+          acc[key].items[itemKey] = {
+            id: row.id || itemKey,
+            product_name: row.product_name,
+            quantity,
+            total,
+          };
+        }
+
+        acc[key].total += total;
 
         return acc;
       }, {})
-    ).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    )
+      .map((receipt) => ({
+        ...receipt,
+        items: Object.values(receipt.items),
+      }))
+      .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
   }, [filtered]);
 
   const paginatedSales = useMemo(() => {
-  const start = (currentPage - 1) * itemsPerPage;
-  return groupedByReceipt.slice(start, start + itemsPerPage);
-}, [groupedByReceipt, currentPage]);
+    const start = (currentPage - 1) * itemsPerPage;
+    return groupedByReceipt.slice(start, start + itemsPerPage);
+  }, [groupedByReceipt, currentPage]);
 
   /* ================= PRINT ================= */
   const handlePrint = () => {
@@ -181,73 +202,8 @@ export default function SalesPage() {
 
   return (
     <div className="h-screen w-screen flex flex-col bg-gray-100">
+      <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
 
-     {/* SIDEBAR */}
-<div
-  className={`fixed top-0 left-0 h-full w-64 bg-gradient-to-b from-blue-700 to-blue-900 p-5 z-50 transform transition ${
-    sidebarOpen ? "translate-x-0" : "-translate-x-full"
-  }`}
->
-  <h2 className="text-xl font-bold text-white mb-6">Menu</h2>
-
-  <Link
-    to="/dashboard"
-    onClick={() => setSidebarOpen(false)}
-    className="block text-white py-2 hover:bg-blue-600 px-3 rounded"
-  >
-    Home
-  </Link>
-
-  <Link
-    to="/stock"
-    onClick={() => setSidebarOpen(false)}
-    className="block text-white py-2 hover:bg-blue-600 px-3 rounded"
-  >
-    Inventory
-  </Link>
-
-  <Link
-    to="/restock"
-    onClick={() => setSidebarOpen(false)}
-    className="block text-white py-2 hover:bg-blue-600 px-3 rounded"
-  >
-    Restock
-  </Link>
-
-  <Link
-    to="/inventory-log"
-    onClick={() => setSidebarOpen(false)}
-    className="block text-white py-2 hover:bg-blue-600 px-3 rounded"
-  >
-    Inventory Log
-  </Link>
-
-  <Link
-    to="/sales"
-    onClick={() => setSidebarOpen(false)}
-    className="block text-white py-2 bg-blue-500 px-3 rounded"
-  >
-    Sales
-  </Link>
-
-  <button
-    onClick={() => {
-      localStorage.removeItem("user");
-      navigate("/");
-    }}
-    className="mt-6 w-full bg-white text-blue-600 py-2 rounded font-semibold"
-  >
-    Logout
-  </button>
-</div>
-
-      {/* OVERLAY */}
-      {sidebarOpen && (
-        <div
-          className="fixed inset-0 bg-black/30 z-40"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
 <header className="flex items-center justify-between bg-gradient-to-r from-blue-600 to-blue-800 px-6 py-4 shadow-md text-white">
 
   {/* LEFT */}
@@ -501,7 +457,6 @@ export default function SalesPage() {
     </div>
   </div>
 )}
-
     </div>
   );
 }

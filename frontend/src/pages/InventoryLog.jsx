@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+import Sidebar from "./Sidebar";
 
 export default function InventoryLog() {
   const navigate = useNavigate();
@@ -85,13 +86,6 @@ export default function InventoryLog() {
     }
   };
 
-  const linkClass = (path) =>
-    `block px-3 py-2 rounded ${
-      window.location.pathname === path
-        ? "bg-blue-500 text-white"
-        : "text-white hover:bg-blue-600"
-    }`;
-
   const filteredLogs = logs.filter((log) => {
     const matchType =
       typeFilter === "all" ? true : log.type === typeFilter;
@@ -119,51 +113,7 @@ export default function InventoryLog() {
 
   return (
     <div className="h-screen w-screen bg-gray-100 flex flex-col">
-      {/* SIDEBAR */}
-      <div
-        className={`fixed top-0 left-0 h-full w-64 bg-blue-700 p-5 z-50 transform transition ${
-          sidebarOpen ? "translate-x-0" : "-translate-x-full"
-        }`}
-      >
-        <h2 className="text-xl font-bold text-white mb-6">Menu</h2>
-
-        <Link to="/dashboard" className={linkClass("/dashboard")} onClick={() => setSidebarOpen(false)}>
-          Home
-        </Link>
-
-        <Link to="/stock" className={linkClass("/stock")} onClick={() => setSidebarOpen(false)}>
-          Inventory
-        </Link>
-
-        <Link to="/restock" className={linkClass("/restock")} onClick={() => setSidebarOpen(false)}>
-          Restock
-        </Link>
-
-        <Link to="/inventory-log" className={linkClass("/inventory-log")} onClick={() => setSidebarOpen(false)}>
-          Inventory Log
-        </Link>
-
-        <Link to="/sales" className={linkClass("/sales")} onClick={() => setSidebarOpen(false)}>
-          Sales
-        </Link>
-
-        <button
-          onClick={() => {
-            localStorage.removeItem("user");
-            navigate("/");
-          }}
-          className="mt-6 w-full bg-white text-blue-600 py-2 rounded font-semibold"
-        >
-          Logout
-        </button>
-      </div>
-
-      {sidebarOpen && (
-        <div
-          className="fixed inset-0 bg-black/30 z-40"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
+      <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
 
       {/* HEADER */}
       <header className="flex items-center bg-gradient-to-r from-blue-600 to-blue-800 text-white px-4 py-3 shadow">

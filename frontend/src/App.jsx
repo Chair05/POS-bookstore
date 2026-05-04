@@ -48,23 +48,18 @@ export default function App() {
             }
           />
 
-          <Route path="/sales" element={<ProtectedRoute> <SalesPage /> </ProtectedRoute>} />
-       <Route
-         path="/restock"
-         element={
-        <ProtectedRoute>
-        <Restock />
-       </ProtectedRoute>
-      }
-      />
+          <Route path="/sales" element={<ProtectedRoute><SalesPage /></ProtectedRoute>} />
+          <Route
+            path="/restock"
+            element={
+              <ProtectedRoute>
+                <Restock />
+              </ProtectedRoute>
+            }
+          />
 
-         <Route path="/inventory-log" element={
-            <ProtectedRoute><Log /> </ProtectedRoute>}
-             />
-           <Route path="/sales-chart" element={ 
-            <ProtectedRoute><SalesChartPage /> </ProtectedRoute>}
-            />
-       
+          <Route path="/inventory-log" element={<ProtectedRoute><Log /></ProtectedRoute>} />
+          <Route path="/sales-chart" element={<ProtectedRoute><SalesChartPage /></ProtectedRoute>} />
 
           {/* Catch-all */}
           <Route path="*" element={<Navigate to="/" />} />

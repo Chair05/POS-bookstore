@@ -314,16 +314,11 @@ router.post("/checkout", async (req, res) => {
     // =========================
    const receiptId = await new Promise((resolve, reject) => {
   db.query(
-    "SELECT MAX(receipt_id) AS maxReceipt FROM sales",
+    "SELECT COALESCE(MAX(receipt_id), 1000) + 1 AS nextReceipt FROM sales",
     (err, results) => {
       if (err) return reject(err);
-
-      const max = results[0].maxReceipt;
-
-      // If no sales yet → start clean
-      if (!max || isNaN(max)) return resolve(1001);
-
-      resolve(Number(max) + 1);
+      const receiptId = results[0].nextReceipt;
+      resolve(receiptId);
     }
   );
 });
@@ -403,11 +398,11 @@ router.post("/checkout", async (req, res) => {
 router.get("/sales", (req, res) => {
   db.query(
     `SELECT id, product_name, barcode, quantity, price, total, created_at, receipt_id
-     FROM sales
+     FROM sales_items
      ORDER BY created_at DESC`,
     (err, results) => {
       if (err)
-        return res.status(500).json({ success: false, message: "Database error" });
+        return res.status(500).json({ success: false, message: "Database error", error: err.message });
 
       res.json({ success: true, sales: results });
     }

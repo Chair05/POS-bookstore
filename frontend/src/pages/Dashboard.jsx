@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import LccbLogo from "../assets/Lccb-logo.jpeg";
+import Sidebar from "./Sidebar";
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -324,109 +325,7 @@ const handlePay = async () => {
   ))}
 </div>
 
-      {/* BACKDROP */}
-      {sidebarOpen && (
-        <div
-          className="fixed inset-0 bg-black/40 z-40"
-          onClick={closeSidebar}
-        />
-      )}
-
-    {/* SIDEBAR */}
-<div
-  className={`fixed top-0 left-0 h-full w-64 bg-gradient-to-b from-blue-700 via-blue-800 to-blue-900 p-6 z-50 transform transition-all duration-300 shadow-2xl ${
-    sidebarOpen ? "translate-x-0" : "-translate-x-full"
-  }`}
->
-  <div className="flex items-center gap-3 mb-8">
-    <img src={LccbLogo} className="h-10 w-10 rounded-full border-2 border-white/20" />
-    <h2 className="text-xl font-bold text-white">Menu</h2>
-  </div>
-
-  <nav className="space-y-2">
-    <Link
-      onClick={closeSidebar}
-      to="/dashboard"
-      className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ${
-        location.pathname === "/dashboard"
-          ? "bg-white/20 text-white shadow-lg"
-          : "text-white hover:bg-white/10"
-      }`}
-    >
-      <span className="text-xl text-white">⌂</span>
-      <span className="font-medium">Home</span>
-    </Link>
-
-    {isAdmin && (
-      <>
-        <Link
-          onClick={closeSidebar}
-          to="/stock"
-          className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ${
-            location.pathname === "/stock"
-              ? "bg-white/20 text-white shadow-lg"
-              : "text-white hover:bg-white/10"
-          }`}
-        >
-          <span className="text-xl text-white">▢</span>
-          <span className="font-medium">Inventory</span>
-        </Link>
-
-        <Link
-          onClick={closeSidebar}
-          to="/restock"
-          className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ${
-            location.pathname === "/restock"
-              ? "bg-white/20 text-white shadow-lg"
-              : "text-white hover:bg-white/10"
-          }`}
-        >
-          <span className="text-xl text-white">↻</span>
-          <span className="font-medium">Restock</span>
-        </Link>
-      </>
-    )}
-
-    <Link
-      to="/inventory-log"
-      onClick={() => setSidebarOpen(false)}
-      className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ${
-        location.pathname === "/inventory-log"
-          ? "bg-white/20 text-white shadow-lg"
-          : "text-white hover:bg-white/10"
-      }`}
-    >
-      <span className="text-xl text-white">≡</span>
-      <span className="font-medium">Inventory Log</span>
-    </Link>
-
-    <Link
-      onClick={closeSidebar}
-      to="/sales"
-      className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ${
-        location.pathname === "/sales"
-          ? "bg-white/20 text-white shadow-lg"
-          : "text-white hover:bg-white/10"
-      }`}
-    >
-      <span className="text-xl text-white ml-[-4px]">▴</span>
-      <span className="font-medium">Sales</span>
-    </Link>
-  </nav>
-
-  <div className="absolute bottom-6 left-6 right-6">
-    <button
-      onClick={() => {
-        localStorage.removeItem("user");
-        navigate("/");
-      }}
-      className="w-full flex items-center gap-3 px-4 py-3 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-all duration-200 border border-white/20"
-    >
-      <span className="text-xl text-white">⇥</span>
-      <span className="font-medium">Logout</span>
-    </button>
-  </div>
-</div>
+      <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
 
       {/* MAIN */}
       <div className="flex flex-col flex-1">

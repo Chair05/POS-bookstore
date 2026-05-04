@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+import Sidebar from "./Sidebar";
 
 export default function Stock() {
   const [stock, setStock] = useState([]);
@@ -59,17 +60,10 @@ export default function Stock() {
     }
   };
 
-  const linkClass = (path) =>
-    `block px-3 py-2 rounded ${
-      window.location.pathname === path
-        ? "bg-blue-500 text-white"
-        : "text-white hover:bg-blue-600"
-    }`;
-
   const addProduct = async () => {
     let { name, category, price, barcode } = newProduct;
 
-    if (!name || !category || !price || !barcode || category === "__new__")
+    if (!name || !category || !price || !barcode)
       return alert("Fill all fields");
 
     const formData = new FormData();
@@ -119,19 +113,22 @@ export default function Stock() {
 
       const data = await res.json();
 
-      if (data.success) {
-        setNewCategory("");
-        setShowCategoryModal(false);
-        loadCategories();
-
-        // auto select new category
-        setNewProduct((prev) => ({
-          ...prev,
-          category: data.category.name,
-        }));
+      if (!data.success) {
+        return alert(data.message || "Failed to add category");
       }
+
+      setNewCategory("");
+      setShowCategoryModal(false);
+      loadCategories();
+
+      // auto select new category
+      setNewProduct((prev) => ({
+        ...prev,
+        category: data.category.name,
+      }));
     } catch (err) {
       console.error(err);
+      alert("Failed to add category. Please try again.");
     }
   };
 
@@ -174,71 +171,7 @@ export default function Stock() {
 
   return (
     <div className="h-screen w-screen bg-gray-100 flex flex-col">
-
-{/* SIDEBAR */}
-<div
-  className={`fixed top-0 left-0 h-full w-64 bg-blue-700 p-5 z-50 transform transition ${
-    sidebarOpen ? "translate-x-0" : "-translate-x-full"
-  }`}
->
-  <h2 className="text-xl font-bold text-white mb-6">Menu</h2>
-
-  <Link
-    to="/dashboard"
-    className={linkClass("/dashboard")}
-    onClick={() => setSidebarOpen(false)}
-  >
-    Home
-  </Link>
-
-  <Link
-    to="/stock"
-    className={linkClass("/stock")}
-    onClick={() => setSidebarOpen(false)}
-  >
-    Inventory
-  </Link>
-
-  <Link
-    to="/restock"
-    className={linkClass("/restock")}
-    onClick={() => setSidebarOpen(false)}
-  >
-    Restock
-  </Link>
-
-  <Link
-    to="/inventory-log"
-    className={linkClass("/inventory-log")}
-    onClick={() => setSidebarOpen(false)}
-  >
-    Inventory Log
-  </Link>
-
-  <Link
-    to="/sales"
-    className={linkClass("/sales")}
-    onClick={() => setSidebarOpen(false)}
-  >
-    Sales
-  </Link>
-
-  <button
-    onClick={() => {
-      localStorage.removeItem("user");
-      navigate("/");
-    }}
-    className="mt-6 w-full bg-white text-blue-600 py-2 rounded font-semibold"
-  >
-    Logout
-  </button>
-</div>
-      {sidebarOpen && (
-        <div
-          className="fixed inset-0 bg-black/30 z-40"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
+      <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
 
       <header className="flex items-center bg-blue-600 text-white px-4 py-3 shadow">
         <div className="flex items-center gap-3">
@@ -367,94 +300,132 @@ export default function Stock() {
 
       {/* ADD PRODUCT MODAL */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-black/40 flex justify-center backdrop-blur-sm items-center z-50">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-md">
-            <h2 className="text-xl font-semibold mb-4 text-center">
-              ➕ Add Product
-            </h2>
-
-            <div className="flex flex-col gap-3">
-              <input
-                placeholder="Name"
-                className="border px-3 py-2 rounded"
-                onChange={(e) =>
-                  setNewProduct({ ...newProduct, name: e.target.value })
-                }
-              />
-
-              <select
-                className="border px-3 py-2 rounded"
-                value={newProduct.category}
-                onChange={(e) => {
-                  const value = e.target.value;
-
-                  if (value === "__new__") {
-                    setShowCategoryModal(true); // ✅ open overlay
-                  } else {
-                    setNewProduct({ ...newProduct, category: value });
-                  }
-                }}
-              >
-                <option value="">Select Category</option>
-
-                {categories.map((cat) => (
-                  <option key={cat.id} value={cat.name}>
-                    {cat.name}
-                  </option>
-                ))}
-
-                <option value="__new__">+ Add New Category</option>
-              </select>
-
-              <input
-                placeholder="Price"
-                className="border px-3 py-2 rounded"
-                onChange={(e) =>
-                  setNewProduct({ ...newProduct, price: e.target.value })
-                }
-              />
-
-              <input
-                placeholder="Barcode"
-                className="border px-3 py-2 rounded"
-                onChange={(e) =>
-                  setNewProduct({ ...newProduct, barcode: e.target.value })
-                }
-              />
-
-              <input
-                placeholder="Stock"
-                className="border px-3 py-2 rounded"
-                onChange={(e) =>
-                  setNewProduct({ ...newProduct, stock: e.target.value })
-                }
-              />
-
-              <select
-                className="border px-3 py-2 rounded"
-                value={newProduct.size}
-                onChange={(e) =>
-                  setNewProduct({ ...newProduct, size: e.target.value })
-                }
-              >
-                <option value="">Select Size (Optional)</option>
-                <option value="Small">Small</option>
-                <option value="Medium">Medium</option>
-                <option value="Large">Large</option>
-                <option value="XL">XL</option>
-              </select>
+        <div className="fixed inset-0 bg-black/40 flex justify-center backdrop-blur-sm items-center z-50 px-4">
+          <div className="bg-white rounded-3xl p-6 w-full max-w-2xl shadow-2xl">
+            <div className="flex flex-col gap-2 text-center mb-6">
+              <h2 className="text-2xl font-semibold">➕ Add Product</h2>
+              <p className="text-sm text-gray-500">
+                Add a new inventory item with category, pricing, and stock details.
+              </p>
             </div>
 
-            <div className="flex justify-end gap-3 mt-4">
-              <button onClick={() => setShowAddModal(false)} className="px-4 py-2 border rounded">
+            <div className="grid gap-4">
+              <label className="space-y-2">
+                <span className="text-sm font-medium text-gray-700">Product Name</span>
+                <input
+                  value={newProduct.name}
+                  placeholder="Enter product name"
+                  className="w-full border px-4 py-3 rounded-xl focus:ring-2 focus:ring-blue-200 outline-none"
+                  onChange={(e) =>
+                    setNewProduct({ ...newProduct, name: e.target.value })
+                  }
+                />
+              </label>
+
+              <div className="grid gap-2 md:grid-cols-[1fr_auto] md:items-end">
+                <label className="space-y-2 md:col-span-1">
+                  <span className="text-sm font-medium text-gray-700">Category</span>
+                  <select
+                    className="w-full border px-4 py-3 rounded-xl focus:ring-2 focus:ring-blue-200 outline-none"
+                    value={newProduct.category}
+                    onChange={(e) =>
+                      setNewProduct({ ...newProduct, category: e.target.value })
+                    }
+                  >
+                    <option value="">Select Category</option>
+                    {categories.map((cat) => (
+                      <option key={cat.id} value={cat.name}>
+                        {cat.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <button
+                  type="button"
+                  onClick={() => setShowCategoryModal(true)}
+                  className="h-12 w-full md:w-auto px-5 bg-gray-100 border border-gray-200 rounded-xl text-gray-700 hover:bg-gray-200 transition"
+                >
+                  + Category
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <label className="space-y-2">
+                  <span className="text-sm font-medium text-gray-700">Price</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={newProduct.price}
+                    placeholder="0.00"
+                    className="w-full border px-4 py-3 rounded-xl focus:ring-2 focus:ring-blue-200 outline-none"
+                    onChange={(e) =>
+                      setNewProduct({ ...newProduct, price: e.target.value })
+                    }
+                  />
+                </label>
+
+                <label className="space-y-2">
+                  <span className="text-sm font-medium text-gray-700">Barcode</span>
+                  <input
+                    value={newProduct.barcode}
+                    placeholder="Enter barcode"
+                    className="w-full border px-4 py-3 rounded-xl focus:ring-2 focus:ring-blue-200 outline-none"
+                    onChange={(e) =>
+                      setNewProduct({ ...newProduct, barcode: e.target.value })
+                    }
+                  />
+                </label>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <label className="space-y-2">
+                  <span className="text-sm font-medium text-gray-700">Stock</span>
+                  <input
+                    type="number"
+                    min="0"
+                    value={newProduct.stock}
+                    placeholder="Quantity"
+                    className="w-full border px-4 py-3 rounded-xl focus:ring-2 focus:ring-blue-200 outline-none"
+                    onChange={(e) =>
+                      setNewProduct({ ...newProduct, stock: e.target.value })
+                    }
+                  />
+                </label>
+
+                <label className="space-y-2">
+                  <span className="text-sm font-medium text-gray-700">Size</span>
+                  <select
+                    className="w-full border px-4 py-3 rounded-xl focus:ring-2 focus:ring-blue-200 outline-none"
+                    value={newProduct.size}
+                    onChange={(e) =>
+                      setNewProduct({ ...newProduct, size: e.target.value })
+                    }
+                  >
+                    <option value="">Select Size (Optional)</option>
+                    <option value="Small">Small</option>
+                    <option value="Medium">Medium</option>
+                    <option value="Large">Large</option>
+                    <option value="XL">XL</option>
+                  </select>
+                </label>
+              </div>
+            </div>
+
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-end">
+              <button
+                onClick={() => setShowAddModal(false)}
+                className="w-full sm:w-auto px-5 py-3 border border-gray-300 rounded-xl text-gray-700 hover:bg-gray-50 transition"
+              >
                 Cancel
               </button>
 
               <button
                 onClick={addProduct}
-                className="bg-blue-600 text-white px-6 py-2 rounded-full hover:bg-blue-700 transition shadow-md font-medium"
+                className="w-full sm:w-auto px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition shadow-md"
               >
-                Add
+                Add Product
               </button>
             </div>
           </div>
