@@ -314,7 +314,7 @@ router.post("/checkout", async (req, res) => {
     // =========================
    const receiptId = await new Promise((resolve, reject) => {
   db.query(
-    "SELECT COALESCE(MAX(receipt_id), 1000) + 1 AS nextReceipt FROM sales",
+    "SELECT COALESCE(MAX(receipt_id), 1000) + 1 AS nextReceipt FROM sales_items",
     (err, results) => {
       if (err) return reject(err);
       const receiptId = results[0].nextReceipt;
@@ -325,6 +325,7 @@ router.post("/checkout", async (req, res) => {
     // =========================
     // Process checkout items
     // =========================
+    let total = 0;
     await Promise.all(
       items.map(async (item) => {
         const product = await new Promise((resolve, reject) => {
@@ -348,6 +349,8 @@ router.post("/checkout", async (req, res) => {
           throw new Error(`${product.name} is out of stock`);
         }
 
+        total += product.price * quantity;
+
         // deduct stock
         await new Promise((resolve, reject) => {
           db.query(
@@ -360,7 +363,7 @@ router.post("/checkout", async (req, res) => {
         // insert sale row
         await new Promise((resolve, reject) => {
           db.query(
-            `INSERT INTO sales 
+            `INSERT INTO sales_items 
             (product_id, barcode, quantity, price, total, product_name, receipt_id)
             VALUES (?, ?, ?, ?, ?, ?, ?)`,
             [
@@ -377,6 +380,15 @@ router.post("/checkout", async (req, res) => {
         });
       })
     );
+
+    // Insert receipt total into sales table
+    await new Promise((resolve, reject) => {
+      db.query(
+        `INSERT INTO sales (receipt_id, total, adminId) VALUES (?, ?, ?)`,
+        [receiptId, total, null],
+        (err) => (err ? reject(err) : resolve())
+      );
+    });
 
     res.json({
       success: true,
@@ -397,9 +409,10 @@ router.post("/checkout", async (req, res) => {
 // -------------------------
 router.get("/sales", (req, res) => {
   db.query(
-    `SELECT id, product_name, barcode, quantity, price, total, created_at, receipt_id
-     FROM sales_items
-     ORDER BY created_at DESC`,
+    `SELECT si.*, s.total as receipt_total
+     FROM sales_items si
+     LEFT JOIN sales s ON si.receipt_id = s.receipt_id
+     ORDER BY si.created_at DESC`,
     (err, results) => {
       if (err)
         return res.status(500).json({ success: false, message: "Database error", error: err.message });

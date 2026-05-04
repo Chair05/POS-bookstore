@@ -97,7 +97,7 @@ export default function SalesPage() {
             receiptId: key,
             created_at: row.created_at,
             items: {},
-            total: 0,
+            total: row.receipt_total || 0,
           };
         }
 
@@ -117,8 +117,6 @@ export default function SalesPage() {
             total,
           };
         }
-
-        acc[key].total += total;
 
         return acc;
       }, {})
