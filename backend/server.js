@@ -86,7 +86,12 @@ app.post("/api/categories", (req, res) => {
 
   const sql = "INSERT INTO categories (name) VALUES (?)";
   db.query(sql, [name], (err, result) => {
-    if (err) return res.status(500).json({ success: false, message: "Database error" });
+    if (err) {
+      if (err.code === "ER_DUP_ENTRY") {
+        return res.status(409).json({ success: false, message: "Category already exists" });
+      }
+      return res.status(500).json({ success: false, message: "Database error" });
+    }
 
     // Return category object to match frontend expectation
     res.json({ success: true, category: { id: result.insertId, name } });

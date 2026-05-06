@@ -19,6 +19,8 @@ export default function Dashboard() {
   const [receiptTotal, setReceiptTotal] = useState(0);
   const [receiptCash, setReceiptCash] = useState("");
   const [receiptChange, setReceiptChange] = useState(0);
+  const [receiptCustomerName, setReceiptCustomerName] = useState("");
+  const [customerName, setCustomerName] = useState("");
   const [showReceipt, setShowReceipt] = useState(false);
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
@@ -261,6 +263,7 @@ const handlePay = async () => {
     setReceiptTotal(total);
     setReceiptCash(cashNum);
     setReceiptChange(cashNum - total);
+    setReceiptCustomerName(customerName.trim());
 
     setShowReceipt(true);
 
@@ -272,6 +275,7 @@ const handlePay = async () => {
     setTotal(0);
     setCash("");
     setChange(0);
+    setCustomerName("");
 
     loadProducts();
     addNotification("Successfully purchased ✔");
@@ -482,11 +486,25 @@ const handlePay = async () => {
             </div>
 
             <input
+              type="text"
+              inputMode="text"
+              autoComplete="off"
+              placeholder="Customer name (optional)"
+              className="border p-2 mt-2 rounded"
+              value={customerName}
+              onChange={(e) => setCustomerName(e.target.value)}
+              onKeyDown={(e) => e.stopPropagation()}
+            />
+
+            <input
               type="number"
+              inputMode="numeric"
+              autoComplete="off"
               placeholder="Cash"
               className="border p-2 mt-2 rounded"
               value={cash}
               onChange={(e) => setCash(e.target.value)}
+              onKeyDown={(e) => e.stopPropagation()}
             />
 
             <div className="text-green-600 font-bold">
@@ -503,12 +521,15 @@ const handlePay = async () => {
             {showReceipt && (
               <div className="mt-4 border-t pt-3 text-sm bg-gray-50 p-3 rounded shadow-sm">
                 <p className="font-bold">Receipt #{receiptId}</p>
+                {receiptCustomerName && (
+                  <p className="text-sm text-gray-700">Name: {receiptCustomerName}</p>
+                )}
 
-          {receiptItems.map((item, i) => (
-      <p key={i}>
-       {item.name} ({item.size || "N/A"}) x{item.qty} - ₱{(item.price * item.qty).toFixed(2)}
-     </p>
-            ))}
+                {receiptItems.map((item, i) => (
+                  <p key={i}>
+                    {item.name} ({item.size || "N/A"}) x{item.qty} - ₱{(item.price * item.qty).toFixed(2)}
+                  </p>
+                ))}
 
                 <p>Subtotal: ₱{receiptTotal.toFixed(2)}</p>
                 <p>Cash: ₱{receiptCash}</p>

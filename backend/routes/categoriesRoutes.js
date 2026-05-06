@@ -19,7 +19,12 @@ router.post("/", (req, res) => {
   if (!name) return res.status(400).json({ success: false, message: "Name required" });
 
   db.query("INSERT INTO categories (name) VALUES (?)", [name], (err, result) => {
-    if (err) return res.status(500).json({ success: false, message: err.message });
+    if (err) {
+      if (err.code === "ER_DUP_ENTRY") {
+        return res.status(409).json({ success: false, message: "Category already exists" });
+      }
+      return res.status(500).json({ success: false, message: err.message });
+    }
 
     // Return the newly created category with its ID
     res.json({

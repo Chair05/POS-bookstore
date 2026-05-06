@@ -91,6 +91,7 @@ const res = await fetch("http://localhost:5000/api/products/restock", {
         id: Date.now(),
         productName: product.name,
         quantity: Number(quantity),
+        costPrice: costPrice ? Number(costPrice) : null,
         staff: "Admin",
         time: new Date().toLocaleTimeString([], {
           hour: "2-digit",
@@ -273,6 +274,11 @@ const res = await fetch("http://localhost:5000/api/products/restock", {
                       <p className="font-medium">{log.productName}</p>
                       <p className="text-sm text-gray-500">
                         +{log.quantity} • {log.staff}
+                        {log.costPrice != null && (
+                          <span className="ml-2 text-sm text-gray-500">
+                            • ${log.costPrice.toFixed(2)}
+                          </span>
+                        )}
                       </p>
                     </div>
 

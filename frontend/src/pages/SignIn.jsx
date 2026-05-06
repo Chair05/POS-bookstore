@@ -32,7 +32,8 @@ export default function SignUp() {
       .then((res) => res.json())
       .then((data) => {
         if (data.success) {
-          alert(`${role} account created successfully!`);
+          const displayRole = role === "sub" ? "Staff" : "Admin";
+          alert(`${displayRole} account created successfully!`);
           navigate("/login");
         } else {
           alert(data.message);
@@ -88,7 +89,7 @@ export default function SignUp() {
                 Sign Up
               </h1>
               <p className="text-sm text-gray-500">
-                Create an Admin or Sub account
+                Create an Admin or Staff account
               </p>
             </div>
           </div>
@@ -107,7 +108,7 @@ export default function SignUp() {
                 className="w-full h-12 px-4 rounded-xl border border-gray-300 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-600"
               >
                 <option value="admin">Admin</option>
-                <option value="sub">Sub User</option>
+                <option value="sub">Staff</option>
               </select>
             </div>
 

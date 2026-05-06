@@ -8,11 +8,12 @@ export default function LogIn() {
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [role, setRole] = useState("admin");
 
   const handleLogin = (e) => {
     e.preventDefault();
 
-    if (!username || !password) {
+    if (!username || !password || !role) {
       alert("Please fill in all fields.");
       return;
     }
@@ -20,7 +21,7 @@ export default function LogIn() {
     fetch("http://localhost:5000/api/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password }),
+      body: JSON.stringify({ username, password, role }),
     })
       .then((res) => res.json())
       .then((data) => {
@@ -30,7 +31,8 @@ export default function LogIn() {
             JSON.stringify({ name: data.name, role: data.role })
           );
 
-          window.location.href = "/dashboard";
+          const redirectUrl = data.role === "sub" ? "/stock" : "/dashboard";
+          window.location.href = redirectUrl;
         } else {
           alert(data.message);
         }
@@ -92,6 +94,20 @@ export default function LogIn() {
 
           {/* Form */}
           <form onSubmit={handleLogin} className="space-y-5">
+            <div>
+              <label className="block mb-1 text-sm font-medium text-gray-700">
+                Login as
+              </label>
+              <select
+                value={role}
+                onChange={(e) => setRole(e.target.value)}
+                className="w-full h-12 px-4 rounded-xl border border-gray-300 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-600"
+              >
+                <option value="admin">Admin</option>
+                <option value="sub">Staff</option>
+              </select>
+            </div>
+
             <div>
               <label className="block mb-1 text-sm font-medium text-gray-700">
                 Username

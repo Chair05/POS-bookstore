@@ -12,10 +12,16 @@ export default function InventoryLog() {
   const [typeFilter, setTypeFilter] = useState("all"); // all | IN | OUT
   const [search, setSearch] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   useEffect(() => {
     loadLogs();
   }, []);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [typeFilter, search]);
 
   const loadLogs = async () => {
     setLoading(true);
@@ -97,6 +103,27 @@ export default function InventoryLog() {
     return matchType && matchSearch;
   });
 
+  const totalPages = Math.ceil(filteredLogs.length / itemsPerPage);
+  const paginatedLogs = filteredLogs.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+  const getPaginationButtons = () => {
+    if (totalPages <= 5) {
+      return Array.from({ length: totalPages }, (_, i) => i + 1);
+    }
+
+    const pages = [];
+
+    if (currentPage <= 3) {
+      pages.push(1, 2, 3, 4, 'ellipsis', totalPages);
+    } else if (currentPage >= totalPages - 2) {
+      pages.push(1, 'ellipsis', totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
+    } else {
+      pages.push(1, 'ellipsis', currentPage - 1, currentPage, currentPage + 1, 'ellipsis', totalPages);
+    }
+
+    return pages;
+  };
+
   if (loading)
     return (
       <div className="h-screen w-screen flex items-center justify-center">
@@ -165,6 +192,9 @@ export default function InventoryLog() {
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  No.
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Type
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -186,8 +216,11 @@ export default function InventoryLog() {
             </thead>
 
             <tbody className="bg-white divide-y divide-gray-200">
-              {filteredLogs.map((log) => (
+              {paginatedLogs.map((log, index) => (
                 <tr key={log.id} className="hover:bg-gray-50 transition">
+                  <td className="px-6 py-4 whitespace-nowrap text-gray-500">
+                    {(currentPage - 1) * itemsPerPage + index + 1}
+                  </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     {log.type === "IN" ? (
                       <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
@@ -218,15 +251,54 @@ export default function InventoryLog() {
                 </tr>
               ))}
 
-              {filteredLogs.length === 0 && (
+              {paginatedLogs.length === 0 && (
                 <tr>
-                  <td className="px-6 py-4 text-center text-gray-500" colSpan="6">
+                  <td className="px-6 py-4 text-center text-gray-500" colSpan="7">
                     No logs found
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
+
+          {/* PAGINATION */}
+          {totalPages > 1 && (
+            <div className="p-4 bg-gray-50 border-t flex justify-center items-center gap-2">
+              <button
+                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                disabled={currentPage === 1}
+                className="px-3 py-1 border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+              >
+                Previous
+              </button>
+
+              {getPaginationButtons().map((page, index) =>
+                page === 'ellipsis' ? (
+                  <span key={`ellipsis-${index}`} className="px-3 py-1 text-gray-500">
+                    ...
+                  </span>
+                ) : (
+                  <button
+                    key={page}
+                    onClick={() => setCurrentPage(page)}
+                    className={`px-3 py-1 border rounded ${
+                      currentPage === page ? 'bg-blue-600 text-white' : 'hover:bg-gray-50'
+                    }`}
+                  >
+                    {page}
+                  </button>
+                )
+              )}
+
+              <button
+                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                disabled={currentPage === totalPages}
+                className="px-3 py-1 border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+              >
+                Next
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -66,7 +66,7 @@ export default function StartPage() {
                 text-white text-lg font-bold 
                 shadow-lg hover:brightness-105 active:scale-[0.98] transition"
             >
-              Sign In
+              Sign Up
             </button>
 
             <button

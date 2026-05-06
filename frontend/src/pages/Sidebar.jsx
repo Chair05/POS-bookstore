@@ -17,6 +17,8 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
   })();
 
   const isAdmin = user?.role === "admin";
+  const isStaff = user?.role === "sub";
+  const showInventory = isAdmin || isStaff;
 
   const linkClass = (path) =>
     `flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ${
@@ -47,17 +49,19 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
             <span className="font-medium">Home</span>
           </Link>
 
-          {isAdmin && (
+          {showInventory && (
             <>
               <Link onClick={closeSidebar} to="/stock" className={linkClass("/stock")}>
                 <span className="text-xl text-white">▢</span>
                 <span className="font-medium">Inventory</span>
               </Link>
 
-              <Link onClick={closeSidebar} to="/restock" className={linkClass("/restock")}>
-                <span className="text-xl text-white">↻</span>
-                <span className="font-medium">Restock</span>
-              </Link>
+              {isAdmin && (
+                <Link onClick={closeSidebar} to="/restock" className={linkClass("/restock")}>
+                  <span className="text-xl text-white">↻</span>
+                  <span className="font-medium">Restock</span>
+                </Link>
+              )}
             </>
           )}
 
@@ -66,10 +70,12 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
             <span className="font-medium">Inventory Log</span>
           </Link>
 
-          <Link onClick={closeSidebar} to="/sales" className={linkClass("/sales")}>
-            <span className="text-xl text-white ml-[-4px]">▴</span>
-            <span className="font-medium">Sales</span>
-          </Link>
+          {isAdmin && (
+            <Link onClick={closeSidebar} to="/sales" className={linkClass("/sales")}> 
+              <span className="text-xl text-white ml-[-4px]">▴</span>
+              <span className="font-medium">Sales</span>
+            </Link>
+          )}
         </nav>
 
         <div className="absolute bottom-6 left-6 right-6">

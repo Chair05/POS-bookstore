@@ -20,23 +20,30 @@ router.post("/register", (req, res) => {
     (err) => {
       if (err) {
         console.error("Database query error:", err);
+        if (err.code === "ER_DUP_ENTRY") {
+          return res.status(409).json({ success: false, message: "Username already exists" });
+        }
         return res.status(500).json({ success: false, message: "Database error" });
       }
-      return res.json({ success: true, message: `${role} registered successfully!` });
+      const displayRole = role === "sub" ? "Staff" : "Admin";
+      return res.json({ success: true, message: `${displayRole} registered successfully!` });
     }
   );
 });
 
 // ✅ Login (Admin or Sub)
 router.post("/login", (req, res) => {
-  const { username, password } = req.body;
+  const { username, password, role } = req.body;
 
-  if (!username || !password)
+  if (!username || !password || !role)
     return res.status(400).json({ success: false, message: "Missing fields" });
 
+  if (!["admin", "sub"].includes(role))
+    return res.status(400).json({ success: false, message: "Invalid role" });
+
   db.query(
-    "SELECT * FROM admins WHERE username = ? AND password = ?",
-    [username, password],
+    "SELECT * FROM admins WHERE username = ? AND password = ? AND role = ?",
+    [username, password, role],
     (err, result) => {
       if (err) {
         console.error(err);
@@ -44,7 +51,7 @@ router.post("/login", (req, res) => {
       }
 
       if (result.length === 0) {
-        return res.status(401).json({ success: false, message: "Invalid credentials" });
+        return res.status(401).json({ success: false, message: "Invalid credentials or wrong role" });
       }
 
       const user = result[0];
