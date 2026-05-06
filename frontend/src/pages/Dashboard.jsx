@@ -247,7 +247,7 @@ const handlePay = async () => {
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ items }),
+        body: JSON.stringify({ items, customerName: customerName.trim() || null }),
       }
     );
 

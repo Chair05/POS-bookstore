@@ -96,6 +96,7 @@ export default function SalesPage() {
           acc[key] = {
             receiptId: key,
             created_at: row.created_at,
+            customer_name: row.customer_name?.trim() || null,
             items: {},
             total: row.receipt_total || 0,
           };
@@ -340,6 +341,12 @@ export default function SalesPage() {
         <p className="font-semibold text-lg">
           Receipt {sale.receiptId}
         </p>
+
+        {sale.customer_name?.trim() && (
+          <p className="text-sm text-gray-600 font-medium">
+            Customer: {sale.customer_name.trim()}
+          </p>
+        )}
 
         <p className="text-sm text-gray-500 mt-1">
           {formatDate(sale.created_at)}

@@ -302,7 +302,13 @@ router.delete("/:id", (req, res) => {
 // CHECKOUT
 // -------------------------
 router.post("/checkout", async (req, res) => {
-  const { items } = req.body;
+  const { items, customerName } = req.body;
+  const cleanedCustomerName =
+    typeof customerName === "string" && customerName.trim()
+      ? customerName.trim()
+      : null;
+
+  console.log("Checkout received - customerName:", cleanedCustomerName);
 
   if (!items || !Array.isArray(items) || items.length === 0) {
     return res.json({ success: false, message: "Cart is empty" });
@@ -382,10 +388,11 @@ router.post("/checkout", async (req, res) => {
     );
 
     // Insert receipt total into sales table
+    console.log("Inserting sales record - customerName:", cleanedCustomerName);
     await new Promise((resolve, reject) => {
       db.query(
-        `INSERT INTO sales (receipt_id, total, adminId) VALUES (?, ?, ?)`,
-        [receiptId, total, null],
+        `INSERT INTO sales (receipt_id, total, adminId, customer_name) VALUES (?, ?, ?, ?)`,
+        [receiptId, total, null, cleanedCustomerName],
         (err) => (err ? reject(err) : resolve())
       );
     });
@@ -409,7 +416,18 @@ router.post("/checkout", async (req, res) => {
 // -------------------------
 router.get("/sales", (req, res) => {
   db.query(
-    `SELECT si.*, s.total as receipt_total
+    `SELECT
+        si.id,
+        si.receipt_id,
+        si.product_id,
+        si.product_name,
+        si.barcode,
+        si.quantity,
+        si.price,
+        si.total,
+        si.created_at,
+        s.total as receipt_total,
+        s.customer_name
      FROM sales_items si
      LEFT JOIN sales s ON si.receipt_id = s.receipt_id
      ORDER BY si.created_at DESC`,
