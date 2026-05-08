@@ -490,54 +490,73 @@ const handlePay = async () => {
             <h2 className="font-bold mb-3">Checkout</h2>
 
             <div className="flex-1 overflow-auto">
-              {Object.values(checkoutItems).map((item) => (
-                <div key={item.id} className="flex items-center gap-2 border-b py-1">
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm truncate">{item.name}</p>
-                    <p className="text-xs text-gray-500">Size: {item.size || "N/A"}</p>
-                  </div>
+{Object.values(checkoutItems).map((item) => (
+  <div
+    key={item.id}
+    className="border-b py-2 flex flex-col gap-2 overflow-hidden min-w-0"
+  >
+    {/* Product Info */}
+    <div className="min-w-0 overflow-hidden">
+      <p className="font-medium text-sm leading-tight break-words line-clamp-2">
+        {item.name}
+      </p>
 
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={() => decreaseQuantity(item.id)}
-                      className="w-5 h-5 flex items-center justify-center rounded bg-gray-100 hover:bg-gray-200 text-blue-600 text-xs"
-                      title="Decrease"
-                      type="button"
-                    >
-                      -
-                    </button>
+      <p className="text-xs text-gray-500 truncate">
+        Size: {item.size || "N/A"}
+      </p>
+    </div>
 
-                    <input
-                      type="number"
-                      min={1}
-                      value={item.qty}
-                      onChange={(e) => setQuantity(item.id, e.target.value)}
-                      onKeyDown={(e) => e.stopPropagation()}
-                      className="w-7 text-center border rounded px-1 py-0.5 text-xs"
-                    />
+    {/* Bottom Row */}
+    <div className="flex items-center justify-between gap-2 min-w-0">
+      
+      {/* Quantity Controls */}
+      <div className="flex items-center gap-1 shrink-0">
+        <button
+          onClick={() => decreaseQuantity(item.id)}
+          className="w-5 h-5 flex items-center justify-center rounded bg-gray-100 hover:bg-gray-200 text-blue-600 text-xs"
+          title="Decrease"
+          type="button"
+        >
+          -
+        </button>
 
-                    <button
-                      onClick={() => increaseQuantity(item.id)}
-                      className="w-5 h-5 flex items-center justify-center rounded bg-gray-100 hover:bg-gray-200 text-blue-600 text-xs"
-                      title="Increase"
-                      type="button"
-                    >
-                      +
-                    </button>
+        <input
+          type="number"
+          min={1}
+          value={item.qty}
+          onChange={(e) => setQuantity(item.id, e.target.value)}
+          onKeyDown={(e) => e.stopPropagation()}
+          className="w-8 h-5 text-center border rounded px-0 text-xs"
+        />
 
-                    <button
-                      onClick={() => removeFromCheckout(item.id)}
-                      className="ml-1 text-red-500 font-semibold text-sm hover:text-red-700 px-1"
-                      title="Remove item"
-                      type="button"
-                    >
-                      ×
-                    </button>
-                  </div>
+        <button
+          onClick={() => increaseQuantity(item.id)}
+          className="w-5 h-5 flex items-center justify-center rounded bg-gray-100 hover:bg-gray-200 text-blue-600 text-xs"
+          title="Increase"
+          type="button"
+        >
+          +
+        </button>
+      </div>
 
-                  <div className="w-12 text-right font-semibold text-sm">₱{(item.price * item.qty).toFixed(2)}</div>
-                </div>
-              ))}
+      {/* Price + Remove */}
+      <div className="flex items-center gap-2 shrink-0">
+        <div className="text-right font-semibold text-sm whitespace-nowrap">
+          ₱{(item.price * item.qty).toFixed(2)}
+        </div>
+
+        <button
+          onClick={() => removeFromCheckout(item.id)}
+          className="text-red-500 font-semibold text-sm hover:text-red-700 px-1"
+          title="Remove item"
+          type="button"
+        >
+          ×
+        </button>
+      </div>
+    </div>
+  </div>
+))}             
             </div>
 
             <div className="mt-2 font-semibold">
