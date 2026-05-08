@@ -417,19 +417,21 @@ router.post("/checkout", async (req, res) => {
 router.get("/sales", (req, res) => {
   db.query(
     `SELECT
-        si.id,
-        si.receipt_id,
-        si.product_id,
-        si.product_name,
-        si.barcode,
-        si.quantity,
-        si.price,
-        si.total,
-        si.created_at,
-        s.total as receipt_total,
-        s.customer_name
+      si.id,
+      si.receipt_id,
+      si.product_id,
+      si.product_name,
+      si.barcode,
+      si.quantity,
+      si.price,
+      si.total,
+      si.created_at,
+      s.total as receipt_total,
+      s.customer_name,
+      p.category as category
      FROM sales_items si
      LEFT JOIN sales s ON si.receipt_id = s.receipt_id
+     LEFT JOIN products p ON si.product_id = p.id
      ORDER BY si.created_at DESC`,
     (err, results) => {
       if (err)

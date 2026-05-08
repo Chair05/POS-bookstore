@@ -227,6 +227,54 @@ const decreaseQuantity = (id) => {
   });
 };
 
+const increaseQuantity = (id) => {
+  setCheckoutItems((prev) => {
+    const item = prev[id];
+    if (!item) return prev;
+
+    const product = products.find((p) => String(p.id) === String(id));
+    const max = product ? Number(product.stock || 0) : Infinity;
+
+    if (item.qty >= max) {
+      addNotification("Out of stock");
+      return prev;
+    }
+
+    return {
+      ...prev,
+      [id]: {
+        ...item,
+        qty: item.qty + 1,
+      },
+    };
+  });
+};
+
+const setQuantity = (id, value) => {
+  setCheckoutItems((prev) => {
+    const item = prev[id];
+    if (!item) return prev;
+
+    let qty = Number(value) || 0;
+    if (qty < 1) qty = 1;
+
+    const product = products.find((p) => String(p.id) === String(id));
+    const max = product ? Number(product.stock || 0) : Infinity;
+    if (qty > max) {
+      addNotification(`Only ${max} available`);
+      qty = max;
+    }
+
+    return {
+      ...prev,
+      [id]: {
+        ...item,
+        qty,
+      },
+    };
+  });
+};
+
   /* PAYMENT */
 const handlePay = async () => {
   if (!Object.keys(checkoutItems).length)
@@ -335,7 +383,7 @@ const handlePay = async () => {
       <div className="flex flex-col flex-1">
 
         {/* HEADER */}
-        <header className="flex items-center justify-between bg-gradient-to-r from-blue-600 to-blue-800 text-white px-4 py-3 shadow">
+        <header className="flex items-center justify-between bg-gradient-to-r from-blue-600 to-blue-800 text-white px-4 py-2 shadow">
           <div className="flex items-center gap-3">
             <button
               onClick={() => setSidebarOpen(true)}
@@ -437,46 +485,57 @@ const handlePay = async () => {
           </div>
 
           {/* CHECKOUT */}
-          <div className="w-80 bg-white shadow p-4 flex flex-col rounded">
+          <div className="w-60 bg-white shadow p-2 flex flex-col rounded">
 
             <h2 className="font-bold mb-3">Checkout</h2>
 
             <div className="flex-1 overflow-auto">
-          {Object.values(checkoutItems).map((item) => (
-             <div key={item.id} className="flex justify-between border-b py-1">
+              {Object.values(checkoutItems).map((item) => (
+                <div key={item.id} className="flex items-center gap-2 border-b py-1">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm truncate">{item.name}</p>
+                    <p className="text-xs text-gray-500">Size: {item.size || "N/A"}</p>
+                  </div>
 
-       <div>
-      <span>{item.name}</span>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => decreaseQuantity(item.id)}
+                      className="w-5 h-5 flex items-center justify-center rounded bg-gray-100 hover:bg-gray-200 text-blue-600 text-xs"
+                      title="Decrease"
+                      type="button"
+                    >
+                      -
+                    </button>
 
-     <p className="text-xs text-gray-500">
-      Qty: {item.qty}
-     </p>
+                    <input
+                      type="number"
+                      min={1}
+                      value={item.qty}
+                      onChange={(e) => setQuantity(item.id, e.target.value)}
+                      onKeyDown={(e) => e.stopPropagation()}
+                      className="w-7 text-center border rounded px-1 py-0.5 text-xs"
+                    />
 
-      <p className="text-xs text-gray-500">
-    Size: {item.size || "N/A"}
-         </p>
-         </div>
+                    <button
+                      onClick={() => increaseQuantity(item.id)}
+                      className="w-5 h-5 flex items-center justify-center rounded bg-gray-100 hover:bg-gray-200 text-blue-600 text-xs"
+                      title="Increase"
+                      type="button"
+                    >
+                      +
+                    </button>
 
-         <span>₱{(item.price * item.qty).toFixed(2)}</span>
+                    <button
+                      onClick={() => removeFromCheckout(item.id)}
+                      className="ml-1 text-red-500 font-semibold text-sm hover:text-red-700 px-1"
+                      title="Remove item"
+                      type="button"
+                    >
+                      ×
+                    </button>
+                  </div>
 
-<div className="flex gap-2 items-center">
-  <button
-    onClick={() => decreaseQuantity(item.id)}
-    className="text-blue-500 hover:text-blue-700 font-bold px-2 transition relative -top-[7px]"
-  >
-    -
-  </button>
-
-      <span className="text-sm font-medium">
-        {item.qty}
-         </span>
-
-         <button
-          onClick={() => removeFromCheckout(item.id)}
-          className="text-red-500 font-bold text-lg px-2 hover:text-red-700 transition relative -top-[7px]"
-          title="Remove item"> × </button>
-             </div>
-
+                  <div className="w-12 text-right font-semibold text-sm">₱{(item.price * item.qty).toFixed(2)}</div>
                 </div>
               ))}
             </div>

@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import {LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, } from "recharts";
+import {LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, PieChart, Pie, Cell, Legend, } from "recharts";
 import Sidebar from "./Sidebar";
 
 
@@ -21,7 +21,9 @@ export default function SalesPage() {
     try {
       const res = await fetch("http://localhost:5000/api/products/sales");
       const data = await res.json();
+      console.log("Loaded sales:", data.sales);
       if (data.success) setSales(data.sales);
+      
     } catch (err) {
       console.error(err);
     }
@@ -199,6 +201,44 @@ export default function SalesPage() {
   }));
 }, [sales, chartFilter]);
 
+  const categorySummary = useMemo(() => {
+    return filtered.reduce((acc, s) => {
+      const rawCat = s.category ?? s.category_name ?? (s.product_category && s.product_category.name) ?? s.product?.category ?? s.product?.category_name ?? s.category_id ?? s.categoryId ?? null;
+      const cat = rawCat === null || rawCat === undefined || rawCat === "" ? "Uncategorized" : String(rawCat);
+      const qty = Number(s.quantity) || 0;
+      acc[cat] = (acc[cat] || 0) + qty;
+      return acc;
+    }, {});
+  }, [filtered]);
+
+  const pieData = useMemo(() => {
+    return Object.entries(categorySummary).map(([name, value]) => ({ name, value }));
+  }, [categorySummary]);
+
+  const topProductsByCategory = useMemo(() => {
+    const map = {};
+    filtered.forEach((s) => {
+      const rawCat = s.category ?? s.category_name ?? (s.product_category && s.product_category.name) ?? s.product?.category ?? s.product?.category_name ?? s.category_id ?? s.categoryId ?? null;
+      const cat = rawCat === null || rawCat === undefined || rawCat === "" ? "Uncategorized" : String(rawCat);
+      const name = s.product_name || "Unknown";
+      const qty = Number(s.quantity) || 0;
+      map[cat] = map[cat] || {};
+      map[cat][name] = (map[cat][name] || 0) + qty;
+    });
+
+    // convert to sorted arrays
+    return Object.entries(map).reduce((acc, [cat, prodMap]) => {
+      const items = Object.entries(prodMap)
+        .map(([name, qty]) => ({ name, qty }))
+        .sort((a, b) => b.qty - a.qty)
+        .slice(0, 5);
+      acc[cat] = items;
+      return acc;
+    }, {});
+  }, [filtered]);
+
+  const PIE_COLORS = ["#4f46e5", "#06b6d4", "#10b981", "#f59e0b", "#ef4444", "#7c3aed", "#0ea5e9"];
+
   return (
     <div className="h-screen w-screen flex flex-col bg-gray-100">
       <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
@@ -279,6 +319,55 @@ export default function SalesPage() {
             />
           </LineChart>
         </ResponsiveContainer>
+      </div>
+    </div>
+
+    {/* CATEGORY PIE + TOP PRODUCTS */}
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="bg-white rounded-2xl p-5 shadow-sm">
+        <h3 className="font-semibold mb-3">Sales by Category</h3>
+        <div className="h-[260px] flex items-center justify-center">
+          <ResponsiveContainer width="100%" height={260}>
+            <PieChart>
+              <Pie
+                data={pieData}
+                dataKey="value"
+                nameKey="name"
+                outerRadius={90}
+                fill="#8884d8"
+                label
+              >
+                {pieData.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                ))}
+              </Pie>
+              <Legend />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-2xl p-5 shadow-sm">
+        <h3 className="font-semibold mb-3">Top Products by Category</h3>
+        <div className="space-y-3 max-h-[260px] overflow-y-auto">
+          {Object.keys(topProductsByCategory).length === 0 && (
+            <p className="text-sm text-gray-500">No category data available.</p>
+          )}
+
+          {Object.entries(topProductsByCategory).map(([cat, items]) => (
+            <div key={cat} className="border-b pb-2">
+              <p className="font-medium">{cat}</p>
+              <ul className="text-sm mt-1 space-y-1">
+                {items.map((it) => (
+                  <li key={it.name} className="flex justify-between">
+                    <span>{it.name}</span>
+                    <span className="text-gray-600">{it.qty}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
 
