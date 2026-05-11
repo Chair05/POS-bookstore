@@ -143,7 +143,7 @@ export default function InventoryLog() {
       <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
 
       {/* HEADER */}
-      <header className="flex items-center bg-gradient-to-r from-blue-600 to-blue-800 text-white px-4 py-3 shadow">
+      <header className="flex items-center justify-between bg-gradient-to-r from-blue-600 to-blue-800 text-white px-4 py-2 shadow">
         <div className="flex items-center gap-3">
           <button
             onClick={() => setSidebarOpen(true)}
@@ -157,7 +157,7 @@ export default function InventoryLog() {
       </header>
 
       {/* FILTERS */}
-      <div className="p-4 bg-white shadow-md border-b">
+      <div className="-mt-2 p-4 bg-white shadow-md border-b">
         <div className="flex gap-3 flex-wrap items-center">
           <input
             placeholder="Search product or staff..."
@@ -167,7 +167,7 @@ export default function InventoryLog() {
           />
 
           <select
-            className="border px-4 py-2 rounded-lg focus:ring-2 focus:ring-blue-500"
+            className="border border-gray-300 bg-white px-4 py-2 rounded-lg shadow-sm hover:bg-blue-50 hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 cursor-pointer"
             value={typeFilter}
             onChange={(e) => setTypeFilter(e.target.value)}
           >

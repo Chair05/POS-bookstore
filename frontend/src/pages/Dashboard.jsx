@@ -148,6 +148,16 @@ const addNotification = (message) => {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [products, checkoutItems]);
 
+  /* AUTO-PRINT RECEIPT */
+  useEffect(() => {
+    if (showReceipt) {
+      const timer = setTimeout(() => {
+        handlePrintReceipt();
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [showReceipt]);
+
   /*barcode scan*/
 const handleBarcodeScan = (code) => {
   if (scanLock.current) return;
@@ -275,7 +285,6 @@ const setQuantity = (id, value) => {
   });
 };
 
-  /* PAYMENT */
 const handlePay = async () => {
   if (!Object.keys(checkoutItems).length)
     return addNotification("Checkout empty");
@@ -305,19 +314,20 @@ const handlePay = async () => {
       return addNotification("Payment failed");
 
     const id = data.receiptId;
+    const snapshotItems = Object.values(checkoutItems);
+    const snapshotTotal = total;
+    const snapshotCash = cashNum;
+    const snapshotChange = cashNum - total;
+    const snapshotCustomerName = customerName.trim();
 
     setReceiptId(id);
-    setReceiptItems(Object.values(checkoutItems));
-    setReceiptTotal(total);
-    setReceiptCash(cashNum);
-    setReceiptChange(cashNum - total);
-    setReceiptCustomerName(customerName.trim());
+    setReceiptItems(snapshotItems);
+    setReceiptTotal(snapshotTotal);
+    setReceiptCash(snapshotCash);
+    setReceiptChange(snapshotChange);
+    setReceiptCustomerName(snapshotCustomerName);
 
     setShowReceipt(true);
-
-    setTimeout(() => {
-      setShowReceipt(false);
-    }, 4000);
 
     setCheckoutItems({});
     setTotal(0);
@@ -332,7 +342,89 @@ const handlePay = async () => {
     addNotification("Error processing payment");
   }
 };
-  const filtered = products.filter((p) => {
+
+/* PRINT RECEIPT */
+const handlePrintReceipt = () => {
+  const date = new Date().toLocaleString();
+  
+  const itemsHtml = receiptItems
+    .map(
+      (item) =>
+        `<p>${item.name}${item.size ? " (" + item.size + ")" : ""} x${item.qty} - ₱${(item.price * item.qty).toFixed(2)}</p>`
+    )
+    .join("");
+
+  const w = window.open("", "_blank");
+  
+  if (!w) {
+    return addNotification("Failed to open print window. Check pop-up blocker settings.");
+  }
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Receipt #${receiptId}</title>
+      <style>
+        body {
+          font-family: 'Courier New', Courier, monospace;
+          padding: 20px;
+          max-width: 400px;
+          margin: 0 auto;
+          color: #000;
+        }
+        h2 {
+          text-align: center;
+          margin-bottom: 10px;
+        }
+        .center { text-align: center; }
+        .divider { border-top: 1px dashed #000; margin: 10px 0; }
+        h3 { margin: 10px 0 5px 0; }
+        p { margin: 3px 0; }
+        .total { font-weight: bold; font-size: 16px; margin-top: 10px; }
+        .thank-you { text-align: center; margin-top: 20px; font-size: 12px; }
+      </style>
+    </head>
+    <body>
+      <h2>LCCB Bookstore</h2>
+      <p class="center">La Consolacion College Bacolod</p>
+      <div class="divider"></div>
+      <p class="center"><strong>Receipt #${receiptId}</strong></p>
+      <p class="center">${date}</p>
+      ${receiptCustomerName ? `<p class="center">Customer: <strong>${receiptCustomerName}</strong></p>` : ""}
+      <div class="divider"></div>
+      
+      <h3>Items:</h3>
+      ${itemsHtml}
+      
+      <div class="divider"></div>
+      <div class="total">
+        Total: ₱${receiptTotal.toFixed(2)}<br>
+        Paid: ₱${receiptCash.toFixed(2)}<br>
+        Change: ₱${receiptChange.toFixed(2)}
+      </div>
+      
+      <div class="thank-you">
+        <p>Thank you for your purchase!</p>
+        <p>Please come again</p>
+      </div>
+    </body>
+    </html>
+  `;
+
+  w.document.write(html);
+  w.document.close();
+
+  setTimeout(() => {
+    w.focus();
+    w.print();
+    setTimeout(() => {
+      setShowReceipt(false);
+    }, 100);
+  }, 250);
+};
+
+const filtered = products.filter((p) => {
     const matchSearch = p.name
       .toLowerCase()
       .includes(search.toLowerCase());
@@ -485,53 +577,53 @@ const handlePay = async () => {
           </div>
 
           {/* CHECKOUT */}
-          <div className="w-60 bg-white shadow p-2 flex flex-col rounded">
+          <div className="w-96 bg-white shadow-lg p-2 flex flex-col rounded-lg h-full">
 
-            <h2 className="font-bold mb-3">Checkout</h2>
+            <h2 className="font-bold text-lg mb-0 text-gray-800">Checkout</h2>
 
-            <div className="flex-1 overflow-auto">
+            <div className="flex-1 overflow-auto border border-gray-200 rounded p-3 mb-0 bg-gray-50">
 {Object.values(checkoutItems).map((item) => (
   <div
     key={item.id}
-    className="border-b py-2 flex flex-col gap-2 overflow-hidden min-w-0"
+    className="border-b border-gray-200 py-3 flex flex-col gap-2 overflow-hidden min-w-0 last:border-b-0"
   >
     {/* Product Info */}
     <div className="min-w-0 overflow-hidden">
-      <p className="font-medium text-sm leading-tight break-words line-clamp-2">
+      <p className="font-medium text-sm leading-tight break-words line-clamp-2 text-gray-800">
         {item.name}
       </p>
 
-      <p className="text-xs text-gray-500 truncate">
+      <p className="text-xs text-gray-500 truncate mt-1">
         Size: {item.size || "N/A"}
       </p>
     </div>
 
     {/* Bottom Row */}
-    <div className="flex items-center justify-between gap-2 min-w-0">
-      
+    <div className="flex items-center justify-between gap-2 min-w-0 mt-2">
+
       {/* Quantity Controls */}
       <div className="flex items-center gap-1 shrink-0">
         <button
           onClick={() => decreaseQuantity(item.id)}
-          className="w-5 h-5 flex items-center justify-center rounded bg-gray-100 hover:bg-gray-200 text-blue-600 text-xs"
+          className="w-5 h-5 flex items-center justify-center rounded bg-gray-200 hover:bg-gray-300 text-blue-600 text-xs font-bold transition relative -top-[8px]"
           title="Decrease"
           type="button"
         >
-          -
+          −
         </button>
 
-        <input
-          type="number"
-          min={1}
-          value={item.qty}
-          onChange={(e) => setQuantity(item.id, e.target.value)}
-          onKeyDown={(e) => e.stopPropagation()}
-          className="w-8 h-5 text-center border rounded px-0 text-xs"
-        />
-
+<input
+  type="number"
+  min={1}
+  value={item.qty}
+  onChange={(e) => setQuantity(item.id, e.target.value)}
+  onKeyDown={(e) => e.stopPropagation()}
+  style={{ width: "40px" }}
+  className="h-5 appearance-none text-center rounded bg-gray-200 text-[10px] font-bold"
+/>
         <button
           onClick={() => increaseQuantity(item.id)}
-          className="w-5 h-5 flex items-center justify-center rounded bg-gray-100 hover:bg-gray-200 text-blue-600 text-xs"
+          className="w-5 h-5 flex items-center justify-center rounded bg-gray-200 hover:bg-gray-300 text-blue-600 text-xs font-bold transition relative -top-[8px]"
           title="Increase"
           type="button"
         >
@@ -541,13 +633,13 @@ const handlePay = async () => {
 
       {/* Price + Remove */}
       <div className="flex items-center gap-2 shrink-0">
-        <div className="text-right font-semibold text-sm whitespace-nowrap">
+        <div className="text-right font-bold text-sm text-green-600 whitespace-nowrap">
           ₱{(item.price * item.qty).toFixed(2)}
         </div>
 
         <button
           onClick={() => removeFromCheckout(item.id)}
-          className="text-red-500 font-semibold text-sm hover:text-red-700 px-1"
+          className="text-red-500 font-bold text-lg hover:text-red-700 hover:bg-red-50 px-1.5 py-0.5 rounded transition relative -top-[8px]"
           title="Remove item"
           type="button"
         >
@@ -556,64 +648,107 @@ const handlePay = async () => {
       </div>
     </div>
   </div>
-))}             
+))}
             </div>
 
-            <div className="mt-2 font-semibold">
-              Subtotal: ₱{total.toFixed(2)}
+            <div className="mt-auto">
+              {/* Subtotal */}
+              <div className="border-t-2 border-gray-200 pt-0 pb-1 mt-1">
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-700 font-semibold">Subtotal:</span>
+                  <span className="font-bold text-lg text-gray-900">₱{total.toFixed(2)}</span>
+                </div>
+              </div>
+
+            {/* Customer Name Input */}
+            <div className="mb-1">
+              <input
+                type="text"
+                inputMode="text"
+                autoComplete="off"
+                placeholder="Customer name (optional)"
+                className="w-full border border-gray-300 p-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                value={customerName}
+                onChange={(e) => setCustomerName(e.target.value)}
+                onKeyDown={(e) => e.stopPropagation()}
+              />
             </div>
 
-            <input
-              type="text"
-              inputMode="text"
-              autoComplete="off"
-              placeholder="Customer name (optional)"
-              className="border p-2 mt-2 rounded"
-              value={customerName}
-              onChange={(e) => setCustomerName(e.target.value)}
-              onKeyDown={(e) => e.stopPropagation()}
-            />
-
-            <input
-              type="number"
-              inputMode="numeric"
-              autoComplete="off"
-              placeholder="Cash"
-              className="border p-2 mt-2 rounded"
-              value={cash}
-              onChange={(e) => setCash(e.target.value)}
-              onKeyDown={(e) => e.stopPropagation()}
-            />
-
-            <div className="text-green-600 font-bold">
-              Change: ₱{change.toFixed(2)}
+            {/* Cash Input */}
+            <div className="mb-0">
+              <input
+                type="number"
+                inputMode="numeric"
+                autoComplete="off"
+                placeholder="Cash amount"
+                className="w-full border border-gray-300 p-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                value={cash}
+                onChange={(e) => setCash(e.target.value)}
+                onKeyDown={(e) => e.stopPropagation()}
+              />
             </div>
 
+            {/* Change Display */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-2 mb-0">
+              <p className="text-xs text-gray-600 font-medium">Change:</p>
+              <p className="text-xl font-bold text-blue-600">
+                ₱{change.toFixed(2)}
+              </p>
+            </div>
+
+            {/* Pay Button */}
             <button
               onClick={handlePay}
-              className="bg-green-600 hover:bg-green-700 text-white py-2 mt-3 rounded transition"
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded-lg transition shadow-md hover:shadow-lg mb-0"
             >
               Pay
             </button>
 
+            {/* Receipt */}
             {showReceipt && (
-              <div className="mt-4 border-t pt-3 text-sm bg-gray-50 p-3 rounded shadow-sm">
-                <p className="font-bold">Receipt #{receiptId}</p>
+              <div className="border-t-2 border-gray-200 pt-3 bg-gradient-to-b from-gray-50 to-white p-3 rounded-lg shadow-md">
+                <p className="font-bold text-lg text-gray-900 mb-2">Receipt #{receiptId}</p>
+
                 {receiptCustomerName && (
-                  <p className="text-sm text-gray-700">Name: {receiptCustomerName}</p>
+                  <p className="text-sm text-gray-700 mb-2 font-semibold">Customer: {receiptCustomerName}</p>
                 )}
 
-                {receiptItems.map((item, i) => (
-                  <p key={i}>
-                    {item.name} ({item.size || "N/A"}) x{item.qty} - ₱{(item.price * item.qty).toFixed(2)}
-                  </p>
-                ))}
+                <div className="space-y-1 mb-2 pb-2 border-b border-gray-300">
+                  {receiptItems.map((item, i) => (
+                    <p key={i} className="text-xs text-gray-700">
+                      {item.name} ({item.size || "N/A"}) × {item.qty}
+                      <span className="float-right font-semibold">₱{(item.price * item.qty).toFixed(2)}</span>
+                    </p>
+                  ))}
+                </div>
 
-                <p>Subtotal: ₱{receiptTotal.toFixed(2)}</p>
-                <p>Cash: ₱{receiptCash}</p>
-                <p>Change: ₱{receiptChange.toFixed(2)}</p>
+                <div className="space-y-1 text-sm font-medium text-gray-800">
+                  <div className="flex justify-between">
+                    <span>Total:</span>
+                    <span>₱{receiptTotal.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Paid:</span>
+                    <span>₱{receiptCash.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-green-600 font-bold text-base pt-1 border-t border-gray-300">
+                    <span>Change:</span>
+                    <span>₱{receiptChange.toFixed(2)}</span>
+                  </div>
+                </div>
+
+                <div className="mt-4 flex gap-2 justify-end">
+                  <button
+                    type="button"
+                    onClick={handlePrintReceipt}
+                    className="bg-slate-800 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-slate-900 transition"
+                  >
+                    Print Receipt
+                  </button>
+                </div>
               </div>
             )}
+            </div>
 
           </div>
         </div>

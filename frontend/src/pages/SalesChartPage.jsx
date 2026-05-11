@@ -35,9 +35,9 @@ export default function SalesChartPage() {
   }, [sales]);
 
   return (
-    <div className="h-screen w-screen bg-blue-500 p-6 flex flex-col">
-      <header className="flex justify-between items-center mb-4">
-        <h1 className="text-4xl font-bold text-white">📈 Sales Chart</h1>
+    <div className="h-screen w-screen bg-gray-100 p-6 flex flex-col">
+      <header className="flex items-center justify-between bg-gradient-to-r from-blue-600 to-blue-800 text-white px-4 py-2 shadow mb-4">
+        <h1 className="text-2xl font-bold">📈 Sales Chart</h1>
         <Link to="/sales">
           <button className="px-5 py-3 bg-white text-blue-600 rounded-full font-semibold hover:bg-gray-100 transition">
             ⬅ Back to Sales
@@ -50,10 +50,10 @@ export default function SalesChartPage() {
           <p className="text-center text-gray-500 mt-20 text-lg">No sales to display.</p>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={chartData} margin={{ top: 10, right: 20, bottom: 20, left: 0 }}>
+            <LineChart data={chartData} margin={{ top: 10, right: 40, bottom: 20, left: 0 }}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="date" tick={{ fontSize: 12 }} />
-              <YAxis tick={{ fontSize: 12 }} />
+              <YAxis tick={{ fontSize: 12 }} orientation="right" />
               <Tooltip formatter={(value) => `₱${value}`} />
               <Line type="monotone" dataKey="total" stroke="#2563eb" strokeWidth={3} />
             </LineChart>

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import Sidebar from "./Sidebar";
 
@@ -26,6 +26,9 @@ export default function Stock() {
 
   const [openActionMenuId, setOpenActionMenuId] = useState(null);
   const [search, setSearch] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("");
+  const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
+  const categoryDropdownRef = useRef(null);
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -34,6 +37,20 @@ export default function Stock() {
   useEffect(() => {
     loadStock();
     loadCategories();
+  }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        categoryDropdownRef.current &&
+        !categoryDropdownRef.current.contains(event.target)
+      ) {
+        setCategoryDropdownOpen(false);
+      }
+    };
+
+    window.addEventListener("mousedown", handleClickOutside);
+    return () => window.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   const loadStock = async () => {
@@ -146,10 +163,11 @@ export default function Stock() {
   const filteredStock = stock.filter((item) => {
     const query = search.toLowerCase();
 
-    return (
-      item.name?.toLowerCase().includes(query) ||
-      item.category?.toLowerCase().includes(query)
-    );
+    if (categoryFilter && item.category !== categoryFilter) {
+      return false;
+    }
+
+    return item.name?.toLowerCase().includes(query);
   });
 
   if (loading) return (
@@ -173,11 +191,11 @@ export default function Stock() {
     <div className="h-screen w-screen bg-gray-100 flex flex-col">
       <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
 
-      <header className="flex items-center bg-blue-600 text-white px-4 py-3 shadow">
+      <header className="flex items-center justify-between bg-gradient-to-r from-blue-600 to-blue-800 text-white px-4 py-2 shadow">
         <div className="flex items-center gap-3">
           <button
             onClick={() => setSidebarOpen(true)}
-            className="text-2xl relative -top-[7px]"
+            className="text-2xl transition relative -top-[7px]"
           >
             ☰
           </button>
@@ -188,19 +206,61 @@ export default function Stock() {
         </div>
       </header>
 
-      <div className="p-3 bg-white shadow flex items-center gap-3">
+      <div className="p-3 bg-white shadow flex flex-wrap items-center gap-3">
         <input
-          placeholder="Search product or category..."
-          className="flex-1 px-4 py-2 h-11 rounded-full border mt-1"
+          placeholder="Search product..."
+          className="flex-1 min-w-[220px] px-4 py-2 h-11 rounded-full border"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
+
+        <div ref={categoryDropdownRef} className="relative -top-[8px]">
+          <button
+            type="button"
+            onClick={() => setCategoryDropdownOpen((prev) => !prev)}
+            className="h-11 px-4 rounded-xl border border-gray-300 bg-white text-gray-700 shadow-sm hover:bg-blue-50 hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 cursor-pointer flex items-center gap-2 min-w-[160px] whitespace-nowrap"
+          >
+            <span>{categoryFilter || "All Categories"}</span>
+            <span className="text-gray-500">▾</span>
+          </button>
+
+          {categoryDropdownOpen && (
+            <div className="absolute right-0 z-20 mt-2 w-56 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg">
+              <button
+                type="button"
+                onClick={() => {
+                  setCategoryFilter("");
+                  setCategoryDropdownOpen(false);
+                }}
+                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-600 hover:text-white transition"
+              >
+                All Categories
+              </button>
+              {categories.map((cat, idx) => {
+                const label = typeof cat === "string" ? cat : cat?.name || "";
+                return (
+                  <button
+                    key={`${label}-${idx}`}
+                    type="button"
+                    onClick={() => {
+                      setCategoryFilter(label);
+                      setCategoryDropdownOpen(false);
+                    }}
+                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-600 hover:text-white transition"
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
 
         <button
           onClick={() => setShowAddModal(true)}
           className="h-11 px-6 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition flex items-center justify-center whitespace-nowrap relative -top-[9px]"
         >
-          ➕ Add Product
+          Add Product
         </button>
       </div>
 
@@ -333,11 +393,14 @@ export default function Stock() {
                     }
                   >
                     <option value="">Select Category</option>
-                    {categories.map((cat) => (
-                      <option key={cat.id} value={cat.name}>
-                        {cat.name}
-                      </option>
-                    ))}
+                    {categories.map((cat, idx) => {
+                      const label = typeof cat === "string" ? cat : cat?.name || "";
+                      return (
+                        <option key={`${label}-${idx}`} value={label}>
+                          {label}
+                        </option>
+                      );
+                    })}
                   </select>
                 </label>
 
@@ -379,7 +442,7 @@ export default function Stock() {
                 </label>
               </div>
 
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:items-end">
                 <label className="space-y-2">
                   <span className="text-sm font-medium text-gray-700">Stock</span>
                   <input
@@ -387,7 +450,7 @@ export default function Stock() {
                     min="0"
                     value={newProduct.stock}
                     placeholder="Quantity"
-                    className="w-full border px-4 py-3 rounded-xl focus:ring-2 focus:ring-blue-200 outline-none"
+                    className="w-full border px-4 py-3 rounded-xl focus:ring-2 focus:ring-blue-200 outline-none appearance-none"
                     onChange={(e) =>
                       setNewProduct({ ...newProduct, stock: e.target.value })
                     }
@@ -397,7 +460,7 @@ export default function Stock() {
                 <label className="space-y-2">
                   <span className="text-sm font-medium text-gray-700">Size</span>
                   <select
-                    className="w-full border px-4 py-3 rounded-xl focus:ring-2 focus:ring-blue-200 outline-none"
+                    className="w-full border px-4 py-3 rounded-xl focus:ring-2 focus:ring-blue-200 outline-none appearance-none"
                     value={newProduct.size}
                     onChange={(e) =>
                       setNewProduct({ ...newProduct, size: e.target.value })

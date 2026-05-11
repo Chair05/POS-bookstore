@@ -32,7 +32,9 @@ button {
 
 /* Custom dropdown option hover color */
 select option:hover,
-select option:focus {
-  background-color: #dbeafe;
-  color: #1d4ed8;
+select option:focus,
+select option:checked,
+select option[selected] {
+  background-color: #2563eb !important;
+  color: white !important;
 }

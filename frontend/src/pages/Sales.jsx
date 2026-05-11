@@ -243,7 +243,7 @@ export default function SalesPage() {
     <div className="h-screen w-screen flex flex-col bg-gray-100">
       <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
 
-<header className="flex items-center justify-between bg-gradient-to-r from-blue-600 to-blue-800 px-6 py-4 shadow-md text-white">
+<header className="flex items-center justify-between bg-gradient-to-r from-blue-600 to-blue-800 text-white px-4 py-2 shadow">
 
   {/* LEFT */}
   <div className="flex items-center gap-3">
@@ -294,7 +294,7 @@ export default function SalesPage() {
         <select
           value={chartFilter}
           onChange={(e) => setChartFilter(e.target.value)}
-          className="border px-3 py-1 rounded-md text-sm"
+          className="border border-gray-300 bg-white px-3 py-1 rounded-md text-sm shadow-sm hover:bg-blue-50 hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 cursor-pointer"
         >
           <option value="all">All</option>
           <option value="year">Year</option>
@@ -306,10 +306,10 @@ export default function SalesPage() {
 
       <div className="h-[260px]">
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={chartData}>
+          <LineChart data={chartData} margin={{ left: 0, right: 30 }}>
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis dataKey="name" />
-            <YAxis />
+            <YAxis orientation="right" />
             <Tooltip />
             <Line
               type="monotone"

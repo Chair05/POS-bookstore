@@ -68,63 +68,97 @@ router.get("/barcode/:barcode", (req, res) => {
 
 router.post("/restock", (req, res) => {
   const { productId, amount, supplier, costPrice, notes } = req.body;
+  const productIdNum = Number(productId);
+  const quantity = Number(amount);
+  const parsedCostPrice = costPrice ? Number(costPrice) : null;
 
-  if (!productId || !amount || amount <= 0) {
+  if (!productIdNum || !quantity || quantity <= 0) {
     return res.status(400).json({
       success: false,
       message: "Invalid restock data",
     });
   }
 
-  db.query(
-    "SELECT stock FROM products WHERE id = ?",
-    [productId],
-    (err, results) => {
-      if (err) return res.status(500).json({ success: false });
+  db.beginTransaction((err) => {
+    if (err) {
+      console.error("Restock transaction begin error:", err);
+      return res.status(500).json({ success: false, message: "Database error" });
+    }
 
-      if (results.length === 0)
-        return res.status(404).json({ success: false, message: "Product not found" });
-
-      const previousStock = results[0].stock;
-      const newStock = previousStock + Number(amount);
-      const parsedCostPrice = costPrice ? Number(costPrice) : null;
-
-      // 1. update product stock
-      db.query(
-        "UPDATE products SET stock = ? WHERE id = ?",
-        [newStock, productId],
-        (err) => {
-          if (err) return res.status(500).json({ success: false });
-
-          // 2. log restock
-          db.query(
-            `INSERT INTO restocks 
-            (product_id, quantity_added, previous_stock, new_stock, reason, supplier, cost_price, notes)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-            [
-              productId,
-              amount,
-              previousStock,
-              newStock,
-              `${supplier || "N/A"} | ${notes || ""}`,
-              supplier || null,
-              parsedCostPrice,
-              notes || null,
-            ],
-            (err) => {
-              if (err) return res.status(500).json({ success: false });
-
-              res.json({
-                success: true,
-                message: "Restock successful",
-                newStock,
-              });
-            }
+    db.query(
+      "SELECT stock FROM products WHERE id = ?",
+      [productIdNum],
+      (err, results) => {
+        if (err) {
+          console.error("Restock select error:", err);
+          return db.rollback(() =>
+            res.status(500).json({ success: false, message: "Database error" })
           );
         }
-      );
-    }
-  );
+
+        if (results.length === 0)
+          return db.rollback(() =>
+            res.status(404).json({ success: false, message: "Product not found" })
+          );
+
+        const previousStock = Number(results[0].stock || 0);
+        const newStock = previousStock + quantity;
+
+        db.query(
+          "UPDATE products SET stock = ? WHERE id = ?",
+          [newStock, productIdNum],
+          (err) => {
+            if (err) {
+              console.error("Restock update error:", err);
+              return db.rollback(() =>
+                res.status(500).json({ success: false, message: "Database error" })
+              );
+            }
+
+            db.query(
+              `INSERT INTO restocks 
+              (product_id, quantity_added, previous_stock, new_stock, reason, supplier, cost_price, notes)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+              [
+                productIdNum,
+                quantity,
+                previousStock,
+                newStock,
+                `${supplier || "N/A"} | ${notes || ""}`,
+                supplier || null,
+                parsedCostPrice,
+                notes || null,
+              ],
+              (err, result) => {
+                if (err) {
+                  console.error("Restock insert error:", err);
+                  return db.rollback(() =>
+                    res.status(500).json({ success: false, message: "Database error" })
+                  );
+                }
+
+                db.commit((err) => {
+                  if (err) {
+                    console.error("Restock commit error:", err);
+                    return db.rollback(() =>
+                      res.status(500).json({ success: false, message: "Database error" })
+                    );
+                  }
+
+                  res.json({
+                    success: true,
+                    message: "Restock successful",
+                    newStock,
+                    restockId: result.insertId,
+                  });
+                });
+              }
+            );
+          }
+        );
+      }
+    );
+  });
 });
 // -------------------------
 // ADD new product (WITH SIZE FIX)
