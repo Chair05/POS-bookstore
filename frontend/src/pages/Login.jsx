@@ -69,12 +69,12 @@ export default function LogIn() {
       </div>
 
       {/* RIGHT SIDE FORM */}
-      <div className="w-1/2 h-full flex items-center justify-center bg-gray-50 px-16">
+      <div className="w-1/2 h-full flex items-start justify-center bg-gray-50 px-16 pt-12 overflow-y-auto">
         <div className="w-full max-w-md">
 
           {/* Header */}
-          <div className="flex items-center gap-4 mb-8">
-            <div className="w-14 h-14 rounded-2xl overflow-hidden shadow-lg bg-white">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-10 h-10 rounded-xl overflow-hidden shadow-lg bg-white">
               <img
                 src={logo}
                 alt="LCCB Logo"
@@ -83,7 +83,7 @@ export default function LogIn() {
             </div>
 
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">
+              <h1 className="text-lg font-bold text-gray-900">
                 User Login
               </h1>
               <p className="text-sm text-gray-500">
@@ -93,7 +93,7 @@ export default function LogIn() {
           </div>
 
           {/* Form */}
-          <form onSubmit={handleLogin} className="space-y-5">
+          <form onSubmit={handleLogin} className="space-y-3">
             <div>
               <label className="block mb-1 text-sm font-medium text-gray-700">
                 Login as
@@ -101,7 +101,7 @@ export default function LogIn() {
               <select
                 value={role}
                 onChange={(e) => setRole(e.target.value)}
-                className="w-full h-12 px-4 rounded-xl border border-gray-300 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                className="w-full h-9 px-3 text-sm rounded-lg border border-gray-300 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-600"
               >
                 <option value="admin">Admin</option>
                 <option value="sub">Staff</option>
@@ -117,7 +117,7 @@ export default function LogIn() {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="Enter username"
-                className="w-full h-12 px-4 rounded-xl border border-gray-300 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                className="w-full h-9 px-3 text-sm rounded-lg border border-gray-300 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-600"
               />
             </div>
 
@@ -130,20 +130,20 @@ export default function LogIn() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Enter password"
-                className="w-full h-12 px-4 rounded-xl border border-gray-300 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                className="w-full h-9 px-3 text-sm rounded-lg border border-gray-300 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-600"
               />
             </div>
 
             <button
               type="submit"
-              className="w-full h-12 rounded-full bg-gradient-to-r from-blue-600 to-blue-700 text-white font-semibold shadow-lg hover:brightness-105 active:scale-[0.98] transition"
+              className="w-full h-9 rounded-full bg-gradient-to-r from-blue-600 to-blue-700 text-white text-sm font-semibold shadow-lg hover:brightness-105 active:scale-[0.98] transition"
             >
               Log In
             </button>
           </form>
 
           {/* Links */}
-          <div className="mt-6 flex flex-col gap-2 text-sm">
+          <div className="mt-4 flex flex-col gap-1 text-xs">
             <button
               onClick={() => navigate("/")}
               className="text-blue-600 hover:underline text-left"
