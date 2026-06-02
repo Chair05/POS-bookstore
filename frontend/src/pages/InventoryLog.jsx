@@ -143,7 +143,7 @@ export default function InventoryLog() {
       <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
 
       {/* HEADER */}
-      <header className="flex items-center justify-between bg-gradient-to-r from-blue-600 to-blue-800 text-white px-4 py-2 shadow">
+      <header className="flex items-center justify-between bg-gradient-to-r from-blue-600 to-blue-800 text-white px-4 py-2 shadow min-h-[56px]">
         <div className="flex items-center gap-3">
           <button
             onClick={() => setSidebarOpen(true)}
@@ -157,7 +157,7 @@ export default function InventoryLog() {
       </header>
 
       {/* FILTERS */}
-      <div className="-mt-2 p-4 bg-white shadow-md border-b">
+      <div className="p-4 bg-white shadow-md border-b">
         <div className="flex gap-3 flex-wrap items-center">
           <input
             placeholder="Search product or staff..."
@@ -263,26 +263,28 @@ export default function InventoryLog() {
 
           {/* PAGINATION */}
           {totalPages > 1 && (
-            <div className="p-4 bg-gray-50 border-t flex justify-center items-center gap-2">
+            <div className="p-4 bg-gray-50 border-t flex flex-wrap justify-center items-center gap-2">
               <button
                 onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                 disabled={currentPage === 1}
-                className="px-3 py-1 border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                className="px-4 py-2 rounded-md border border-gray-300 bg-white text-sm text-gray-700 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 transition"
               >
                 Previous
               </button>
 
               {getPaginationButtons().map((page, index) =>
                 page === 'ellipsis' ? (
-                  <span key={`ellipsis-${index}`} className="px-3 py-1 text-gray-500">
+                  <span key={`ellipsis-${index}`} className="px-3 py-2 text-sm text-gray-500">
                     ...
                   </span>
                 ) : (
                   <button
                     key={page}
                     onClick={() => setCurrentPage(page)}
-                    className={`px-3 py-1 border rounded ${
-                      currentPage === page ? 'bg-blue-600 text-white' : 'hover:bg-gray-50'
+                    className={`min-w-[38px] px-4 py-2 rounded-md border text-sm transition ${
+                      currentPage === page
+                        ? 'bg-blue-600 text-white border-blue-600'
+                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'
                     }`}
                   >
                     {page}
@@ -293,7 +295,7 @@ export default function InventoryLog() {
               <button
                 onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
                 disabled={currentPage === totalPages}
-                className="px-3 py-1 border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                className="px-4 py-2 rounded-md border border-gray-300 bg-white text-sm text-gray-700 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 transition"
               >
                 Next
               </button>

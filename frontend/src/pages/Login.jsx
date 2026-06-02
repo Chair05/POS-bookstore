@@ -18,6 +18,11 @@ export default function LogIn() {
       return;
     }
 
+    // Ensure password meets minimum length requirement
+    if (password.length < 8) {
+      alert("Password must be at least 8 characters.");
+      return;
+    }
     fetch("http://localhost:5000/api/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },

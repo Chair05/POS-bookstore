@@ -21,8 +21,15 @@ const upload = multer({ storage });
 router.get("/", (req, res) => {
   const sql = "SELECT * FROM products ORDER BY id DESC";
 
+  console.log("📤 GET /api/products - Fetching all products...");
+
   db.query(sql, (err, results) => {
-    if (err) return res.status(500).json({ success: false });
+    if (err) {
+      console.error("❌ Error fetching products:", err);
+      return res.status(500).json({ success: false, message: err.message });
+    }
+
+    console.log(`✅ Found ${results.length} products`);
 
     const products = results.map((p) => ({
       ...p,
@@ -166,6 +173,8 @@ router.post("/restock", (req, res) => {
 router.post("/", upload.single("image"), (req, res) => {
   let { name, price, category, barcode, stock, size } = req.body;
 
+  console.log("📥 Received product data:", { name, price, category, barcode, stock });
+
   name = name?.trim();
   category = category?.trim();
   barcode = barcode?.toString().trim();
@@ -174,6 +183,7 @@ router.post("/", upload.single("image"), (req, res) => {
   const image = req.file ? "/uploads/" + req.file.filename : "";
 
   if (!name || !price || !category || !barcode) {
+    console.warn("⚠️ Missing required fields:", { name, price, category, barcode });
     return res.status(400).json({
       success: false,
       message: "Missing required fields",
@@ -184,6 +194,8 @@ router.post("/", upload.single("image"), (req, res) => {
     INSERT INTO products (name, price, category, barcode, stock, image, size)
     VALUES (?, ?, ?, ?, ?, ?, ?)
   `;
+
+  console.log("💾 Inserting into database...");
 
   db.query(
     sql,
@@ -199,9 +211,10 @@ router.post("/", upload.single("image"), (req, res) => {
     (err, result) => {
       if (err) {
         console.error("❌ Error adding product:", err);
-        return res.status(500).json({ success: false });
+        return res.status(500).json({ success: false, message: err.message });
       }
 
+      console.log("✅ Product added! ID:", result.insertId);
       res.json({
         success: true,
         id: result.insertId,
@@ -300,6 +313,31 @@ router.put("/:id/update-image", upload.single("image"), (req, res) => {
       });
     }
   );
+});
+
+// -------------------------
+// REMOVE product image
+// -------------------------
+router.put("/:id/remove-image", (req, res) => {
+  const { id } = req.params;
+
+  db.query("SELECT image FROM products WHERE id = ?", [id], (err, results) => {
+    if (err) return res.status(500).json({ success: false, message: err.message });
+
+    if (results.length === 0)
+      return res.status(404).json({ success: false, message: "Product not found" });
+
+    const imageField = results[0].image;
+    const imagePath = imageField ? path.join(__dirname, "..", imageField) : null;
+
+    db.query("UPDATE products SET image = '' WHERE id = ?", [id], (err) => {
+      if (err) return res.status(500).json({ success: false, message: err.message });
+
+      if (imagePath) fs.unlink(imagePath, () => {});
+
+      res.json({ success: true, message: "Image removed" });
+    });
+  });
 });
 
 // -------------------------

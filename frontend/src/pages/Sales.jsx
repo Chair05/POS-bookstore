@@ -136,6 +136,26 @@ export default function SalesPage() {
     return groupedByReceipt.slice(start, start + itemsPerPage);
   }, [groupedByReceipt, currentPage]);
 
+  const totalPages = Math.ceil(groupedByReceipt.length / itemsPerPage);
+
+  const paginationItems = useMemo(() => {
+    if (totalPages <= 7) {
+      return Array.from({ length: totalPages }, (_, i) => i + 1);
+    }
+
+    const pages = [];
+
+    if (currentPage <= 4) {
+      pages.push(1, 2, 3, 4, 5, "...", totalPages);
+    } else if (currentPage >= totalPages - 3) {
+      pages.push(1, "...", totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
+    } else {
+      pages.push(1, "...", currentPage - 1, currentPage, currentPage + 1, "...", totalPages);
+    }
+
+    return pages;
+  }, [currentPage, totalPages]);
+
   /* ================= PRINT ================= */
   const handlePrint = () => {
     if (!printDate) return alert("Select date");
@@ -146,17 +166,75 @@ export default function SalesPage() {
 
     const total = daily.reduce((sum, s) => sum + Number(s.total || 0), 0);
 
+    const rows = daily.reduce((acc, s) => {
+      const key = `${s.product_name}-${s.barcode}`;
+      if (acc[key]) {
+        acc[key].quantity += Number(s.quantity) || 0;
+        acc[key].total += Number(s.total) || 0;
+      } else {
+        acc[key] = {
+          product_name: s.product_name,
+          quantity: Number(s.quantity) || 0,
+          total: Number(s.total) || 0,
+        };
+      }
+      return acc;
+    }, {});
+
     const w = window.open("", "_blank");
 
     w.document.write(`
-      <h2>Daily Sales ${printDate}</h2>
-      ${daily
-        .map(
-          (s) =>
-            `<p>${s.product_name} x${s.quantity} - ₱${s.total}</p>`
-        )
-        .join("")}
-      <h3>Total ₱${total}</h3>
+      <html>
+        <head>
+          <title>Daily Sales ${printDate}</title>
+          <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body { font-family: 'Segoe UI', Arial, sans-serif; padding: 40px; color: #1f2937; }
+            .header { text-align: center; margin-bottom: 32px; padding-bottom: 16px; border-bottom: 2px solid #2563eb; }
+            .header h1 { font-size: 24px; color: #1e3a8a; }
+            .header p { color: #6b7280; margin-top: 4px; }
+            table { width: 100%; border-collapse: collapse; }
+            th { background: #2563eb; color: #fff; padding: 10px 14px; text-align: left; font-size: 13px; text-transform: uppercase; letter-spacing: 0.05em; }
+            td { padding: 10px 14px; border-bottom: 1px solid #e5e7eb; font-size: 14px; }
+            tr:nth-child(even) td { background: #f9fafb; }
+            .total-row td { font-weight: 700; font-size: 16px; border-top: 2px solid #2563eb; border-bottom: none; background: #eff6ff; }
+            .text-right { text-align: right; }
+            .footer { text-align: center; margin-top: 32px; padding-top: 16px; border-top: 1px solid #e5e7eb; font-size: 12px; color: #9ca3af; }
+            @media print { body { padding: 20px; } }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>Daily Sales Report</h1>
+            <p>${printDate}</p>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Product</th>
+                <th class="text-right">Qty</th>
+                <th class="text-right">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${Object.values(rows)
+                .map(
+                  (r) =>
+                    `<tr><td>${r.product_name}</td><td class="text-right">${r.quantity}</td><td class="text-right">₱${r.total.toFixed(2)}</td></tr>`
+                )
+                .join("")}
+            </tbody>
+            <tfoot>
+              <tr class="total-row">
+                <td>Total</td>
+                <td class="text-right">${daily.reduce((s, r) => s + (Number(r.quantity) || 0), 0)}</td>
+                <td class="text-right">₱${total.toFixed(2)}</td>
+              </tr>
+            </tfoot>
+          </table>
+          <div class="footer">LCCB Bookstore &mdash; Generated ${new Date().toLocaleString()}</div>
+        </body>
+      </html>
     `);
 
     w.print();
@@ -195,10 +273,25 @@ export default function SalesPage() {
     map[key] = (map[key] || 0) + Number(s.total || 0);
   });
 
-  return Object.entries(map).map(([name, total]) => ({
+  const entries = Object.entries(map).map(([name, total]) => ({
     name,
     total,
   }));
+
+  return entries.sort((a, b) => {
+    if (chartFilter === "day" || chartFilter === "week") {
+      return new Date(a.name) - new Date(b.name);
+    }
+    if (chartFilter === "month") {
+      const [aYear, aMonth] = a.name.split("-").map(Number);
+      const [bYear, bMonth] = b.name.split("-").map(Number);
+      return aYear === bYear ? aMonth - bMonth : aYear - bYear;
+    }
+    if (chartFilter === "year") {
+      return Number(a.name) - Number(b.name);
+    }
+    return 0;
+  });
 }, [sales, chartFilter]);
 
   const categorySummary = useMemo(() => {
@@ -288,7 +381,7 @@ export default function SalesPage() {
 
     {/* SALES CHART */}
     <div className="bg-white rounded-2xl p-5 shadow-sm">
-      <div className="flex justify-between items-center mb-5">
+      <div className="flex flex-wrap items-center gap-4 mb-5">
         <h2 className="font-semibold text-lg">Sales Chart</h2>
 
         <select
@@ -309,7 +402,7 @@ export default function SalesPage() {
           <LineChart data={chartData} margin={{ left: 0, right: 30 }}>
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis dataKey="name" />
-            <YAxis orientation="right" />
+            <YAxis orientation="left" />
             <Tooltip />
             <Line
               type="monotone"
@@ -462,23 +555,42 @@ export default function SalesPage() {
   </div>
 ))}
     {/* PAGINATION */}
-    <div className="flex justify-center items-center gap-2 pt-4">
-      {Array.from(
-        { length: Math.ceil(groupedByReceipt.length / itemsPerPage) },
-        (_, i) => i + 1
-      ).map((page) => (
-        <button
-          key={page}
-          onClick={() => setCurrentPage(page)}
-          className={`px-4 py-1 rounded-md border text-sm transition ${
-            currentPage === page
-              ? "bg-blue-600 text-white"
-              : "bg-white hover:bg-gray-100"
-          }`}
-        >
-          {page}
-        </button>
-      ))}
+    <div className="flex flex-wrap justify-center items-center gap-2 pt-4">
+      <button
+        onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+        disabled={currentPage === 1}
+        className="px-4 py-2 rounded-md border border-gray-300 bg-white text-sm text-gray-700 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 transition"
+      >
+        Previous
+      </button>
+
+      {paginationItems.map((page, index) =>
+        page === "..." ? (
+          <span key={`dots-${index}`} className="px-3 py-2 text-sm text-gray-500">
+            ...
+          </span>
+        ) : (
+          <button
+            key={page}
+            onClick={() => setCurrentPage(page)}
+            className={`min-w-[38px] px-4 py-2 rounded-md border text-sm transition ${
+              currentPage === page
+                ? "bg-blue-600 text-white border-blue-600"
+                : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
+            }`}
+          >
+            {page}
+          </button>
+        )
+      )}
+
+      <button
+        onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+        disabled={currentPage === totalPages || totalPages === 0}
+        className="px-4 py-2 rounded-md border border-gray-300 bg-white text-sm text-gray-700 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 transition"
+      >
+        Next
+      </button>
     </div>
 
   </div>

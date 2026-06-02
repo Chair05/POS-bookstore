@@ -22,11 +22,14 @@ export default function Stock() {
     barcode: "",
     stock: 1,
     size: "",
+    imageFile: null,
+    imagePreview: "",
   });
 
   const [openActionMenuId, setOpenActionMenuId] = useState(null);
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
+  const [notification, setNotification] = useState(null);
   const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
   const categoryDropdownRef = useRef(null);
 
@@ -91,29 +94,45 @@ export default function Stock() {
     formData.append("barcode", barcode);
     formData.append("stock", newProduct.stock);
 
+    // append image if provided
+    if (newProduct.imageFile) {
+      formData.append("image", newProduct.imageFile);
+    }
+
     if (newProduct.size && newProduct.size.trim() !== "") {
       formData.append("size", newProduct.size);
     }
 
-    const res = await fetch("http://localhost:5000/api/products", {
-      method: "POST",
-      body: formData,
-    });
-
-    const data = await res.json();
-
-    if (data.success) {
-      setShowAddModal(false);
-      setNewProduct({
-        name: "",
-        category: "",
-        price: "",
-        barcode: "",
-        stock: 1,
-        size: "",
+    try {
+      const res = await fetch("http://localhost:5000/api/products", {
+        method: "POST",
+        body: formData,
       });
-      loadStock();
-      loadCategories();
+
+      const data = await res.json();
+
+      if (data.success) {
+        setNotification({ type: "success", message: "Product added successfully!" });
+        setTimeout(() => setNotification(null), 3000);
+        setShowAddModal(false);
+        setNewProduct({
+          name: "",
+          category: "",
+          price: "",
+          barcode: "",
+          stock: 1,
+            size: "",
+            imageFile: null,
+            imagePreview: "",
+        });
+        await loadStock();
+        await loadCategories();
+      } else {
+        alert("Error: " + (data.message || "Failed to add product"));
+      }
+    } catch (err) {
+      alert("Server error: " + err.message);
+      console.error("Product add error:", err);
     }
   };
 
@@ -205,6 +224,15 @@ export default function Stock() {
           </h1>
         </div>
       </header>
+
+      {/* Notification toast */}
+      {notification && (
+        <div className="fixed top-4 right-4 z-50">
+          <div className="px-4 py-3 rounded-lg shadow-md bg-white text-gray-800 border border-gray-200 max-w-sm">
+            {notification.message}
+          </div>
+        </div>
+      )}
 
       <div className="p-3 bg-white shadow flex flex-wrap items-center gap-3">
         <input
@@ -342,6 +370,27 @@ export default function Stock() {
                           />
                         </label>
 
+                        {item.image && (
+                          <div
+                            onClick={async () => {
+                              if (!window.confirm("Remove image for this product?")) return;
+
+                              await fetch(
+                                `http://localhost:5000/api/products/${item.id}/remove-image`,
+                                {
+                                  method: "PUT",
+                                }
+                              );
+
+                              setOpenActionMenuId(null);
+                              loadStock();
+                            }}
+                            className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                          >
+                            🗑️ Remove Image
+                          </div>
+                        )}
+
                         <div
                           onClick={() => deleteProduct(item.id)}
                           className="px-4 py-2 text-red-600 hover:bg-red-100 cursor-pointer"
@@ -474,11 +523,76 @@ export default function Stock() {
                   </select>
                 </label>
               </div>
+
+              <label className="space-y-2 mt-2">
+                <span className="text-sm font-medium text-gray-700">Image (optional)</span>
+                <div className="flex items-center gap-3">
+                  {newProduct.imagePreview ? (
+                    <img
+                      src={newProduct.imagePreview}
+                      alt="preview"
+                      className="h-20 w-20 rounded-xl object-cover border"
+                    />
+                  ) : (
+                    <div className="h-20 w-20 bg-gray-100 rounded-xl flex items-center justify-center text-gray-400 border">
+                      No image
+                    </div>
+                  )}
+
+                  <div className="flex flex-col ml-2">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        const url = URL.createObjectURL(file);
+                        setNewProduct((prev) => ({
+                          ...prev,
+                          imageFile: file,
+                          imagePreview: url,
+                        }));
+                      }}
+                    />
+
+                    {newProduct.imagePreview && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          try {
+                            URL.revokeObjectURL(newProduct.imagePreview);
+                          } catch (e) {}
+                          setNewProduct((prev) => ({
+                            ...prev,
+                            imageFile: null,
+                            imagePreview: "",
+                          }));
+                        }}
+                        className="text-sm text-red-600 mt-2 hover:underline w-max"
+                      >
+                        Remove image
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </label>
             </div>
 
             <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-end">
               <button
-                onClick={() => setShowAddModal(false)}
+                onClick={() => {
+                  setShowAddModal(false);
+                  setNewProduct({
+                    name: "",
+                    category: "",
+                    price: "",
+                    barcode: "",
+                    stock: 1,
+                    size: "",
+                    imageFile: null,
+                    imagePreview: "",
+                  });
+                }}
                 className="w-full sm:w-auto px-5 py-3 border border-gray-300 rounded-xl text-gray-700 hover:bg-gray-50 transition"
               >
                 Cancel
