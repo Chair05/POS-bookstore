@@ -93,7 +93,7 @@ router.post("/restock", (req, res) => {
     }
 
     db.query(
-      "SELECT stock FROM products WHERE id = ?",
+      "SELECT stock, name FROM products WHERE id = ?",
       [productIdNum],
       (err, results) => {
         if (err) {
@@ -108,6 +108,7 @@ router.post("/restock", (req, res) => {
             res.status(404).json({ success: false, message: "Product not found" })
           );
 
+        const productName = results[0].name;
         const previousStock = Number(results[0].stock || 0);
         const newStock = previousStock + quantity;
 
@@ -144,21 +145,35 @@ router.post("/restock", (req, res) => {
                   );
                 }
 
-                db.commit((err) => {
-                  if (err) {
-                    console.error("Restock commit error:", err);
-                    return db.rollback(() =>
-                      res.status(500).json({ success: false, message: "Database error" })
-                    );
-                  }
+                db.query(
+                  `INSERT INTO inventory_logs (product_id, product_name, type, quantity, reason, staff)
+                   VALUES (?, ?, 'IN', ?, ?, 'Admin')`,
+                  [productIdNum, productName, quantity, supplier ? `Restock - ${supplier}` : 'Restock'],
+                  (err) => {
+                    if (err) {
+                      console.error("Inventory log insert error:", err);
+                      return db.rollback(() =>
+                        res.status(500).json({ success: false, message: "Database error" })
+                      );
+                    }
 
-                  res.json({
-                    success: true,
-                    message: "Restock successful",
-                    newStock,
-                    restockId: result.insertId,
-                  });
-                });
+                    db.commit((err) => {
+                      if (err) {
+                        console.error("Restock commit error:", err);
+                        return db.rollback(() =>
+                          res.status(500).json({ success: false, message: "Database error" })
+                        );
+                      }
+
+                      res.json({
+                        success: true,
+                        message: "Restock successful",
+                        newStock,
+                        restockId: result.insertId,
+                      });
+                    });
+                  }
+                );
               }
             );
           }
@@ -453,6 +468,16 @@ router.post("/checkout", async (req, res) => {
               product.name,
               receiptId,
             ],
+            (err) => (err ? reject(err) : resolve())
+          );
+        });
+
+        // insert into inventory_logs
+        await new Promise((resolve, reject) => {
+          db.query(
+            `INSERT INTO inventory_logs (receipt_id, product_id, product_name, type, quantity, reason, staff)
+             VALUES (?, ?, ?, 'OUT', ?, 'Sale', 'System')`,
+            [receiptId, product.id, product.name, quantity],
             (err) => (err ? reject(err) : resolve())
           );
         });

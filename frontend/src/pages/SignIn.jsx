@@ -8,7 +8,9 @@ export default function SignUp() {
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [role, setRole] = useState("admin");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -79,8 +81,8 @@ export default function SignUp() {
       </div>
 
       {/* RIGHT SIDE FORM (SCROLLABLE) */}
-      <div className="w-1/2 h-full overflow-y-auto bg-gray-50 px-16 py-12 flex items-start justify-center">
-        <div className="w-full max-w-md">
+      <div className="w-1/2 h-full overflow-y-auto bg-gray-50 px-8 py-12 flex items-start justify-center">
+        <div className="w-full">
 
           {/* Notification Banners */}
           {error && (
@@ -117,21 +119,30 @@ export default function SignUp() {
             {/* Username */}
             <div>
               <label className="block mb-1 text-sm font-medium text-gray-700">Username</label>
-              <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Enter username" className="w-full h-9 px-3 text-sm rounded-lg border border-gray-300 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-600" />
+              <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Enter username" className="w-full sm:w-[520px] mx-auto h-9 px-3 text-sm rounded-lg border border-gray-300 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-600" />
             </div>
 
             {/* Password */}
             <div>
               <label className="block mb-1 text-sm font-medium text-gray-700">Password</label>
-              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Enter password" className="w-full h-9 px-3 text-sm rounded-lg border border-gray-300 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-600" />
+              <div className="flex items-center w-full max-w-[210px] h-9 rounded-lg border border-gray-300 bg-gray-50 focus-within:ring-2 focus-within:ring-blue-600">
+                <input type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Enter password" className="flex-1 h-full px-3 text-sm bg-transparent focus:outline-none rounded-l-lg" />
+                <button type="button" onClick={() => setShowPassword(!showPassword)} className="h-full px-2 flex items-center justify-center text-blue-600 hover:text-blue-800 rounded-r-lg text-sm font-normal">
+                  {showPassword ? "Hide" : "Show"}
+                </button>
+              </div>
             </div>
 
             {/* Confirm Password */}
             <div>
               <label className="block mb-1 text-sm font-medium text-gray-700">Confirm Password</label>
-              <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="Re-enter password" className="w-full h-9 px-3 text-sm rounded-lg border border-gray-300 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-600" />
+              <div className="flex items-center w-full max-w-[210px] h-9 rounded-lg border border-gray-300 bg-gray-50 focus-within:ring-2 focus-within:ring-blue-600">
+                <input type={showConfirmPassword ? "text" : "password"} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="Re-enter password" className="flex-1 h-full px-3 text-sm bg-transparent focus:outline-none rounded-l-lg" />
+                <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="h-full px-2 flex items-center justify-center text-blue-600 hover:text-blue-800 rounded-r-lg text-sm font-normal">
+                  {showConfirmPassword ? "Hide" : "Show"}
+                </button>
+              </div>
             </div>
-
             {/* Submit */}
             <button type="submit" className="w-full h-9 rounded-full bg-gradient-to-r from-blue-600 to-blue-700 text-white text-sm font-semibold shadow-lg hover:brightness-105 active:scale-[0.98] transition">Sign Up</button>
           </form>

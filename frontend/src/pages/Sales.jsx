@@ -9,6 +9,7 @@ export default function SalesPage() {
   const [filter, setFilter] = useState("all");
   const [customDate, setCustomDate] = useState("");
   const [printDate, setPrintDate] = useState("");
+  const [printMonth, setPrintMonth] = useState("");
   const [openPanel, setOpenPanel] = useState(null);
   const [showDropdown, setShowDropdown] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -228,6 +229,114 @@ export default function SalesPage() {
               <tr class="total-row">
                 <td>Total</td>
                 <td class="text-right">${daily.reduce((s, r) => s + (Number(r.quantity) || 0), 0)}</td>
+                <td class="text-right">₱${total.toFixed(2)}</td>
+              </tr>
+            </tfoot>
+          </table>
+          <div class="footer">LCCB Bookstore &mdash; Generated ${new Date().toLocaleString()}</div>
+        </body>
+      </html>
+    `);
+
+    w.print();
+  };
+
+  const handleMonthlyPrint = () => {
+    if (!printMonth) return alert("Select month");
+
+    const monthly = sales.filter((s) => {
+      const d = new Date(s.created_at);
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}` === printMonth;
+    });
+
+    if (monthly.length === 0) return alert("No sales for this month");
+
+    const total = monthly.reduce((sum, s) => sum + Number(s.total || 0), 0);
+
+    const rows = monthly.reduce((acc, s) => {
+      const key = `${s.product_name}-${s.barcode}`;
+      if (acc[key]) {
+        acc[key].quantity += Number(s.quantity) || 0;
+        acc[key].total += Number(s.total) || 0;
+      } else {
+        acc[key] = {
+          product_name: s.product_name,
+          quantity: Number(s.quantity) || 0,
+          total: Number(s.total) || 0,
+        };
+      }
+      return acc;
+    }, {});
+
+    const [year, month] = printMonth.split("-");
+    const monthName = new Date(year, month - 1).toLocaleString("en-US", { month: "long", year: "numeric" });
+    const daysActive = new Set(monthly.map((s) => new Date(s.created_at).toDateString())).size;
+
+    const w = window.open("", "_blank");
+
+    w.document.write(`
+      <html>
+        <head>
+          <title>Monthly Sales ${printMonth}</title>
+          <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body { font-family: 'Segoe UI', Arial, sans-serif; padding: 40px; color: #1f2937; }
+            .header { text-align: center; margin-bottom: 32px; padding-bottom: 16px; border-bottom: 2px solid #2563eb; }
+            .header h1 { font-size: 24px; color: #1e3a8a; }
+            .header p { color: #6b7280; margin-top: 4px; }
+            .summary { display: flex; gap: 24px; justify-content: center; margin-bottom: 24px; }
+            .summary-card { text-align: center; padding: 12px 24px; background: #f9fafb; border-radius: 8px; }
+            .summary-card .label { font-size: 12px; color: #6b7280; text-transform: uppercase; }
+            .summary-card .value { font-size: 20px; font-weight: 700; color: #1e3a8a; }
+            table { width: 100%; border-collapse: collapse; }
+            th { background: #2563eb; color: #fff; padding: 10px 14px; text-align: left; font-size: 13px; text-transform: uppercase; letter-spacing: 0.05em; }
+            td { padding: 10px 14px; border-bottom: 1px solid #e5e7eb; font-size: 14px; }
+            tr:nth-child(even) td { background: #f9fafb; }
+            .total-row td { font-weight: 700; font-size: 16px; border-top: 2px solid #2563eb; border-bottom: none; background: #eff6ff; }
+            .text-right { text-align: right; }
+            .footer { text-align: center; margin-top: 32px; padding-top: 16px; border-top: 1px solid #e5e7eb; font-size: 12px; color: #9ca3af; }
+            @media print { body { padding: 20px; } }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>Monthly Sales Report</h1>
+            <p>${monthName}</p>
+          </div>
+          <div class="summary">
+            <div class="summary-card">
+              <div class="label">Total Revenue</div>
+              <div class="value">₱${total.toFixed(2)}</div>
+            </div>
+            <div class="summary-card">
+              <div class="label">Items Sold</div>
+              <div class="value">${monthly.reduce((s, r) => s + (Number(r.quantity) || 0), 0)}</div>
+            </div>
+            <div class="summary-card">
+              <div class="label">Days with Sales</div>
+              <div class="value">${daysActive}</div>
+            </div>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Product</th>
+                <th class="text-right">Qty</th>
+                <th class="text-right">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${Object.values(rows)
+                .map(
+                  (r) =>
+                    `<tr><td>${r.product_name}</td><td class="text-right">${r.quantity}</td><td class="text-right">₱${r.total.toFixed(2)}</td></tr>`
+                )
+                .join("")}
+            </tbody>
+            <tfoot>
+              <tr class="total-row">
+                <td>Total</td>
+                <td class="text-right">${monthly.reduce((s, r) => s + (Number(r.quantity) || 0), 0)}</td>
                 <td class="text-right">₱${total.toFixed(2)}</td>
               </tr>
             </tfoot>
@@ -504,7 +613,21 @@ export default function SalesPage() {
         }}
         className="bg-blue-600 text-white px-4 py-1 rounded-md text-sm hover:bg-blue-700 transition relative -top-[7px]"
       >
-        Print
+        Print Day
+      </button>
+
+      <input
+        type="month"
+        value={printMonth}
+        onChange={(e) => setPrintMonth(e.target.value)}
+        className="border px-3 py-1 rounded-md text-sm"
+      />
+
+      <button
+        onClick={handleMonthlyPrint}
+        className="bg-blue-600 text-white px-4 py-1 rounded-md text-sm hover:bg-blue-700 transition relative -top-[7px]"
+      >
+        Print Month
       </button>
 
     </div>

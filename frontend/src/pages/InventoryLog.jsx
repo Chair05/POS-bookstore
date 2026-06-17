@@ -26,63 +26,32 @@ export default function InventoryLog() {
   const loadLogs = async () => {
     setLoading(true);
     try {
-      // Fetch sales (OUT) and restocks (IN)
-      const [salesRes, restocksRes] = await Promise.all([
-        fetch("http://localhost:5000/api/products/sales"),
-        fetch("http://localhost:5000/api/products/restocks")
-      ]);
+      const res = await fetch("http://localhost:5000/api/inventory-logs");
 
-      const salesText = await salesRes.text();
-      const restocksText = await restocksRes.text();
+      const text = await res.text();
 
-      if (!salesRes.ok || !restocksRes.ok) {
-        const salesError = salesRes.ok ? null : `Sales error ${salesRes.status}: ${salesText}`;
-        const restocksError = restocksRes.ok ? null : `Restocks error ${restocksRes.status}: ${restocksText}`;
-        throw new Error(salesError || restocksError || "Failed to load logs");
-      }
+      if (!res.ok)
+        throw new Error(`Inventory log error ${res.status}: ${text}`);
 
-      let salesData;
-      let restocksData;
-
+      let data;
       try {
-        salesData = JSON.parse(salesText);
+        data = JSON.parse(text);
       } catch (parseErr) {
-        throw new Error(`Sales response was not JSON: ${salesText.substring(0, 200)}`);
+        throw new Error(`Response was not JSON: ${text.substring(0, 200)}`);
       }
 
-      try {
-        restocksData = JSON.parse(restocksText);
-      } catch (parseErr) {
-        throw new Error(`Restocks response was not JSON: ${restocksText.substring(0, 200)}`);
-      }
-
-      if (!salesData.success || !restocksData.success)
+      if (!data.success)
         throw new Error("Failed to load logs");
 
-      // Transform sales data to OUT logs
-      const outLogs = salesData.sales.map(sale => ({
-        id: `out-${sale.id}`,
-        productName: sale.product_name,
-        type: 'OUT',
-        quantity: sale.quantity,
-        staff: 'System',
-        timestamp: sale.created_at,
-        reason: 'Sale'
+      const allLogs = data.logs.map(log => ({
+        id: `${log.type === 'IN' ? 'in' : 'out'}-${log.id}`,
+        productName: log.product_name,
+        type: log.type,
+        quantity: log.quantity,
+        staff: log.staff,
+        timestamp: log.created_at,
+        reason: log.reason,
       }));
-
-      // Transform restocks data to IN logs
-      const inLogs = restocksData.restocks.map(restock => ({
-        id: `in-${restock.id}`,
-        productName: restock.product_name || 'Unknown', // Assuming product_name is in restocks table
-        type: 'IN',
-        quantity: restock.quantity_added,
-        staff: 'Admin',
-        timestamp: restock.created_at,
-        reason: restock.reason || 'Restock'
-      }));
-
-      // Combine and sort by timestamp descending
-      const allLogs = [...outLogs, ...inLogs].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
       setLogs(allLogs);
     } catch (err) {

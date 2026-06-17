@@ -8,6 +8,7 @@ export default function LogIn() {
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [role, setRole] = useState("admin");
 
   const handleLogin = (e) => {
@@ -74,8 +75,8 @@ export default function LogIn() {
       </div>
 
       {/* RIGHT SIDE FORM */}
-      <div className="w-1/2 h-full flex items-start justify-center bg-gray-50 px-16 pt-12 overflow-y-auto">
-        <div className="w-full max-w-md">
+      <div className="w-1/2 h-full flex items-start justify-center bg-gray-50 px-8 pt-12 overflow-y-auto">
+        <div className="w-full">
 
           {/* Header */}
           <div className="flex items-center gap-3 mb-6">
@@ -122,7 +123,7 @@ export default function LogIn() {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="Enter username"
-                className="w-full h-9 px-3 text-sm rounded-lg border border-gray-300 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                className="w-full sm:w-[520px] mx-auto h-9 px-3 text-sm rounded-lg border border-gray-300 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-600"
               />
             </div>
 
@@ -130,13 +131,22 @@ export default function LogIn() {
               <label className="block mb-1 text-sm font-medium text-gray-700">
                 Password
               </label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter password"
-                className="w-full h-9 px-3 text-sm rounded-lg border border-gray-300 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-600"
-              />
+              <div className="flex items-center w-full max-w-[210px] h-9 rounded-lg border border-gray-300 bg-gray-50 focus-within:ring-2 focus-within:ring-blue-600">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Enter password"
+                  className="flex-1 h-full px-3 text-sm bg-transparent focus:outline-none rounded-l-lg"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="h-full px-2 flex items-center justify-center text-blue-600 hover:text-blue-800 rounded-r-lg text-sm font-normal"
+                >
+                  {showPassword ? "Hide" : "Show"}
+                </button>
+              </div>
             </div>
 
             <button

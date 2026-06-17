@@ -311,7 +311,7 @@ const handlePay = async () => {
     const data = await res.json();
 
     if (!data.success)
-      return addNotification("Payment failed");
+      return addNotification(data.message || "Payment failed");
 
     const id = data.receiptId;
     const snapshotItems = Object.values(checkoutItems);
@@ -506,7 +506,7 @@ const filtered = products.filter((p) => {
               />
 
               <select
-                className="border border-gray-300 bg-white px-3 py-1.5 rounded-lg shadow-sm hover:bg-blue-50 hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 min-w-[120px] cursor-pointer"
+                className="border border-gray-300 bg-white h-[41px] px-3 py-2 mt-2 rounded-lg shadow-sm hover:bg-blue-50 hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 min-w-[120px] cursor-pointer text-sm"
                 value={categoryFilter}
                 onChange={(e) => setCategoryFilter(e.target.value)}
               >

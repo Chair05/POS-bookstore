@@ -76,6 +76,8 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
               <span className="font-medium">Sales</span>
             </Link>
           )}
+
+
         </nav>
 
         <div className="absolute bottom-6 left-6 right-6">

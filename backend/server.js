@@ -28,17 +28,6 @@ app.get("/", (req, res) => {
 });
 
 // -------------------------
-// Test DB Connection
-// -------------------------
-db.connect(err => {
-  if (err) {
-    console.error("❌ Database connection failed:", err);
-  } else {
-    console.log("✅ Connected to MySQL database");
-  }
-});
-
-// -------------------------
 // Sales Routes
 // -------------------------
 
@@ -107,6 +96,70 @@ app.delete("/api/categories/:id", (req, res) => {
     if (result.affectedRows === 0) return res.status(404).json({ success: false, message: "Category not found" });
     res.json({ success: true, message: "Category deleted" });
   });
+});
+
+// -------------------------
+// Auto-migrate missing columns on existing tables
+// -------------------------
+const ensureColumn = (table, column, definition) => {
+  db.query(`SHOW COLUMNS FROM ${table} LIKE '${column}'`, (err, result) => {
+    if (!err && result.length === 0) {
+      db.query(`ALTER TABLE ${table} ADD COLUMN ${definition}`);
+    }
+  });
+};
+
+ensureColumn("sales_items", "receipt_id", "receipt_id INT NULL AFTER id");
+ensureColumn("sales", "customer_name", "customer_name VARCHAR(255) NULL");
+ensureColumn("sales", "receipt_id", "receipt_id INT NULL");
+ensureColumn("sales", "adminId", "adminId INT NULL");
+ensureColumn("inventory_logs", "receipt_id", "receipt_id INT NULL");
+
+// -------------------------
+// Inventory Logs
+// -------------------------
+
+// Auto-create inventory_logs table
+db.query(`
+  CREATE TABLE IF NOT EXISTS inventory_logs (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    receipt_id INT NULL,
+    product_id INT NOT NULL,
+    product_name VARCHAR(255) NOT NULL,
+    type ENUM('IN','OUT') NOT NULL,
+    quantity INT NOT NULL,
+    reason VARCHAR(255) DEFAULT '',
+    staff VARCHAR(100) DEFAULT 'System',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )
+`);
+
+// Drop problematic unique key if it exists from a previous schema
+db.query("ALTER TABLE inventory_logs DROP INDEX unique_log", () => {});
+
+// Backfill existing data (INSERT IGNORE so it only adds missing rows)
+db.query(`
+  INSERT IGNORE INTO inventory_logs (product_id, product_name, type, quantity, reason, staff, created_at)
+  SELECT si.product_id, si.product_name, 'OUT', si.quantity, 'Sale', 'System', si.created_at
+  FROM sales_items si
+`, (err) => err && console.error("OUT backfill error:", err));
+
+db.query(`
+  INSERT IGNORE INTO inventory_logs (product_id, product_name, type, quantity, reason, staff, created_at)
+  SELECT r.product_id, COALESCE(p.name, 'Unknown'), 'IN', r.quantity_added,
+         COALESCE(NULLIF(r.reason, ''), 'Restock'), 'Admin', r.created_at
+  FROM restocks r
+  LEFT JOIN products p ON r.product_id = p.id
+`, (err) => err && console.error("IN backfill error:", err));
+
+app.get("/api/inventory-logs", (req, res) => {
+  db.query(
+    "SELECT * FROM inventory_logs ORDER BY created_at DESC",
+    (err, results) => {
+      if (err) return res.status(500).json({ success: false, message: "Database error" });
+      res.json({ success: true, logs: results });
+    }
+  );
 });
 
 // JSON fallback for unknown routes
