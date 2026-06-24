@@ -43,6 +43,15 @@ export default function Stock() {
   }, []);
 
   useEffect(() => {
+    if (!openActionMenuId) return;
+    const handler = (e) => {
+      if (!e.target.closest(".action-menu")) setOpenActionMenuId(null);
+    };
+    document.addEventListener("click", handler);
+    return () => document.removeEventListener("click", handler);
+  }, [openActionMenuId]);
+
+  useEffect(() => {
     const handleClickOutside = (event) => {
       if (
         categoryDropdownRef.current &&
@@ -332,18 +341,19 @@ export default function Stock() {
 
                   <td className="p-3 relative">
                     <button
-                      onClick={() =>
+                      onClick={(e) => {
+                        e.stopPropagation();
                         setOpenActionMenuId(
                           openActionMenuId === item.id ? null : item.id
-                        )
-                      }
+                        );
+                      }}
                       className="px-2 py-1 hover:bg-gray-100 rounded relative -top-[9px]"
                     >
                       ⋮
                     </button>
 
                     {openActionMenuId === item.id && (
-                      <div className="absolute right-0 mt-2 bg-white shadow-lg rounded-xl overflow-hidden w-40 z-50">
+                      <div className="action-menu absolute right-0 mt-2 bg-white shadow-lg rounded-xl overflow-hidden w-40 z-50">
                         <label className="block px-4 py-2 hover:bg-gray-100 cursor-pointer">
                           📷 Upload Image
                           <input

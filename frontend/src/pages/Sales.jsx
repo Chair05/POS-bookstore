@@ -8,7 +8,7 @@ export default function SalesPage() {
   const [sales, setSales] = useState([]);
   const [filter, setFilter] = useState("all");
   const [customDate, setCustomDate] = useState("");
-  const [printDate, setPrintDate] = useState("");
+  const [printDate, setPrintDate] = useState(new Date().toISOString().slice(0, 10));
   const [printMonth, setPrintMonth] = useState("");
   const [openPanel, setOpenPanel] = useState(null);
   const [showDropdown, setShowDropdown] = useState(false);
@@ -576,7 +576,7 @@ export default function SalesPage() {
   </div>
 
   {/* ================= TRANSACTIONS ================= */}
-<div className="space-y-4">
+<div>
 
   {/* HEADER ROW */}
   <div className="flex justify-between items-center flex-wrap gap-2">
@@ -604,33 +604,35 @@ export default function SalesPage() {
         Reset
       </button>
 
-      {/* PRINT BUTTON */}
-      <button
-        onClick={() => {
-          const selected = customDate || new Date().toISOString().slice(0, 10);
-          setPrintDate(selected);
-          handlePrint();
-        }}
-        className="bg-blue-600 text-white px-4 py-1 rounded-md text-sm hover:bg-blue-700 transition relative -top-[7px]"
-      >
-        Print Day
-      </button>
-
-      <input
-        type="month"
-        value={printMonth}
-        onChange={(e) => setPrintMonth(e.target.value)}
-        className="border px-3 py-1 rounded-md text-sm"
-      />
-
-      <button
-        onClick={handleMonthlyPrint}
-        className="bg-blue-600 text-white px-4 py-1 rounded-md text-sm hover:bg-blue-700 transition relative -top-[7px]"
-      >
-        Print Month
-      </button>
-
     </div>
+  </div>
+
+  {/* PRINT SECTION */}
+  <div className="flex items-center gap-2 mt-1 mb-3">
+    <input
+      type="date"
+      value={printDate}
+      onChange={(e) => setPrintDate(e.target.value)}
+      className="border px-3 py-1 rounded-md text-sm"
+    />
+    <button
+      onClick={handlePrint}
+      className="bg-blue-600 text-white px-4 py-1 rounded-md text-sm hover:bg-blue-700 transition relative -top-[9px]"
+    >
+      Print Day
+    </button>
+    <input
+      type="month"
+      value={printMonth}
+      onChange={(e) => setPrintMonth(e.target.value)}
+      className="border px-3 py-1 rounded-md text-sm"
+    />
+    <button
+      onClick={handleMonthlyPrint}
+      className="bg-blue-600 text-white px-4 py-1 rounded-md text-sm hover:bg-blue-700 transition relative -top-[9px]"
+    >
+      Print Month
+    </button>
   </div>
 
     {/* SALES LIST */}
