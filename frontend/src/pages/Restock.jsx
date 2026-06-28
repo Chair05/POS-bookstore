@@ -59,6 +59,36 @@ export default function Restock() {
     }
   };
 
+  const handlePrintReceipt = () => {
+    if (!product) return alert("Scan a product first");
+
+    const receiptWindow = window.open("", "_blank");
+    if (!receiptWindow) return alert("Please allow pop-ups for receipt printing.");
+
+    const today = new Date().toLocaleString();
+    const content = `
+      <html>
+        <head><title>Restock Receipt</title><style>body{font-family:Arial;padding:20px;max-width:420px;margin:0 auto}h2{margin-bottom:4px}p{margin:4px 0} .divider{border-top:1px dashed #000;margin:10px 0}</style></head>
+        <body>
+          <h2>Restock Receipt</h2>
+          <p><strong>Product:</strong> ${product.name}</p>
+          <p><strong>Barcode:</strong> ${product.barcode}</p>
+          <p><strong>Quantity Added:</strong> ${quantity}</p>
+          <p><strong>Supplier:</strong> ${supplier || "N/A"}</p>
+          <p><strong>Cost Price:</strong> ${costPrice ? `₱${Number(costPrice).toFixed(2)}` : "N/A"}</p>
+          <p><strong>Notes:</strong> ${notes || "-"}</p>
+          <div class="divider"></div>
+          <p>${today}</p>
+        </body>
+      </html>
+    `;
+
+    receiptWindow.document.write(content);
+    receiptWindow.document.close();
+    receiptWindow.focus();
+    receiptWindow.print();
+  };
+
   const handleRestock = async () => {
     if (!product) return alert("Scan a product first");
     if (!quantity || Number(quantity) <= 0)
@@ -248,12 +278,20 @@ const res = await fetch("http://localhost:5000/api/products/restock", {
                 />
               </div>
 
-              <button
-                onClick={handleRestock}
-                className="mt-4 w-full bg-blue-600 text-white py-3 rounded-xl font-semibold hover:bg-blue-700 transition shadow-md"
-              >
-                Confirm Restock
-              </button>
+              <div className="mt-4 flex gap-2">
+                <button
+                  onClick={handleRestock}
+                  className="w-full bg-blue-600 text-white py-3 rounded-xl font-semibold hover:bg-blue-700 transition shadow-md"
+                >
+                  Confirm Restock
+                </button>
+                <button
+                  onClick={handlePrintReceipt}
+                  className="w-full bg-slate-800 text-white py-3 rounded-xl font-semibold hover:bg-slate-900 transition shadow-md"
+                >
+                  Print Receipt
+                </button>
+              </div>
             </div>
           </div>
 

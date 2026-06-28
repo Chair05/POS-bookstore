@@ -34,7 +34,7 @@ export default function LogIn() {
         if (data.success) {
           localStorage.setItem(
             "user",
-            JSON.stringify({ name: data.name, role: data.role })
+            JSON.stringify({ name: data.name, role: data.role, canViewInventoryLogs: Boolean(data.canViewInventoryLogs) })
           );
 
           const redirectUrl = data.role === "sub" ? "/stock" : "/dashboard";

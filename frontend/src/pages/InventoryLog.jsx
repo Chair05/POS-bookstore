@@ -6,11 +6,19 @@ export default function InventoryLog() {
   const navigate = useNavigate();
 
   const [logs, setLogs] = useState([]);
+  const [user, setUser] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem("user") || "{}");
+    } catch {
+      return {};
+    }
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   const [typeFilter, setTypeFilter] = useState("all"); // all | IN | OUT
   const [search, setSearch] = useState("");
+  const [dateFilter, setDateFilter] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
@@ -20,13 +28,25 @@ export default function InventoryLog() {
   }, []);
 
   useEffect(() => {
+    if (!user?.name) {
+      const stored = JSON.parse(localStorage.getItem("user") || "{}");
+      setUser(stored);
+    }
+  }, [user?.name]);
+
+  useEffect(() => {
     setCurrentPage(1);
-  }, [typeFilter, search]);
+  }, [typeFilter, search, dateFilter]);
 
   const loadLogs = async () => {
     setLoading(true);
     try {
-      const res = await fetch("http://localhost:5000/api/inventory-logs");
+      const res = await fetch("http://localhost:5000/api/inventory-logs", {
+        headers: {
+          "x-user-role": user?.role || "",
+          "x-user-can-view-inventory-logs": user?.canViewInventoryLogs ? "true" : "false",
+        },
+      });
 
       const text = await res.text();
 
@@ -69,7 +89,11 @@ export default function InventoryLog() {
       log.productName?.toLowerCase().includes(search.toLowerCase()) ||
       log.staff?.toLowerCase().includes(search.toLowerCase());
 
-    return matchType && matchSearch;
+    const matchDate = dateFilter
+      ? new Date(log.timestamp).toISOString().slice(0, 10) === dateFilter
+      : true;
+
+    return matchType && matchSearch && matchDate;
   });
 
   const totalPages = Math.ceil(filteredLogs.length / itemsPerPage);
@@ -144,6 +168,13 @@ export default function InventoryLog() {
             <option value="IN">Stock IN</option>
             <option value="OUT">Stock OUT</option>
           </select>
+
+          <input
+            type="date"
+            value={dateFilter}
+            onChange={(e) => setDateFilter(e.target.value)}
+            className="border border-gray-300 px-4 py-2 rounded-lg"
+          />
 
           <button
             onClick={loadLogs}

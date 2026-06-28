@@ -19,6 +19,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
   const isAdmin = user?.role === "admin";
   const isStaff = user?.role === "sub";
   const showInventory = isAdmin || isStaff;
+  const canViewInventoryLogs = isAdmin || user?.canViewInventoryLogs;
 
   const linkClass = (path) =>
     `flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ${
@@ -65,18 +66,31 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
             </>
           )}
 
-          <Link onClick={closeSidebar} to="/inventory-log" className={linkClass("/inventory-log")}>
-            <span className="text-xl text-white">≡</span>
-            <span className="font-medium">Inventory Log</span>
-          </Link>
-
-          {isAdmin && (
-            <Link onClick={closeSidebar} to="/sales" className={linkClass("/sales")}> 
-              <span className="text-xl text-white ml-[-4px]">▴</span>
-              <span className="font-medium">Sales</span>
+          {canViewInventoryLogs && (
+            <Link onClick={closeSidebar} to="/inventory-log" className={linkClass("/inventory-log")}>
+              <span className="text-xl text-white">≡</span>
+              <span className="font-medium">Inventory Log</span>
             </Link>
           )}
 
+          {isAdmin && (
+            <>
+              <Link onClick={closeSidebar} to="/sales" className={linkClass("/sales")}> 
+                <span className="text-xl text-white ml-[-4px]">▴</span>
+                <span className="font-medium">Sales</span>
+              </Link>
+              <Link onClick={closeSidebar} to="/sales-report" className={linkClass("/sales-report")}> 
+                <span className="text-xl text-white -ml-1">◔</span>
+                <span className="font-medium -ml-1">Sales Report</span>
+              </Link>
+              <Link onClick={closeSidebar} to="/manage-staff" className={linkClass("/manage-staff")}>
+                <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-white/10 text-white text-base -ml-2">
+                  ⚙
+                </span>
+                <span className="font-medium -ml-2">Manage Staff</span>
+              </Link>
+            </>
+          )}
 
         </nav>
 

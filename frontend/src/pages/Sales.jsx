@@ -1,40 +1,56 @@
-import React, { useEffect, useState, useMemo } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import {LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, PieChart, Pie, Cell, Legend, } from "recharts";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Sidebar from "./Sidebar";
-
+import { getDepartmentInfo } from "../utils/departmentUtils";
 
 export default function SalesPage() {
   const [sales, setSales] = useState([]);
   const [filter, setFilter] = useState("all");
+  const [departmentFilter, setDepartmentFilter] = useState("all");
   const [customDate, setCustomDate] = useState("");
-  const [printDate, setPrintDate] = useState(new Date().toISOString().slice(0, 10));
-  const [printMonth, setPrintMonth] = useState("");
   const [openPanel, setOpenPanel] = useState(null);
-  const [showDropdown, setShowDropdown] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [chartFilter, setChartFilter] = useState("month");
   const [currentPage, setCurrentPage] = useState(1);
-  const navigate = useNavigate();
   const itemsPerPage = 10;
   /* ================= LOAD ================= */
-  const loadSales = async () => {
+  const loadSales = useCallback(async () => {
     try {
       const res = await fetch("http://localhost:5000/api/products/sales");
       const data = await res.json();
       console.log("Loaded sales:", data.sales);
       if (data.success) setSales(data.sales);
-      
     } catch (err) {
       console.error(err);
     }
-  };
+  }, []);
 
   useEffect(() => {
     loadSales();
-  }, []);
+  }, [loadSales]);
 
   const toDateStr = (d) => d.toISOString().slice(0, 10);
+
+  const getSaleDepartmentLabel = useCallback((row) => {
+    const rawDepartment = String(row.product_department || row.department || row.category || row.product?.department || row.product?.category || row.category_name || row.product_category?.name || "").trim();
+    if (!rawDepartment) return null;
+    const label = getDepartmentInfo(rawDepartment).label;
+    if (label === "Students" || label === "Teachers" || label === "Personnel") return null;
+    return label === "General" ? null : label;
+  }, []);
+
+  const getSaleBuyerTypeLabel = useCallback((row) => {
+    const rawBuyerType = String(row.customer_type || row.checkout_department || "").trim();
+    if (!rawBuyerType) return null;
+    const label = getDepartmentInfo(rawBuyerType).label;
+    return label === "Students" || label === "Teachers" || label === "Personnel" ? label : null;
+  }, []);
+
+  const getProductDepartmentLabel = useCallback((row) => {
+    const rawDepartment = String(row.product_department || row.department || row.category || row.product?.department || row.product?.category || row.category_name || row.product_category?.name || "").trim();
+    if (!rawDepartment) return null;
+    const label = getDepartmentInfo(rawDepartment).label;
+    if (label === "Students" || label === "Teachers" || label === "Personnel") return null;
+    return label === "General" ? null : label;
+  }, []);
 
   const formatDate = (dateString) =>
     new Date(dateString).toLocaleString("en-US", {
@@ -59,9 +75,14 @@ export default function SalesPage() {
       if (filter === "custom" && customDate)
         return toDateStr(d) === customDate;
 
+      if (departmentFilter !== "all") {
+        const deptLabel = getSaleDepartmentLabel(s);
+        return deptLabel === departmentFilter;
+      }
+
       return true;
     });
-  }, [sales, filter, customDate]);
+  }, [sales, filter, customDate, departmentFilter, getSaleDepartmentLabel]);
 
   /* ================= SUMMARY ================= */
   const totalEarnings = useMemo(
@@ -101,26 +122,30 @@ export default function SalesPage() {
             created_at: row.created_at,
             customer_name: row.customer_name?.trim() || null,
             items: {},
-            total: row.receipt_total || 0,
+            total: 0,
           };
         }
 
-        const itemKey = `${row.product_name}-${row.barcode}`;
+        const itemKey = `${row.product_name}-${row.barcode}-${getProductDepartmentLabel(row) || ""}-${getSaleBuyerTypeLabel(row) || ""}`;
         const existingItem = acc[key].items[itemKey];
         const quantity = Number(row.quantity) || 0;
-        const total = Number(row.total) || 0;
+        const itemTotal = Number(row.total) || 0;
 
         if (existingItem) {
           existingItem.quantity += quantity;
-          existingItem.total += total;
+          existingItem.total += itemTotal;
         } else {
           acc[key].items[itemKey] = {
             id: row.id || itemKey,
             product_name: row.product_name,
             quantity,
-            total,
+            total: itemTotal,
+            department: getProductDepartmentLabel(row),
+            buyerType: getSaleBuyerTypeLabel(row),
           };
         }
+
+        acc[key].total += itemTotal;
 
         return acc;
       }, {})
@@ -130,12 +155,17 @@ export default function SalesPage() {
         items: Object.values(receipt.items),
       }))
       .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-  }, [filtered]);
+  }, [filtered, getProductDepartmentLabel, getSaleBuyerTypeLabel]);
 
   const paginatedSales = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;
     return groupedByReceipt.slice(start, start + itemsPerPage);
   }, [groupedByReceipt, currentPage]);
+
+  const departmentOptions = useMemo(
+    () => Array.from(new Set(sales.map((sale) => getSaleDepartmentLabel(sale)).filter(Boolean))).sort(),
+    [sales, getSaleDepartmentLabel]
+  );
 
   const totalPages = Math.ceil(groupedByReceipt.length / itemsPerPage);
 
@@ -162,13 +192,17 @@ export default function SalesPage() {
     if (!printDate) return alert("Select date");
 
     const daily = sales.filter(
-      (s) => toDateStr(new Date(s.created_at)) === printDate
+      (s) =>
+        toDateStr(new Date(s.created_at)) === printDate &&
+        (departmentFilter === "all" || getSaleDepartmentLabel(s) === departmentFilter)
     );
 
     const total = daily.reduce((sum, s) => sum + Number(s.total || 0), 0);
 
     const rows = daily.reduce((acc, s) => {
-      const key = `${s.product_name}-${s.barcode}`;
+      const label = [getSaleBuyerTypeLabel(s), getProductDepartmentLabel(s)].filter(Boolean).join(")(");
+      const labelText = label ? `(${label})` : "";
+      const key = `${s.product_name}-${s.barcode}-${labelText}`;
       if (acc[key]) {
         acc[key].quantity += Number(s.quantity) || 0;
         acc[key].total += Number(s.total) || 0;
@@ -177,6 +211,7 @@ export default function SalesPage() {
           product_name: s.product_name,
           quantity: Number(s.quantity) || 0,
           total: Number(s.total) || 0,
+          department: labelText,
         };
       }
       return acc;
@@ -212,22 +247,23 @@ export default function SalesPage() {
           <table>
             <thead>
               <tr>
-                <th>Product</th>
-                <th class="text-right">Qty</th>
-                <th class="text-right">Total</th>
-              </tr>
+                  <th>Product</th>
+                  <th>Department</th>
+                  <th class="text-right">Qty</th>
+                  <th class="text-right">Total</th>
+                </tr>
             </thead>
             <tbody>
-              ${Object.values(rows)
+                  ${Object.values(rows)
                 .map(
                   (r) =>
-                    `<tr><td>${r.product_name}</td><td class="text-right">${r.quantity}</td><td class="text-right">₱${r.total.toFixed(2)}</td></tr>`
+                    `<tr><td>${r.product_name}</td><td>${r.department || "-"}</td><td class="text-right">${r.quantity}</td><td class="text-right">₱${r.total.toFixed(2)}</td></tr>`
                 )
                 .join("")}
             </tbody>
             <tfoot>
               <tr class="total-row">
-                <td>Total</td>
+                <td colspan="2">Total</td>
                 <td class="text-right">${daily.reduce((s, r) => s + (Number(r.quantity) || 0), 0)}</td>
                 <td class="text-right">₱${total.toFixed(2)}</td>
               </tr>
@@ -246,7 +282,10 @@ export default function SalesPage() {
 
     const monthly = sales.filter((s) => {
       const d = new Date(s.created_at);
-      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}` === printMonth;
+      return (
+        `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}` === printMonth &&
+        (departmentFilter === "all" || getSaleDepartmentLabel(s) === departmentFilter)
+      );
     });
 
     if (monthly.length === 0) return alert("No sales for this month");
@@ -254,7 +293,9 @@ export default function SalesPage() {
     const total = monthly.reduce((sum, s) => sum + Number(s.total || 0), 0);
 
     const rows = monthly.reduce((acc, s) => {
-      const key = `${s.product_name}-${s.barcode}`;
+      const label = [getSaleBuyerTypeLabel(s), getProductDepartmentLabel(s)].filter(Boolean).join(")(");
+      const labelText = label ? `(${label})` : "";
+      const key = `${s.product_name}-${s.barcode}-${labelText}`;
       if (acc[key]) {
         acc[key].quantity += Number(s.quantity) || 0;
         acc[key].total += Number(s.total) || 0;
@@ -263,6 +304,7 @@ export default function SalesPage() {
           product_name: s.product_name,
           quantity: Number(s.quantity) || 0,
           total: Number(s.total) || 0,
+          department: labelText,
         };
       }
       return acc;
@@ -320,22 +362,23 @@ export default function SalesPage() {
           <table>
             <thead>
               <tr>
-                <th>Product</th>
-                <th class="text-right">Qty</th>
-                <th class="text-right">Total</th>
-              </tr>
+                  <th>Product</th>
+                  <th>Department</th>
+                  <th class="text-right">Qty</th>
+                  <th class="text-right">Total</th>
+                </tr>
             </thead>
             <tbody>
-              ${Object.values(rows)
+                  ${Object.values(rows)
                 .map(
                   (r) =>
-                    `<tr><td>${r.product_name}</td><td class="text-right">${r.quantity}</td><td class="text-right">₱${r.total.toFixed(2)}</td></tr>`
+                    `<tr><td>${r.product_name}</td><td>${r.department || "-"}</td><td class="text-right">${r.quantity}</td><td class="text-right">₱${r.total.toFixed(2)}</td></tr>`
                 )
                 .join("")}
             </tbody>
             <tfoot>
               <tr class="total-row">
-                <td>Total</td>
+                <td colspan="2">Total</td>
                 <td class="text-right">${monthly.reduce((s, r) => s + (Number(r.quantity) || 0), 0)}</td>
                 <td class="text-right">₱${total.toFixed(2)}</td>
               </tr>
@@ -349,97 +392,7 @@ export default function SalesPage() {
     w.print();
   };
 
-  const chartData = useMemo(() => {
-  const map = {};
 
-  sales.forEach((s) => {
-    const date = new Date(s.created_at);
-
-    let key = "";
-
-    if (chartFilter === "day") {
-      key = date.toISOString().slice(0, 10);
-    }
-
-    if (chartFilter === "week") {
-      const firstDay = new Date(date);
-      firstDay.setDate(date.getDate() - date.getDay());
-      key = firstDay.toISOString().slice(0, 10);
-    }
-
-    if (chartFilter === "month") {
-      key = `${date.getFullYear()}-${date.getMonth() + 1}`;
-    }
-
-    if (chartFilter === "year") {
-      key = `${date.getFullYear()}`;
-    }
-
-    if (chartFilter === "all") {
-      key = "All";
-    }
-
-    map[key] = (map[key] || 0) + Number(s.total || 0);
-  });
-
-  const entries = Object.entries(map).map(([name, total]) => ({
-    name,
-    total,
-  }));
-
-  return entries.sort((a, b) => {
-    if (chartFilter === "day" || chartFilter === "week") {
-      return new Date(a.name) - new Date(b.name);
-    }
-    if (chartFilter === "month") {
-      const [aYear, aMonth] = a.name.split("-").map(Number);
-      const [bYear, bMonth] = b.name.split("-").map(Number);
-      return aYear === bYear ? aMonth - bMonth : aYear - bYear;
-    }
-    if (chartFilter === "year") {
-      return Number(a.name) - Number(b.name);
-    }
-    return 0;
-  });
-}, [sales, chartFilter]);
-
-  const categorySummary = useMemo(() => {
-    return filtered.reduce((acc, s) => {
-      const rawCat = s.category ?? s.category_name ?? (s.product_category && s.product_category.name) ?? s.product?.category ?? s.product?.category_name ?? s.category_id ?? s.categoryId ?? null;
-      const cat = rawCat === null || rawCat === undefined || rawCat === "" ? "Uncategorized" : String(rawCat);
-      const qty = Number(s.quantity) || 0;
-      acc[cat] = (acc[cat] || 0) + qty;
-      return acc;
-    }, {});
-  }, [filtered]);
-
-  const pieData = useMemo(() => {
-    return Object.entries(categorySummary).map(([name, value]) => ({ name, value }));
-  }, [categorySummary]);
-
-  const topProductsByCategory = useMemo(() => {
-    const map = {};
-    filtered.forEach((s) => {
-      const rawCat = s.category ?? s.category_name ?? (s.product_category && s.product_category.name) ?? s.product?.category ?? s.product?.category_name ?? s.category_id ?? s.categoryId ?? null;
-      const cat = rawCat === null || rawCat === undefined || rawCat === "" ? "Uncategorized" : String(rawCat);
-      const name = s.product_name || "Unknown";
-      const qty = Number(s.quantity) || 0;
-      map[cat] = map[cat] || {};
-      map[cat][name] = (map[cat][name] || 0) + qty;
-    });
-
-    // convert to sorted arrays
-    return Object.entries(map).reduce((acc, [cat, prodMap]) => {
-      const items = Object.entries(prodMap)
-        .map(([name, qty]) => ({ name, qty }))
-        .sort((a, b) => b.qty - a.qty)
-        .slice(0, 5);
-      acc[cat] = items;
-      return acc;
-    }, {});
-  }, [filtered]);
-
-  const PIE_COLORS = ["#4f46e5", "#06b6d4", "#10b981", "#f59e0b", "#ef4444", "#7c3aed", "#0ea5e9"];
 
   return (
     <div className="h-screen w-screen flex flex-col bg-gray-100">
@@ -488,91 +441,6 @@ export default function SalesPage() {
 
     </div>
 
-    {/* SALES CHART */}
-    <div className="bg-white rounded-2xl p-5 shadow-sm">
-      <div className="flex flex-wrap items-center gap-4 mb-5">
-        <h2 className="font-semibold text-lg">Sales Chart</h2>
-
-        <select
-          value={chartFilter}
-          onChange={(e) => setChartFilter(e.target.value)}
-          className="border border-gray-300 bg-white px-3 py-1 rounded-md text-sm shadow-sm hover:bg-blue-50 hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 cursor-pointer"
-        >
-          <option value="all">All</option>
-          <option value="year">Year</option>
-          <option value="month">Month</option>
-          <option value="week">Week</option>
-          <option value="day">Day</option>
-        </select>
-      </div>
-
-      <div className="h-[260px]">
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={chartData} margin={{ left: 0, right: 30 }}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="name" />
-            <YAxis orientation="left" />
-            <Tooltip />
-            <Line
-              type="monotone"
-              dataKey="total"
-              stroke="#2563eb"
-              strokeWidth={2}
-            />
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
-    </div>
-
-    {/* CATEGORY PIE + TOP PRODUCTS */}
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <div className="bg-white rounded-2xl p-5 shadow-sm">
-        <h3 className="font-semibold mb-3">Sales by Category</h3>
-        <div className="h-[260px] flex items-center justify-center">
-          <ResponsiveContainer width="100%" height={260}>
-            <PieChart>
-              <Pie
-                data={pieData}
-                dataKey="value"
-                nameKey="name"
-                outerRadius={90}
-                fill="#8884d8"
-                label
-              >
-                {pieData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-                ))}
-              </Pie>
-              <Legend />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
-      <div className="bg-white rounded-2xl p-5 shadow-sm">
-        <h3 className="font-semibold mb-3">Top Products by Category</h3>
-        <div className="space-y-3 max-h-[260px] overflow-y-auto">
-          {Object.keys(topProductsByCategory).length === 0 && (
-            <p className="text-sm text-gray-500">No category data available.</p>
-          )}
-
-          {Object.entries(topProductsByCategory).map(([cat, items]) => (
-            <div key={cat} className="border-b pb-2">
-              <p className="font-medium">{cat}</p>
-              <ul className="text-sm mt-1 space-y-1">
-                {items.map((it) => (
-                  <li key={it.name} className="flex justify-between">
-                    <span>{it.name}</span>
-                    <span className="text-gray-600">{it.qty}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-
   </div>
 
   {/* ================= TRANSACTIONS ================= */}
@@ -583,7 +451,7 @@ export default function SalesPage() {
 
     <h2 className="text-xl font-semibold">Transactions</h2>
 
-    <div className="flex items-center gap-2">
+    <div className="flex flex-wrap items-center gap-2">
 
       {/* DATE FILTER */}
       <input
@@ -596,6 +464,19 @@ export default function SalesPage() {
         className="border px-3 py-1 rounded-md text-sm"
       />
 
+      <select
+        value={departmentFilter}
+        onChange={(e) => setDepartmentFilter(e.target.value)}
+        className="border px-3 py-1 rounded-md text-sm"
+      >
+        <option value="all">All Departments</option>
+        {departmentOptions.map((dept) => (
+          <option key={dept} value={dept}>
+            {dept}
+          </option>
+        ))}
+      </select>
+
       {/* FILTER RESET */}
       <button
         onClick={() => setFilter("all")}
@@ -607,33 +488,6 @@ export default function SalesPage() {
     </div>
   </div>
 
-  {/* PRINT SECTION */}
-  <div className="flex items-center gap-2 mt-1 mb-3">
-    <input
-      type="date"
-      value={printDate}
-      onChange={(e) => setPrintDate(e.target.value)}
-      className="border px-3 py-1 rounded-md text-sm"
-    />
-    <button
-      onClick={handlePrint}
-      className="bg-blue-600 text-white px-4 py-1 rounded-md text-sm hover:bg-blue-700 transition relative -top-[9px]"
-    >
-      Print Day
-    </button>
-    <input
-      type="month"
-      value={printMonth}
-      onChange={(e) => setPrintMonth(e.target.value)}
-      className="border px-3 py-1 rounded-md text-sm"
-    />
-    <button
-      onClick={handleMonthlyPrint}
-      className="bg-blue-600 text-white px-4 py-1 rounded-md text-sm hover:bg-blue-700 transition relative -top-[9px]"
-    >
-      Print Month
-    </button>
-  </div>
 
     {/* SALES LIST */}
 {paginatedSales.map((sale) => (
@@ -660,11 +514,15 @@ export default function SalesPage() {
         </p>
 
         <div className="mt-3 space-y-1">
-          {sale.items.map((item) => (
-            <p key={item.id} className="text-sm text-gray-700">
-              • {item.product_name} × {item.quantity}
-            </p>
-          ))}
+          {sale.items.map((item) => {
+            const labels = Array.from(new Set([item.buyerType, item.department].filter(Boolean)));
+            return (
+              <p key={item.id} className="text-sm text-gray-700">
+                • {item.product_name} × {item.quantity}
+                {labels.length ? ` (${labels.join(")(")})` : ""}
+              </p>
+            );
+          })}
         </div>
       </div>
 
@@ -769,21 +627,6 @@ export default function SalesPage() {
         </>
       )}
 
-      {openPanel === "print" && (
-        <>
-          <input
-            type="date"
-            className="border p-2 w-full mb-2"
-            onChange={(e) => setPrintDate(e.target.value)}
-          />
-          <button
-            onClick={handlePrint}
-            className="bg-blue-600 text-white w-full py-2 rounded"
-          >
-            Print
-          </button>
-        </>
-      )}
 
     </div>
   </div>

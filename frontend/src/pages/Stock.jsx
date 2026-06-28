@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useMemo, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import Sidebar from "./Sidebar";
 
@@ -22,6 +22,7 @@ export default function Stock() {
     barcode: "",
     stock: 1,
     size: "",
+    department: "",
     imageFile: null,
     imagePreview: "",
   });
@@ -29,6 +30,7 @@ export default function Stock() {
   const [openActionMenuId, setOpenActionMenuId] = useState(null);
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
+  const [departmentFilter, setDepartmentFilter] = useState("all");
   const [notification, setNotification] = useState(null);
   const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
   const categoryDropdownRef = useRef(null);
@@ -112,6 +114,8 @@ export default function Stock() {
       formData.append("size", newProduct.size);
     }
 
+    formData.append("department", newProduct.department || "");
+
     try {
       const res = await fetch("http://localhost:5000/api/products", {
         method: "POST",
@@ -130,9 +134,10 @@ export default function Stock() {
           price: "",
           barcode: "",
           stock: 1,
-            size: "",
-            imageFile: null,
-            imagePreview: "",
+          size: "",
+          department: "",
+          imageFile: null,
+          imagePreview: "",
         });
         await loadStock();
         await loadCategories();
@@ -188,9 +193,15 @@ export default function Stock() {
     loadStock();
   };
 
+  const departmentOptions = useMemo(
+    () => Array.from(new Set(stock.map((item) => item.department).filter(Boolean))).sort(),
+    [stock]
+  );
+
   const filteredStock = stock.filter((item) => {
     const query = search.toLowerCase();
 
+    if (departmentFilter !== "all" && item.department !== departmentFilter) return false;
     if (categoryFilter && item.category !== categoryFilter) {
       return false;
     }
@@ -251,46 +262,61 @@ export default function Stock() {
           onChange={(e) => setSearch(e.target.value)}
         />
 
-        <div ref={categoryDropdownRef} className="relative -top-[8px]">
-          <button
-            type="button"
-            onClick={() => setCategoryDropdownOpen((prev) => !prev)}
-            className="h-11 px-4 rounded-xl border border-gray-300 bg-white text-gray-700 shadow-sm hover:bg-blue-50 hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 cursor-pointer flex items-center gap-2 min-w-[160px] whitespace-nowrap"
-          >
-            <span>{categoryFilter || "All Categories"}</span>
-            <span className="text-gray-500">▾</span>
-          </button>
+        <div className="flex items-center gap-2">
+          <div ref={categoryDropdownRef} className="relative -top-[8px]">
+            <button
+              type="button"
+              onClick={() => setCategoryDropdownOpen((prev) => !prev)}
+              className="h-11 px-4 rounded-xl border border-gray-300 bg-white text-gray-700 shadow-sm hover:bg-blue-50 hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 cursor-pointer flex items-center gap-2 min-w-[160px] whitespace-nowrap"
+            >
+              <span>{categoryFilter || "All Categories"}</span>
+              <span className="text-gray-500">▾</span>
+            </button>
 
-          {categoryDropdownOpen && (
-            <div className="absolute right-0 z-20 mt-2 w-56 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg">
-              <button
-                type="button"
-                onClick={() => {
-                  setCategoryFilter("");
-                  setCategoryDropdownOpen(false);
-                }}
-                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-600 hover:text-white transition"
-              >
-                All Categories
-              </button>
-              {categories.map((cat, idx) => {
-                const label = typeof cat === "string" ? cat : cat?.name || "";
-                return (
-                  <button
-                    key={`${label}-${idx}`}
-                    type="button"
-                    onClick={() => {
-                      setCategoryFilter(label);
-                      setCategoryDropdownOpen(false);
-                    }}
-                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-600 hover:text-white transition"
-                  >
-                    {label}
-                  </button>
-                );
-              })}
-            </div>
-          )}
+            {categoryDropdownOpen && (
+              <div className="absolute right-0 z-20 mt-2 w-56 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCategoryFilter("");
+                    setCategoryDropdownOpen(false);
+                  }}
+                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-600 hover:text-white transition"
+                >
+                  All Categories
+                </button>
+                {categories.map((cat, idx) => {
+                  const label = typeof cat === "string" ? cat : cat?.name || "";
+                  return (
+                    <button
+                      key={`${label}-${idx}`}
+                      type="button"
+                      onClick={() => {
+                        setCategoryFilter(label);
+                        setCategoryDropdownOpen(false);
+                      }}
+                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-600 hover:text-white transition"
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <select
+            value={departmentFilter}
+            onChange={(e) => setDepartmentFilter(e.target.value)}
+            className="h-11 px-4 rounded-xl border border-gray-300 bg-white text-gray-700 shadow-sm hover:bg-blue-50 hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+          >
+            <option value="all">All Departments</option>
+            {departmentOptions.map((dept) => (
+              <option key={dept} value={dept}>
+                {dept}
+              </option>
+            ))}
+          </select>
         </div>
 
         <button
@@ -310,6 +336,7 @@ export default function Stock() {
                 <th className="p-3 text-left">Image</th>
                 <th className="p-3 text-left">Product</th>
                 <th className="p-3 text-left">Category</th>
+                <th className="p-3 text-left">Department</th>
                 <th className="p-3 text-left">Size</th>
                 <th className="p-3 text-left">Barcode</th>
                 <th className="p-3 text-left">Price</th>
@@ -334,6 +361,7 @@ export default function Stock() {
 
                   <td className="p-3 font-medium">{item.name}</td>
                   <td className="p-3 text-gray-500">{item.category || "-"}</td>
+                  <td className="p-3 text-gray-500">{item.department || "-"}</td>
                   <td className="p-3 text-gray-500">{item.size || "-"}</td>
                   <td className="p-3 text-gray-500">{item.barcode}</td>
                   <td className="p-3 font-semibold text-blue-600">₱{item.price}</td>
@@ -419,8 +447,8 @@ export default function Stock() {
 
       {/* ADD PRODUCT MODAL */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-black/40 flex justify-center backdrop-blur-sm items-center z-50 px-4">
-          <div className="bg-white rounded-3xl p-6 w-full max-w-2xl shadow-2xl">
+        <div className="fixed inset-0 bg-black/40 flex justify-center items-start sm:items-center z-50 px-4 py-8 overflow-y-auto">
+          <div className="bg-white rounded-3xl p-6 w-full max-w-2xl shadow-2xl max-h-[calc(100vh-4rem)] overflow-y-auto">
             <div className="flex flex-col gap-2 text-center mb-6">
               <h2 className="text-2xl font-semibold">➕ Add Product</h2>
               <p className="text-sm text-gray-500">
@@ -429,17 +457,19 @@ export default function Stock() {
             </div>
 
             <div className="grid gap-4">
-              <label className="space-y-2">
-                <span className="text-sm font-medium text-gray-700">Product Name</span>
-                <input
-                  value={newProduct.name}
-                  placeholder="Enter product name"
-                  className="w-full border px-4 py-3 rounded-xl focus:ring-2 focus:ring-blue-200 outline-none"
-                  onChange={(e) =>
-                    setNewProduct({ ...newProduct, name: e.target.value })
-                  }
-                />
-              </label>
+              <div className="space-y-2">
+                <label className="space-y-2">
+                  <span className="text-sm font-medium text-gray-700">Product Name</span>
+                  <input
+                    value={newProduct.name}
+                    placeholder="Enter product name"
+                    className="w-full border px-4 py-3 rounded-xl focus:ring-2 focus:ring-blue-200 outline-none"
+                    onChange={(e) =>
+                      setNewProduct({ ...newProduct, name: e.target.value })
+                    }
+                  />
+                </label>
+              </div>
 
               <div className="grid gap-2 md:grid-cols-[1fr_auto] md:items-end">
                 <label className="space-y-2 md:col-span-1">
@@ -526,12 +556,36 @@ export default function Stock() {
                     }
                   >
                     <option value="">Select Size (Optional)</option>
+                    <option value="XS">XS</option>
+                    <option value="#20">#20</option>
                     <option value="Small">Small</option>
                     <option value="Medium">Medium</option>
                     <option value="Large">Large</option>
                     <option value="XL">XL</option>
+                    <option value="2XL">2XL</option>
+                    <option value="3XL">3XL</option>
+                    <option value="4XL">4XL</option>
                   </select>
                 </label>
+
+                <div className="grid grid-cols-1 gap-4">
+                  <label className="space-y-2">
+                    <span className="text-sm font-medium text-gray-700">Department</span>
+                    <select
+                      className="w-full border px-4 py-3 rounded-xl focus:ring-2 focus:ring-blue-200 outline-none appearance-none"
+                      value={newProduct.department}
+                      onChange={(e) =>
+                        setNewProduct({ ...newProduct, department: e.target.value })
+                      }
+                    >
+                      <option value="">Select Department</option>
+                      <option value="BSIT">BSIT</option>
+                      <option value="SHTM">SHTM</option>
+                      <option value="ARFIEN">ARFIEN</option>
+                      <option value="SSLATE">SSLATE</option>
+                    </select>
+                  </label>
+                </div>
               </div>
 
               <label className="space-y-2 mt-2">
@@ -586,34 +640,37 @@ export default function Stock() {
                   </div>
                 </div>
               </label>
-            </div>
 
-            <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-end">
-              <button
-                onClick={() => {
-                  setShowAddModal(false);
-                  setNewProduct({
-                    name: "",
-                    category: "",
-                    price: "",
-                    barcode: "",
-                    stock: 1,
-                    size: "",
-                    imageFile: null,
-                    imagePreview: "",
-                  });
-                }}
-                className="w-full sm:w-auto px-5 py-3 border border-gray-300 rounded-xl text-gray-700 hover:bg-gray-50 transition"
-              >
-                Cancel
-              </button>
+              <div className="flex justify-end gap-3 mt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAddModal(false);
+                    setNewProduct({
+                      name: "",
+                      category: "",
+                      price: "",
+                      barcode: "",
+                      stock: 1,
+                      size: "",
+                      department: "",
+                      imageFile: null,
+                      imagePreview: "",
+                    });
+                  }}
+                  className="px-5 py-3 border border-gray-300 rounded-xl text-gray-700 hover:bg-gray-50 transition"
+                >
+                  Cancel
+                </button>
 
-              <button
-                onClick={addProduct}
-                className="w-full sm:w-auto px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition shadow-md"
-              >
-                Add Product
-              </button>
+                <button
+                  type="button"
+                  onClick={addProduct}
+                  className="px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition shadow-md"
+                >
+                  Add Product
+                </button>
+              </div>
             </div>
           </div>
         </div>

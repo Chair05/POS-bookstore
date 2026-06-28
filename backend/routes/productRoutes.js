@@ -190,9 +190,9 @@ router.post("/restock", (req, res) => {
 // ADD new product (WITH SIZE FIX)
 // -------------------------
 router.post("/", upload.single("image"), (req, res) => {
-  let { name, price, category, barcode, stock, size } = req.body;
+  let { name, price, category, barcode, stock, size, department } = req.body;
 
-  console.log("📥 Received product data:", { name, price, category, barcode, stock });
+  console.log("📥 Received product data:", { name, price, category, barcode, stock, size, department });
 
   name = name?.trim();
   category = category?.trim();
@@ -209,9 +209,11 @@ router.post("/", upload.single("image"), (req, res) => {
     });
   }
 
+  department = department || "";
+
   const sql = `
-    INSERT INTO products (name, price, category, barcode, stock, image, size)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO products (name, price, category, barcode, stock, image, size, department)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `;
 
   console.log("💾 Inserting into database...");
@@ -225,7 +227,8 @@ router.post("/", upload.single("image"), (req, res) => {
       barcode,
       stock || 0,
       image,
-      size, // ✅ already normalized
+      size,
+      department,
     ],
     (err, result) => {
       if (err) {
@@ -393,11 +396,15 @@ router.delete("/:id", (req, res) => {
 // CHECKOUT
 // -------------------------
 router.post("/checkout", async (req, res) => {
-  const { items, customerName } = req.body;
+  const { items, customerName, checkoutDepartment } = req.body;
   const cleanedCustomerName =
     typeof customerName === "string" && customerName.trim()
       ? customerName.trim()
       : null;
+  const cleanedCheckoutDepartment =
+    typeof checkoutDepartment === "string" && checkoutDepartment.trim()
+      ? checkoutDepartment.trim()
+      : "";
 
   console.log("Checkout received - customerName:", cleanedCustomerName);
 
@@ -492,8 +499,8 @@ router.post("/checkout", async (req, res) => {
     console.log("Inserting sales record - customerName:", cleanedCustomerName);
     await new Promise((resolve, reject) => {
       db.query(
-        `INSERT INTO sales (receipt_id, total, adminId, customer_name) VALUES (?, ?, ?, ?)`,
-        [receiptId, total, null, cleanedCustomerName],
+        `INSERT INTO sales (receipt_id, total, adminId, customer_name, checkout_department, customer_type) VALUES (?, ?, ?, ?, ?, ?)`,
+        [receiptId, total, null, cleanedCustomerName, cleanedCheckoutDepartment, cleanedCheckoutDepartment],
         (err) => (err ? reject(err) : resolve())
       );
     });
@@ -529,7 +536,12 @@ router.get("/sales", (req, res) => {
       si.created_at,
       s.total as receipt_total,
       s.customer_name,
-      p.category as category
+      s.customer_type as customer_type,
+      s.checkout_department as checkout_department,
+      p.category as category,
+      p.department as department,
+      p.category as product_category,
+      p.department as product_department
      FROM sales_items si
      LEFT JOIN sales s ON si.receipt_id = s.receipt_id
      LEFT JOIN products p ON si.product_id = p.id
