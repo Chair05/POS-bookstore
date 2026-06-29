@@ -464,18 +464,6 @@ export default function SalesPage() {
         className="border px-3 py-1 rounded-md text-sm"
       />
 
-      <select
-        value={departmentFilter}
-        onChange={(e) => setDepartmentFilter(e.target.value)}
-        className="border px-3 py-1 rounded-md text-sm"
-      >
-        <option value="all">All Departments</option>
-        {departmentOptions.map((dept) => (
-          <option key={dept} value={dept}>
-            {dept}
-          </option>
-        ))}
-      </select>
 
       {/* FILTER RESET */}
       <button
@@ -514,15 +502,12 @@ export default function SalesPage() {
         </p>
 
         <div className="mt-3 space-y-1">
-          {sale.items.map((item) => {
-            const labels = Array.from(new Set([item.buyerType, item.department].filter(Boolean)));
-            return (
-              <p key={item.id} className="text-sm text-gray-700">
-                • {item.product_name} × {item.quantity}
-                {labels.length ? ` (${labels.join(")(")})` : ""}
-              </p>
-            );
-          })}
+          {sale.items.map((item) => (
+            <p key={item.id} className="text-sm text-gray-700">
+              • {item.product_name} × {item.quantity}
+              {item.department ? ` (${item.department})` : ""}
+            </p>
+          ))}
         </div>
       </div>
 

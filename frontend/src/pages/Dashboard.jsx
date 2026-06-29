@@ -29,6 +29,7 @@ export default function Dashboard() {
   const [notifications, setNotifications] = useState([]);
   const barcodeRef = useRef("");
   const scanLock = useRef(false);
+  const lowStockAlertedRef = useRef(new Set());
   const closeSidebar = () => setSidebarOpen(false);
 
   /* AUTH */
@@ -110,6 +111,20 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
+    if (!products.length) return;
+
+    const lowStockItems = products.filter((product) => Number(product.stock || 0) <= 30 && Number(product.stock || 0) > 0);
+
+    lowStockItems.forEach((product) => {
+      const key = `${product.id}-${product.stock}`;
+      if (lowStockAlertedRef.current.has(key)) return;
+
+      lowStockAlertedRef.current.add(key);
+      addNotification(`${product.name} is low stock (${product.stock} left)`);
+    });
+  }, [products]);
+
+  useEffect(() => {
     if (categories.length === 0 && products.length > 0) {
       const derived = Array.from(
         new Set(
@@ -130,7 +145,7 @@ const addNotification = (message) => {
 
   setTimeout(() => {
     setNotifications((prev) => prev.filter((n) => n.id !== id));
-  }, 3000);
+  }, 5000);
 };
   /* BARCODE */
   useEffect(() => {
@@ -573,7 +588,7 @@ const filtered = products.filter((p) => {
                         <span className="inline-flex items-center rounded-full bg-red-50 px-3 py-1 text-xs font-semibold text-red-600">
                           Out of Stock
                         </span>
-                      ) : p.stock <= 5 ? (
+                      ) : p.stock <= 30 ? (
                         <span className="inline-flex items-center rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">
                           Low Stock
                         </span>

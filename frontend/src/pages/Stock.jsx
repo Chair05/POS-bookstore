@@ -31,6 +31,7 @@ export default function Stock() {
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
   const [departmentFilter, setDepartmentFilter] = useState("all");
+  const [sizeFilter, setSizeFilter] = useState("all");
   const [notification, setNotification] = useState(null);
   const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
   const categoryDropdownRef = useRef(null);
@@ -198,10 +199,29 @@ export default function Stock() {
     [stock]
   );
 
+  const normalizeSizeValue = (value) => String(value ?? "").trim();
+
+  const sizeOptions = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          stock
+            .map((item) => normalizeSizeValue(item.size))
+            .filter((size) => {
+              const normalized = size.toLowerCase();
+              return size && !["n/a", "na", "none", "null", "undefined", "-"].includes(normalized);
+            })
+        )
+      ).sort(),
+    [stock]
+  );
+
   const filteredStock = stock.filter((item) => {
     const query = search.toLowerCase();
+    const itemSize = normalizeSizeValue(item.size);
 
     if (departmentFilter !== "all" && item.department !== departmentFilter) return false;
+    if (sizeFilter !== "all" && itemSize.toLowerCase() !== String(sizeFilter).toLowerCase()) return false;
     if (categoryFilter && item.category !== categoryFilter) {
       return false;
     }
@@ -317,6 +337,20 @@ export default function Stock() {
               </option>
             ))}
           </select>
+
+          <select
+            value={sizeFilter}
+            onChange={(e) => setSizeFilter(e.target.value)}
+            className="h-11 px-4 rounded-xl border border-gray-300 bg-white text-gray-700 shadow-sm hover:bg-blue-50 hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+          >
+            <option value="all">All Sizes</option>
+            {sizeOptions.map((size) => (
+              <option key={size} value={size}>
+                {size}
+              </option>
+            ))}
+          </select>
+
         </div>
 
         <button
@@ -337,7 +371,6 @@ export default function Stock() {
                 <th className="p-3 text-left">Product</th>
                 <th className="p-3 text-left">Category</th>
                 <th className="p-3 text-left">Department</th>
-                <th className="p-3 text-left">Size</th>
                 <th className="p-3 text-left">Barcode</th>
                 <th className="p-3 text-left">Price</th>
                 <th className="p-3 text-left">Stock</th>
@@ -359,10 +392,14 @@ export default function Stock() {
                     )}
                   </td>
 
-                  <td className="p-3 font-medium">{item.name}</td>
+                  <td className="p-3">
+                    <div className="font-medium text-gray-900">{item.name}</div>
+                    {item.size ? (
+                      <div className="text-xs text-gray-500 mt-1">Size: {item.size}</div>
+                    ) : null}
+                  </td>
                   <td className="p-3 text-gray-500">{item.category || "-"}</td>
                   <td className="p-3 text-gray-500">{item.department || "-"}</td>
-                  <td className="p-3 text-gray-500">{item.size || "-"}</td>
                   <td className="p-3 text-gray-500">{item.barcode}</td>
                   <td className="p-3 font-semibold text-blue-600">₱{item.price}</td>
                   <td className="p-3 font-semibold">{item.stock}</td>

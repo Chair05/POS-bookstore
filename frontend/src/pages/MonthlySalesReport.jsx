@@ -358,7 +358,14 @@ export default function MonthlySalesReport() {
     w.print();
   };
 
-  const pieData = useMemo(() => Object.entries(categorySummary).map(([name, value]) => ({ name, value })), [categorySummary]);
+  const pieData = useMemo(() => {
+    const total = Object.values(categorySummary).reduce((sum, value) => sum + value, 0);
+    return Object.entries(categorySummary).map(([name, value]) => ({
+      name,
+      value: total > 0 ? (value / total) * 100 : 0,
+      raw: value,
+    }));
+  }, [categorySummary]);
 
   const departmentSales = useMemo(() => {
     const totals = {};
@@ -418,7 +425,7 @@ export default function MonthlySalesReport() {
       <header className="flex items-center justify-between bg-gradient-to-r from-blue-600 to-blue-800 text-white px-4 py-2 shadow">
         <div className="flex items-center gap-3">
           <button onClick={() => setSidebarOpen(true)} className="text-2xl transition relative -top-[7px]">☰</button>
-          <h1 className="text-xl font-bold">Monthly Sales Report</h1>
+          <h1 className="text-xl font-bold">Sales Report</h1>
         </div>
       </header>
 
@@ -507,7 +514,13 @@ export default function MonthlySalesReport() {
               {hasDepartmentSales ? (
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
-                    <Pie data={departmentSales} dataKey="value" nameKey="name" outerRadius={80} label>
+                    <Pie
+                      data={departmentSales}
+                      dataKey="value"
+                      nameKey="name"
+                      outerRadius={80}
+                      label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                    >
                       {departmentSales.map((entry, index) => (<Cell key={`dept-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />))}
                     </Pie>
                     <Legend />
@@ -543,10 +556,20 @@ export default function MonthlySalesReport() {
             <div className="h-[260px] flex items-center justify-center">
               <ResponsiveContainer width="100%" height={260}>
                 <PieChart>
-                  <Pie data={pieData} dataKey="value" nameKey="name" outerRadius={90} fill="#8884d8" label>
-                    {pieData.map((entry, index) => (<Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />))}
+                  <Pie
+                    data={pieData}
+                    dataKey="value"
+                    nameKey="name"
+                    outerRadius={90}
+                    fill="#8884d8"
+                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                  >
+                    {pieData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                    ))}
                   </Pie>
                   <Legend />
+                  <Tooltip formatter={(value, name, props) => [`${Number(value).toFixed(2)}%`, name]} />
                 </PieChart>
               </ResponsiveContainer>
             </div>
@@ -557,7 +580,13 @@ export default function MonthlySalesReport() {
               {hasStaffDepartmentSales ? (
                 <ResponsiveContainer width="100%" height={260}>
                   <PieChart>
-                    <Pie data={staffDepartmentSales} dataKey="value" nameKey="name" outerRadius={90} label>
+                    <Pie
+                      data={staffDepartmentSales}
+                      dataKey="value"
+                      nameKey="name"
+                      outerRadius={90}
+                      label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                    >
                       {staffDepartmentSales.map((entry, index) => (
                         <Cell key={`staff-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
                       ))}
@@ -573,21 +602,6 @@ export default function MonthlySalesReport() {
               )}
             </div>
           </div>
-          <div className="bg-white rounded-2xl p-5 shadow-sm">
-            <h3 className="font-semibold mb-3">Top Products by Category</h3>
-            <div className="space-y-3 max-h-[260px] overflow-y-auto">
-              {Object.keys(topProductsByCategory).length === 0 && <p className="text-sm text-gray-500">No category data available.</p>}
-              {Object.entries(topProductsByCategory).map(([cat, items]) => (
-                <div key={cat} className="border-b pb-2">
-                  <p className="font-medium">{cat}</p>
-                  <ul className="text-sm mt-1 space-y-1">
-                    {items.map((it) => <li key={it.name} className="flex justify-between"><span>{it.name}</span><span className="text-gray-600">{it.qty}</span></li>)}
-                  </ul>
-                </div>
-              ))}
-            </div>
-          </div>
-
           <div className="bg-white rounded-2xl p-5 shadow-sm">
             <h3 className="font-semibold mb-3">Top Products by Category</h3>
             <div className="space-y-3 max-h-[260px] overflow-y-auto">

@@ -66,19 +66,95 @@ export default function Restock() {
     if (!receiptWindow) return alert("Please allow pop-ups for receipt printing.");
 
     const today = new Date().toLocaleString();
+    const escapeHtml = (value) =>
+      String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/\"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+
     const content = `
       <html>
-        <head><title>Restock Receipt</title><style>body{font-family:Arial;padding:20px;max-width:420px;margin:0 auto}h2{margin-bottom:4px}p{margin:4px 0} .divider{border-top:1px dashed #000;margin:10px 0}</style></head>
+        <head>
+          <title>Restock Receipt</title>
+          <style>
+            body {
+              font-family: "Segoe UI", Arial, sans-serif;
+              margin: 0;
+              padding: 24px 20px;
+              color: #111827;
+              background: #fff;
+            }
+            .receipt {
+              width: 100%;
+              max-width: 360px;
+              margin: 0 auto;
+              border: 1px solid #d1d5db;
+              border-radius: 10px;
+              padding: 18px 16px;
+              box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+            }
+            .title {
+              text-align: center;
+              font-size: 20px;
+              font-weight: 700;
+              margin: 0 0 6px;
+              letter-spacing: 0.03em;
+            }
+            .subtitle {
+              text-align: center;
+              font-size: 12px;
+              color: #6b7280;
+              margin-bottom: 12px;
+            }
+            .divider {
+              border-top: 1px dashed #9ca3af;
+              margin: 10px 0;
+            }
+            .row {
+              display: flex;
+              justify-content: space-between;
+              gap: 12px;
+              margin: 6px 0;
+              font-size: 13px;
+            }
+            .label { color: #4b5563; }
+            .value { font-weight: 600; text-align: right; }
+            .notes {
+              margin-top: 8px;
+              padding: 8px;
+              background: #f9fafb;
+              border-radius: 6px;
+              font-size: 12px;
+              color: #374151;
+              white-space: pre-wrap;
+            }
+            .footer {
+              margin-top: 12px;
+              text-align: center;
+              font-size: 11px;
+              color: #6b7280;
+            }
+            @media print {
+              body { padding: 0; }
+              .receipt { border: none; box-shadow: none; padding: 0; }
+            }
+          </style>
+        </head>
         <body>
-          <h2>Restock Receipt</h2>
-          <p><strong>Product:</strong> ${product.name}</p>
-          <p><strong>Barcode:</strong> ${product.barcode}</p>
-          <p><strong>Quantity Added:</strong> ${quantity}</p>
-          <p><strong>Supplier:</strong> ${supplier || "N/A"}</p>
-          <p><strong>Cost Price:</strong> ${costPrice ? `₱${Number(costPrice).toFixed(2)}` : "N/A"}</p>
-          <p><strong>Notes:</strong> ${notes || "-"}</p>
-          <div class="divider"></div>
-          <p>${today}</p>
+          <div class="receipt">
+            <h2 class="title">Restock Receipt</h2>
+            <p class="subtitle">Stock update record</p>
+            <div class="row"><span class="label">Product</span><span class="value">${escapeHtml(product.name)}</span></div>
+            <div class="row"><span class="label">Barcode</span><span class="value">${escapeHtml(product.barcode)}</span></div>
+            <div class="row"><span class="label">Qty Added</span><span class="value">${escapeHtml(quantity)}</span></div>
+            <div class="row"><span class="label">Supplier</span><span class="value">${escapeHtml(supplier || "N/A")}</span></div>
+            <div class="row"><span class="label">Cost Price</span><span class="value">${costPrice ? `₱${Number(costPrice).toFixed(2)}` : "N/A"}</span></div>
+            <div class="divider"></div>
+            ${notes ? `<div class="notes">${escapeHtml(notes)}</div>` : ""}
+            <div class="footer">${escapeHtml(today)}</div>
+          </div>
         </body>
       </html>
     `;
