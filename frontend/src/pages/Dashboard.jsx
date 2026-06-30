@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import LccbLogo from "../assets/Lccb-logo.jpeg";
 import Sidebar from "./Sidebar";
+import { getDepartmentInfo } from "../utils/departmentUtils";
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -24,9 +25,11 @@ export default function Dashboard() {
   const [showReceipt, setShowReceipt] = useState(false);
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
+  const [checkoutDepartment, setCheckoutDepartment] = useState("Students");
   const [notifications, setNotifications] = useState([]);
   const barcodeRef = useRef("");
   const scanLock = useRef(false);
+  const lowStockAlertedRef = useRef(new Set());
   const closeSidebar = () => setSidebarOpen(false);
 
   /* AUTH */
@@ -108,6 +111,20 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
+    if (!products.length) return;
+
+    const lowStockItems = products.filter((product) => Number(product.stock || 0) <= 30 && Number(product.stock || 0) > 0);
+
+    lowStockItems.forEach((product) => {
+      const key = `${product.id}-${product.stock}`;
+      if (lowStockAlertedRef.current.has(key)) return;
+
+      lowStockAlertedRef.current.add(key);
+      addNotification(`${product.name} is low stock (${product.stock} left)`);
+    });
+  }, [products]);
+
+  useEffect(() => {
     if (categories.length === 0 && products.length > 0) {
       const derived = Array.from(
         new Set(
@@ -128,7 +145,7 @@ const addNotification = (message) => {
 
   setTimeout(() => {
     setNotifications((prev) => prev.filter((n) => n.id !== id));
-  }, 3000);
+  }, 5000);
 };
   /* BARCODE */
   useEffect(() => {
@@ -195,6 +212,7 @@ const handleBarcodeScan = (code) => {
             name: product.name,
             price: Number(product.price),
             size: product.size || null,
+            department: product.department || "",
             barcode: product.barcode,
             qty: 1,
           },
@@ -304,7 +322,11 @@ const handlePay = async () => {
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ items, customerName: customerName.trim() || null }),
+        body: JSON.stringify({
+          items,
+          customerName: customerName.trim() || null,
+          checkoutDepartment,
+        }),
       }
     );
 
@@ -344,13 +366,20 @@ const handlePay = async () => {
 };
 
 /* PRINT RECEIPT */
+const formatReceiptItemLabel = (item) => {
+  const department = item.department ? getDepartmentInfo(item.department).label : null;
+  const sizeLabel = item.size ? ` (${item.size})` : "";
+  return `${item.name}${sizeLabel}${department && department !== "General" ? ` (${department})` : ""}`;
+};
+
 const handlePrintReceipt = () => {
   const date = new Date().toLocaleString();
   
   const itemsHtml = receiptItems
     .map(
-      (item) =>
-        `<p>${item.name}${item.size ? " (" + item.size + ")" : ""} x${item.qty} - ₱${(item.price * item.qty).toFixed(2)}</p>`
+      (item) => {
+        return `<p>${formatReceiptItemLabel(item)} x${item.qty} - ₱${(item.price * item.qty).toFixed(2)}</p>`;
+      }
     )
     .join("");
 
@@ -497,7 +526,7 @@ const filtered = products.filter((p) => {
           {/* PRODUCTS */}
           <div className="flex-1 bg-white shadow p-4 overflow-auto rounded">
 
-            <div className="flex gap-2 mb-3">
+            <div className="flex gap-2 mb-3 flex-wrap">
               <input
                 placeholder="Search..."
                 className="border p-2 flex-1 rounded"
@@ -537,6 +566,13 @@ const filtered = products.filter((p) => {
                     <div>
                       <h3 className="text-sm font-semibold text-slate-900 leading-tight">{p.name}</h3>
                       <p className="text-xs text-slate-500 mt-1">Size: {p.size || "N/A"}</p>
+                      {p.department && p.department !== "General" ? (
+                        <div className="mt-2">
+                          <span className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-[11px] font-semibold text-blue-700">
+                            {p.department}
+                          </span>
+                        </div>
+                      ) : null}
                     </div>
 
                     <div className="flex items-center justify-between gap-3">
@@ -552,7 +588,7 @@ const filtered = products.filter((p) => {
                         <span className="inline-flex items-center rounded-full bg-red-50 px-3 py-1 text-xs font-semibold text-red-600">
                           Out of Stock
                         </span>
-                      ) : p.stock <= 5 ? (
+                      ) : p.stock <= 30 ? (
                         <span className="inline-flex items-center rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">
                           Low Stock
                         </span>
@@ -594,7 +630,7 @@ const filtered = products.filter((p) => {
       </p>
 
       <p className="text-xs text-gray-500 truncate mt-1">
-        Size: {item.size || "N/A"}
+        Size: {item.size || "N/A"}{item.department ? ` | Dept: ${item.department}` : ""}
       </p>
     </div>
 
@@ -660,6 +696,19 @@ const filtered = products.filter((p) => {
                 </div>
               </div>
 
+              <div className="mb-3">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Checkout Dept</label>
+                <select
+                  value={checkoutDepartment}
+                  onChange={(e) => setCheckoutDepartment(e.target.value)}
+                  className="w-full border border-gray-300 p-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="Students">Students</option>
+                  <option value="Teachers">Teachers</option>
+                  <option value="Personnel">Personnel</option>
+                </select>
+              </div>
+
             {/* Customer Name Input */}
             <div className="mb-1">
               <input
@@ -714,12 +763,17 @@ const filtered = products.filter((p) => {
                 )}
 
                 <div className="space-y-1 mb-2 pb-2 border-b border-gray-300">
-                  {receiptItems.map((item, i) => (
-                    <p key={i} className="text-xs text-gray-700">
-                      {item.name} ({item.size || "N/A"}) × {item.qty}
-                      <span className="float-right font-semibold">₱{(item.price * item.qty).toFixed(2)}</span>
-                    </p>
-                  ))}
+                  {receiptItems.map((item, i) => {
+                    const department = item.department ? getDepartmentInfo(item.department).label : null;
+                    return (
+                      <p key={i} className="text-xs text-gray-700">
+                        {item.name}
+                        {item.size ? ` (${item.size})` : ""}
+                        {department && department !== "General" ? ` (${department})` : ""} × {item.qty}
+                        <span className="float-right font-semibold">₱{(item.price * item.qty).toFixed(2)}</span>
+                      </p>
+                    );
+                  })}
                 </div>
 
                 <div className="space-y-1 text-sm font-medium text-gray-800">

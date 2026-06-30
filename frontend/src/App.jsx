@@ -6,15 +6,30 @@ import Dashboard from "./pages/Dashboard";
 import StartPage from "./pages/Start";
 import StockManager from "./pages/Stock";
 import SalesPage from "./pages/Sales";
-import SalesChartPage from "./pages/SalesChartPage";
 import Restock from "./pages/Restock";
 import Log from "./pages/InventoryLog";
+import MonthlySalesReport from "./pages/MonthlySalesReport";
+import ManageStaff from "./pages/ManageStaff";
 import "./index.css";
 
 function ProtectedRoute({ children }) {
   const user = localStorage.getItem("user");
   if (!user) return <Navigate to="/login" replace />;
   return children;
+}
+
+function AdminRoute({ children }) {
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
+  if (!user?.role) return <Navigate to="/login" replace />;
+  if (user.role !== "admin") return <Navigate to="/dashboard" replace />;
+  return children;
+}
+
+function InventoryRoute({ children }) {
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
+  if (!user?.role) return <Navigate to="/login" replace />;
+  if (user.role === "admin" || user.canViewInventoryLogs) return children;
+  return <Navigate to="/dashboard" replace />;
 }
 
 export default function App() {
@@ -58,8 +73,9 @@ export default function App() {
             }
           />
 
-          <Route path="/inventory-log" element={<ProtectedRoute><Log /></ProtectedRoute>} />
-          <Route path="/sales-chart" element={<ProtectedRoute><SalesChartPage /></ProtectedRoute>} />
+          <Route path="/inventory-log" element={<ProtectedRoute><InventoryRoute><Log /></InventoryRoute></ProtectedRoute>} />
+          <Route path="/sales-report" element={<ProtectedRoute><AdminRoute><MonthlySalesReport /></AdminRoute></ProtectedRoute>} />
+          <Route path="/manage-staff" element={<ProtectedRoute><AdminRoute><ManageStaff /></AdminRoute></ProtectedRoute>} />
 
           {/* Catch-all */}
           <Route path="*" element={<Navigate to="/" />} />

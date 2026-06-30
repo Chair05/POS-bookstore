@@ -111,9 +111,13 @@ const ensureColumn = (table, column, definition) => {
 
 ensureColumn("sales_items", "receipt_id", "receipt_id INT NULL AFTER id");
 ensureColumn("sales", "customer_name", "customer_name VARCHAR(255) NULL");
+ensureColumn("sales", "customer_type", "customer_type VARCHAR(100) DEFAULT ''");
+ensureColumn("sales", "checkout_department", "checkout_department VARCHAR(100) DEFAULT ''");
 ensureColumn("sales", "receipt_id", "receipt_id INT NULL");
 ensureColumn("sales", "adminId", "adminId INT NULL");
 ensureColumn("inventory_logs", "receipt_id", "receipt_id INT NULL");
+ensureColumn("admins", "can_view_inventory_logs", "can_view_inventory_logs TINYINT(1) DEFAULT 0");
+ensureColumn("products", "department", "department VARCHAR(100) DEFAULT ''");
 
 // -------------------------
 // Inventory Logs
@@ -153,6 +157,13 @@ db.query(`
 `, (err) => err && console.error("IN backfill error:", err));
 
 app.get("/api/inventory-logs", (req, res) => {
+  const role = req.header("x-user-role");
+  const canViewInventoryLogs = req.header("x-user-can-view-inventory-logs") === "true";
+
+  if (role !== "admin" && !canViewInventoryLogs) {
+    return res.status(403).json({ success: false, message: "Access denied" });
+  }
+
   db.query(
     "SELECT * FROM inventory_logs ORDER BY created_at DESC",
     (err, results) => {
@@ -160,6 +171,29 @@ app.get("/api/inventory-logs", (req, res) => {
       res.json({ success: true, logs: results });
     }
   );
+});
+
+app.get("/api/sales/monthly-report", (req, res) => {
+  const role = req.header("x-user-role");
+  if (role !== "admin") {
+    return res.status(403).json({ success: false, message: "Access denied" });
+  }
+
+  const sql = `
+    SELECT
+      DATE_FORMAT(created_at, '%Y-%m') AS month,
+      COUNT(DISTINCT receipt_id) AS item_count,
+      SUM(quantity) AS total_items,
+      SUM(total) AS total_revenue
+    FROM sales_items
+    GROUP BY DATE_FORMAT(created_at, '%Y-%m')
+    ORDER BY month DESC
+  `;
+
+  db.query(sql, (err, results) => {
+    if (err) return res.status(500).json({ success: false, message: "Database error" });
+    res.json({ success: true, reports: results });
+  });
 });
 
 // JSON fallback for unknown routes
