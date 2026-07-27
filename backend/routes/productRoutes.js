@@ -1,0 +1,578 @@
+const express = require("express");
+const router = express.Router();
+const db = require("../db");
+const multer = require("multer");
+const path = require("path");
+const fs = require("fs");
+
+// -------------------------
+// Multer setup for image uploads
+// -------------------------
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, "uploads/"),
+  filename: (req, file, cb) =>
+    cb(null, Date.now() + path.extname(file.originalname)),
+});
+const upload = multer({ storage });
+
+// -------------------------
+// GET all products
+// -------------------------
+router.get("/", (req, res) => {
+  const sql = "SELECT * FROM products ORDER BY id DESC";
+
+  console.log("📤 GET /api/products - Fetching all products...");
+
+  db.query(sql, (err, results) => {
+    if (err) {
+      console.error("❌ Error fetching products:", err);
+      return res.status(500).json({ success: false, message: err.message });
+    }
+
+    console.log(`✅ Found ${results.length} products`);
+
+    const products = results.map((p) => ({
+      ...p,
+      barcode: String(p.barcode),
+      size: p.size || null, // ensure size is returned consistently
+    }));
+
+    res.json({
+      success: true,
+      products,
+    });
+  });
+});
+
+// -------------------------
+// GET product by barcode
+// -------------------------
+router.get("/barcode/:barcode", (req, res) => {
+  const { barcode } = req.params;
+
+  db.query(
+    "SELECT * FROM products WHERE barcode = ? LIMIT 1",
+    [barcode],
+    (err, results) => {
+      if (err) return res.status(500).json({ success: false });
+
+      if (results.length === 0)
+        return res.json({ success: false, message: "Product not found" });
+
+      const product = results[0];
+
+      res.json({
+        success: true,
+        product: {
+          ...product,
+          barcode: String(product.barcode),
+          size: product.size || null,
+        },
+      });
+    }
+  );
+});
+
+router.post("/restock", (req, res) => {
+  const { productId, amount, supplier, costPrice, notes } = req.body;
+  const productIdNum = Number(productId);
+  const quantity = Number(amount);
+  const parsedCostPrice = costPrice ? Number(costPrice) : null;
+
+  if (!productIdNum || !quantity || quantity <= 0) {
+    return res.status(400).json({
+      success: false,
+      message: "Invalid restock data",
+    });
+  }
+
+  db.getConnection((err, connection) => {
+    if (err) {
+      console.error("Restock connection error:", err);
+      return res.status(500).json({ success: false, message: "Database error" });
+    }
+
+    connection.beginTransaction((err) => {
+      if (err) {
+        console.error("Restock transaction begin error:", err);
+        connection.release();
+        return res.status(500).json({ success: false, message: "Database error" });
+      }
+
+      const rollback = (statusCode, msg) => {
+        return connection.rollback(() => {
+          connection.release();
+          res.status(statusCode).json({ success: false, message: msg });
+        });
+      };
+
+      connection.query(
+        "SELECT stock, name FROM products WHERE id = ?",
+        [productIdNum],
+        (err, results) => {
+          if (err) {
+            console.error("Restock select error:", err);
+            return rollback(500, "Database error");
+          }
+
+          if (results.length === 0)
+            return rollback(404, "Product not found");
+
+          const productName = results[0].name;
+          const previousStock = Number(results[0].stock || 0);
+          const newStock = previousStock + quantity;
+
+          connection.query(
+            "UPDATE products SET stock = ? WHERE id = ?",
+            [newStock, productIdNum],
+            (err) => {
+              if (err) {
+                console.error("Restock update error:", err);
+                return rollback(500, "Database error");
+              }
+
+              connection.query(
+                `INSERT INTO restocks 
+                (product_id, quantity_added, previous_stock, new_stock, reason, supplier, cost_price, notes)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+                [
+                  productIdNum,
+                  quantity,
+                  previousStock,
+                  newStock,
+                  `${supplier || "N/A"} | ${notes || ""}`,
+                  supplier || null,
+                  parsedCostPrice,
+                  notes || null,
+                ],
+                (err, result) => {
+                  if (err) {
+                    console.error("Restock insert error:", err);
+                    return rollback(500, "Database error");
+                  }
+
+                  connection.query(
+                    `INSERT INTO inventory_logs (product_id, product_name, type, quantity, reason, staff)
+                     VALUES (?, ?, 'IN', ?, ?, 'Admin')`,
+                    [productIdNum, productName, quantity, supplier ? `Restock - ${supplier}` : 'Restock'],
+                    (err) => {
+                      if (err) {
+                        console.error("Inventory log insert error:", err);
+                        return rollback(500, "Database error");
+                      }
+
+                      connection.commit((err) => {
+                        if (err) {
+                          console.error("Restock commit error:", err);
+                          return rollback(500, "Database error");
+                        }
+
+                        connection.release();
+                        res.json({
+                          success: true,
+                          message: "Restock successful",
+                          newStock,
+                          restockId: result.insertId,
+                        });
+                      });
+                    }
+                  );
+                }
+              );
+            }
+          );
+        }
+      );
+    });
+  });
+});
+// -------------------------
+// ADD new product (WITH SIZE FIX)
+// -------------------------
+router.post("/", upload.single("image"), (req, res) => {
+  let { name, price, category, barcode, stock, size, department } = req.body;
+
+  console.log("📥 Received product data:", { name, price, category, barcode, stock, size, department });
+
+  name = name?.trim();
+  category = category?.trim();
+  barcode = barcode?.toString().trim();
+  size = size && size.trim() !== "" ? size.trim() : null; // ✅ FIX
+
+  const image = req.file ? "/uploads/" + req.file.filename : "";
+
+  if (!name || !price || !category || !barcode) {
+    console.warn("⚠️ Missing required fields:", { name, price, category, barcode });
+    return res.status(400).json({
+      success: false,
+      message: "Missing required fields",
+    });
+  }
+
+  department = department || "";
+
+  const sql = `
+    INSERT INTO products (name, price, category, barcode, stock, image, size, department)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `;
+
+  console.log("💾 Inserting into database...");
+
+  db.query(
+    sql,
+    [
+      name,
+      price,
+      category,
+      barcode,
+      stock || 0,
+      image,
+      size,
+      department,
+    ],
+    (err, result) => {
+      if (err) {
+        console.error("❌ Error adding product:", err);
+        return res.status(500).json({ success: false, message: err.message });
+      }
+
+      console.log("✅ Product added! ID:", result.insertId);
+      res.json({
+        success: true,
+        id: result.insertId,
+        message: "Product added successfully",
+      });
+    }
+  );
+});
+
+// -------------------------
+// UPDATE product category
+// -------------------------
+router.put("/:id/update-category", (req, res) => {
+  const { id } = req.params;
+  const { category } = req.body;
+
+  if (!category)
+    return res
+      .status(400)
+      .json({ success: false, message: "Category is required" });
+
+  db.query(
+    "UPDATE products SET category = ? WHERE id = ?",
+    [category, id],
+    (err, result) => {
+      if (err) {
+        console.error("❌ Category update error:", err);
+        return res.status(500).json({ success: false });
+      }
+
+      if (result.affectedRows === 0)
+        return res
+          .status(404)
+          .json({ success: false, message: "Product not found" });
+
+      res.json({ success: true, message: "Category updated" });
+    }
+  );
+});
+
+// -------------------------
+// ADD stock
+// -------------------------
+router.put("/:id/add-stock", (req, res) => {
+  const { id } = req.params;
+  const { amount } = req.body;
+
+  const productId = parseInt(id, 10);
+  const stockAmount = parseInt(amount, 10);
+
+  if (!stockAmount || stockAmount <= 0)
+    return res
+      .status(400)
+      .json({ success: false, message: "Invalid stock amount" });
+
+  db.query(
+    "UPDATE products SET stock = stock + ? WHERE id = ?",
+    [stockAmount, productId],
+    (err, result) => {
+      if (err) {
+        console.error("Add stock error:", err);
+        return res.status(500).json({ success: false, message: "Database error" });
+      }
+
+      if (result.affectedRows === 0)
+        return res.json({ success: false, message: "Product not found" });
+
+      res.json({ success: true, message: "Stock added" });
+    }
+  );
+});
+
+// -------------------------
+// UPDATE product image
+// -------------------------
+router.put("/:id/update-image", upload.single("image"), (req, res) => {
+  const { id } = req.params;
+
+  if (!req.file)
+    return res
+      .status(400)
+      .json({ success: false, message: "No image uploaded" });
+
+  const newPath = "/uploads/" + req.file.filename;
+
+  db.query(
+    "UPDATE products SET image = ? WHERE id = ?",
+    [newPath, id],
+    (err) => {
+      if (err) return res.status(500).json({ success: false });
+
+      res.json({
+        success: true,
+        message: "Image updated",
+        newImage: newPath,
+      });
+    }
+  );
+});
+
+// -------------------------
+// REMOVE product image
+// -------------------------
+router.put("/:id/remove-image", (req, res) => {
+  const { id } = req.params;
+
+  db.query("SELECT image FROM products WHERE id = ?", [id], (err, results) => {
+    if (err) return res.status(500).json({ success: false, message: err.message });
+
+    if (results.length === 0)
+      return res.status(404).json({ success: false, message: "Product not found" });
+
+    const imageField = results[0].image;
+    const imagePath = imageField ? path.join(__dirname, "..", imageField) : null;
+
+    db.query("UPDATE products SET image = '' WHERE id = ?", [id], (err) => {
+      if (err) return res.status(500).json({ success: false, message: err.message });
+
+      if (imagePath) fs.unlink(imagePath, () => {});
+
+      res.json({ success: true, message: "Image removed" });
+    });
+  });
+});
+
+// -------------------------
+// DELETE product
+// -------------------------
+router.delete("/:id", (req, res) => {
+  const { id } = req.params;
+
+  db.query("SELECT image FROM products WHERE id = ?", [id], (err, results) => {
+    if (err)
+      return res.status(500).json({ success: false, message: err.message });
+
+    if (results.length === 0)
+      return res
+        .status(404)
+        .json({ success: false, message: "Product not found" });
+
+    const imagePath = results[0].image
+      ? path.join(__dirname, "..", results[0].image)
+      : null;
+
+    db.query("DELETE FROM products WHERE id = ?", [id], (err) => {
+      if (err)
+        return res.status(500).json({ success: false, message: err.message });
+
+      if (imagePath) fs.unlink(imagePath, () => {});
+
+      res.json({ success: true, message: "Product deleted successfully" });
+    });
+  });
+});
+
+// -------------------------
+// CHECKOUT
+// -------------------------
+router.post("/checkout", async (req, res) => {
+  const { items, customerName, checkoutDepartment } = req.body;
+  const cleanedCustomerName =
+    typeof customerName === "string" && customerName.trim()
+      ? customerName.trim()
+      : null;
+  const cleanedCheckoutDepartment =
+    typeof checkoutDepartment === "string" && checkoutDepartment.trim()
+      ? checkoutDepartment.trim()
+      : "";
+
+  console.log("Checkout received - customerName:", cleanedCustomerName);
+
+  if (!items || !Array.isArray(items) || items.length === 0) {
+    return res.json({ success: false, message: "Cart is empty" });
+  }
+
+  try {
+    // =========================
+    // Generate short receipt ID
+    // =========================
+   const receiptId = await new Promise((resolve, reject) => {
+  db.query(
+    "SELECT COALESCE(MAX(receipt_id), 1000) + 1 AS nextReceipt FROM sales_items",
+    (err, results) => {
+      if (err) return reject(err);
+      const receiptId = results[0].nextReceipt;
+      resolve(receiptId);
+    }
+  );
+});
+    // =========================
+    // Process checkout items
+    // =========================
+    let total = 0;
+    await Promise.all(
+      items.map(async (item) => {
+        const product = await new Promise((resolve, reject) => {
+          db.query(
+            "SELECT * FROM products WHERE barcode = ? LIMIT 1",
+            [item.barcode],
+            (err, results) => {
+              if (err) reject(err);
+              else resolve(results[0]);
+            }
+          );
+        });
+
+        if (!product) {
+          throw new Error(`Product ${item.barcode} not found`);
+        }
+
+        const quantity = item.quantity || 1;
+
+        if (product.stock < quantity) {
+          throw new Error(`${product.name} is out of stock`);
+        }
+
+        total += product.price * quantity;
+
+        // deduct stock
+        await new Promise((resolve, reject) => {
+          db.query(
+            "UPDATE products SET stock = stock - ? WHERE id = ?",
+            [quantity, product.id],
+            (err) => (err ? reject(err) : resolve())
+          );
+        });
+
+        // insert sale row
+        await new Promise((resolve, reject) => {
+          db.query(
+            `INSERT INTO sales_items 
+            (product_id, barcode, quantity, price, total, product_name, receipt_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [
+              product.id,
+              product.barcode,
+              quantity,
+              product.price,
+              product.price * quantity,
+              product.name,
+              receiptId,
+            ],
+            (err) => (err ? reject(err) : resolve())
+          );
+        });
+
+        // insert into inventory_logs
+        await new Promise((resolve, reject) => {
+          db.query(
+            `INSERT INTO inventory_logs (receipt_id, product_id, product_name, type, quantity, reason, staff)
+             VALUES (?, ?, ?, 'OUT', ?, 'Sale', 'System')`,
+            [receiptId, product.id, product.name, quantity],
+            (err) => (err ? reject(err) : resolve())
+          );
+        });
+      })
+    );
+
+    // Insert receipt total into sales table
+    console.log("Inserting sales record - customerName:", cleanedCustomerName);
+    await new Promise((resolve, reject) => {
+      db.query(
+        `INSERT INTO sales (receipt_id, total, adminId, customer_name, checkout_department, customer_type) VALUES (?, ?, ?, ?, ?, ?)`,
+        [receiptId, total, null, cleanedCustomerName, cleanedCheckoutDepartment, cleanedCheckoutDepartment],
+        (err) => (err ? reject(err) : resolve())
+      );
+    });
+
+    res.json({
+      success: true,
+      message: "Payment successful",
+      receiptId,
+    });
+  } catch (err) {
+    console.error("Checkout error:", err);
+    res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+});
+
+// -------------------------
+// GET sales
+// -------------------------
+router.get("/sales", (req, res) => {
+  db.query(
+    `SELECT
+      si.id,
+      si.receipt_id,
+      si.product_id,
+      si.product_name,
+      si.barcode,
+      si.quantity,
+      si.price,
+      si.total,
+      si.created_at,
+      s.total as receipt_total,
+      s.customer_name,
+      s.customer_type as customer_type,
+      s.checkout_department as checkout_department,
+      p.category as category,
+      p.department as department,
+      p.category as product_category,
+      p.department as product_department
+     FROM sales_items si
+     LEFT JOIN sales s ON si.receipt_id = s.receipt_id
+     LEFT JOIN products p ON si.product_id = p.id
+     ORDER BY si.created_at DESC`,
+    (err, results) => {
+      if (err)
+        return res.status(500).json({ success: false, message: "Database error", error: err.message });
+
+      res.json({ success: true, sales: results });
+    }
+  );
+});
+
+// -------------------------
+// GET restock logs
+// -------------------------
+router.get("/restocks", (req, res) => {
+  db.query(
+    `SELECT r.*, p.name as product_name 
+     FROM restocks r 
+     LEFT JOIN products p ON r.product_id = p.id 
+     ORDER BY r.created_at DESC`,
+    (err, results) => {
+      if (err) return res.status(500).json({ success: false });
+
+      res.json({
+        success: true,
+        restocks: results,
+      });
+    }
+  );
+});
+
+module.exports = router;
