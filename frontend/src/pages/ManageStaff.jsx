@@ -6,7 +6,6 @@ export default function ManageStaff() {
   const [staff, setStaff] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-
   const loadStaff = async () => {
     setLoading(true);
     setError("");
