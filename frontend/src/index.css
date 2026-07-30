@@ -38,3 +38,12 @@ select option[selected] {
   background-color: #2563eb !important;
   color: white !important;
 }
+
+/* Sidebar slide-in animation */
+@keyframes slideIn {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+.animate-slideIn {
+  animation: slideIn 0.25s ease-out;
+}

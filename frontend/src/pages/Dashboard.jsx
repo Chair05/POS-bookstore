@@ -1,14 +1,12 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import LccbLogo from "../assets/Lccb-logo.jpeg";
-import Sidebar from "./Sidebar";
+import Layout from "./Layout";
 import { getDepartmentInfo } from "../utils/departmentUtils";
 
 export default function Dashboard() {
   const navigate = useNavigate();
   const location = useLocation();
   const [user, setUser] = useState(null);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [checkoutItems, setCheckoutItems] = useState({});
@@ -30,7 +28,6 @@ export default function Dashboard() {
   const barcodeRef = useRef("");
   const scanLock = useRef(false);
   const lowStockAlertedRef = useRef(new Set());
-  const closeSidebar = () => setSidebarOpen(false);
 
   /* AUTH */
   useEffect(() => {
@@ -466,7 +463,7 @@ const filtered = products.filter((p) => {
   });
 
   return (
-    <div className="relative flex h-screen w-screen bg-white overflow-hidden">
+    <Layout title="LCCB Bookstore">
 
 <div className="fixed top-4 right-4 z-[9999] flex flex-col gap-3">
   {notifications.map((n) => (
@@ -498,112 +495,81 @@ const filtered = products.filter((p) => {
   ))}
 </div>
 
-      <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
-
       {/* MAIN */}
-      <div className="flex flex-col flex-1">
-
-        {/* HEADER */}
-        <header className="flex items-center justify-between bg-gradient-to-r from-blue-600 to-blue-800 text-white px-4 py-2 shadow">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setSidebarOpen(true)}
-              className="text-2xl transition relative -top-[7px]"
-            >
-              ☰
-            </button>
-
-            <div className="flex items-center gap-2">
-              <img src={LccbLogo} className="h-10 w-10 rounded" />
-              <h1 className="text-xl font-bold">LCCB Bookstore</h1>
-            </div>
-          </div>
-        </header>
-
-        {/* CONTENT */}
-        <div className="flex flex-1 p-4 gap-4 overflow-hidden">
+      <div className="flex flex-1 p-4 gap-4 overflow-hidden">
 
           {/* PRODUCTS */}
-          <div className="flex-1 bg-white shadow p-4 overflow-auto rounded">
+          <div className="flex-1 bg-white shadow-sm border border-gray-100 p-4 overflow-auto rounded-2xl">
 
-            <div className="flex gap-2 mb-3 flex-wrap">
-              <input
-                placeholder="Search..."
-                className="border p-2 flex-1 rounded"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-
+            {/* SEARCH & FILTER */}
+            <div className="flex items-center gap-3 mb-5">
+              <div className="relative flex-1">
+                <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <input
+                  placeholder="Search products..."
+                  className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-all"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
               <select
-                className="border border-gray-300 bg-white h-[41px] px-3 py-2 mt-2 rounded-lg shadow-sm hover:bg-blue-50 hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 min-w-[120px] cursor-pointer text-sm"
+                className="px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-all cursor-pointer"
                 value={categoryFilter}
                 onChange={(e) => setCategoryFilter(e.target.value)}
               >
                 <option value="">All Categories</option>
                 {categories.map((c) => (
-                  <option key={c} value={c} className="bg-white text-gray-700">
-                    {c}
-                  </option>
+                  <option key={c} value={c}>{c}</option>
                 ))}
               </select>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {/* PRODUCT GRID */}
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
               {filtered.map((p) => (
                 <div
                   key={p.id}
-                  className="group bg-white border border-slate-200 rounded-[28px] p-4 shadow-sm hover:shadow-xl transition-all duration-300"
+                  className="group relative bg-white border border-blue-100 rounded-xl overflow-hidden hover:shadow-lg hover:shadow-blue-100 hover:border-blue-200 transition-all duration-200 flex flex-col"
                 >
-                  <div className="relative mb-4 rounded-3xl bg-slate-50 p-4 flex h-40 items-center justify-center overflow-hidden">
+                  {/* Image */}
+                  <div className="relative bg-gradient-to-b from-blue-50 to-white flex h-28 items-center justify-center overflow-hidden">
                     <img
                       src={`http://localhost:5000${p.image}`}
                       alt={p.name}
-                      className="max-h-full max-w-full object-contain transition-transform duration-300 group-hover:scale-105"
+                      className="max-h-20 max-w-[75%] object-contain group-hover:scale-105 transition-transform duration-300 ease-out"
                     />
+                    {p.stock <= 0 ? (
+                      <span className="absolute top-1.5 right-1.5 px-1.5 py-0.5 rounded-full bg-red-500 text-white text-[9px] font-bold uppercase">Sold Out</span>
+                    ) : p.stock <= 30 ? (
+                      <span className="absolute top-1.5 right-1.5 px-1.5 py-0.5 rounded-full bg-amber-500 text-white text-[9px] font-bold uppercase">Low</span>
+                    ) : null}
                   </div>
 
-                  <div className="space-y-3">
-                    <div>
-                      <h3 className="text-sm font-semibold text-slate-900 leading-tight">{p.name}</h3>
-                      <p className="text-xs text-slate-500 mt-1">Size: {p.size || "N/A"}</p>
-                      {p.department && p.department !== "General" ? (
-                        <div className="mt-2">
-                          <span className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-[11px] font-semibold text-blue-700">
-                            {p.department}
-                          </span>
-                        </div>
-                      ) : null}
+                  {/* Content */}
+                  <div className="flex flex-col flex-1 p-2.5 gap-1">
+                    <h3 className="text-[12px] font-semibold text-blue-950 leading-tight line-clamp-1">{p.name}</h3>
+
+                    <div className="flex items-center gap-1">
+                      {p.size && <span className="text-[10px] text-blue-400">{p.size}</span>}
+                      {p.size && p.department && p.department !== "General" && <span className="text-[10px] text-blue-200">·</span>}
+                      {p.department && p.department !== "General" && <span className="text-[10px] text-blue-500">{p.department}</span>}
                     </div>
 
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Stock</p>
-                        <p className="text-sm font-semibold text-slate-700">{p.stock ?? 0}</p>
-                      </div>
-                      <p className="text-lg font-bold text-blue-600">₱{p.price}</p>
-                    </div>
-
-                    <div className="flex items-center justify-between gap-3">
-                      {p.stock <= 0 ? (
-                        <span className="inline-flex items-center rounded-full bg-red-50 px-3 py-1 text-xs font-semibold text-red-600">
-                          Out of Stock
-                        </span>
-                      ) : p.stock <= 30 ? (
-                        <span className="inline-flex items-center rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">
-                          Low Stock
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
-                          In Stock
-                        </span>
-                      )}
-
+                    {/* Price + Button */}
+                    <div className="flex items-center justify-between pt-1.5 mt-auto border-t border-blue-50">
+                      <p className="text-[13px] font-bold text-blue-700 leading-none">₱{p.price}</p>
                       <button
                         onClick={() => handleBarcodeScan(p.barcode)}
                         disabled={p.stock <= 0}
-                        className="inline-flex items-center justify-center rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition duration-200 hover:bg-blue-700 disabled:bg-slate-300 disabled:text-slate-500"
+                        className={`px-2.5 py-1 rounded-md text-[11px] font-semibold leading-none transition-all duration-200 ${
+                          p.stock <= 0
+                            ? "bg-blue-50 text-blue-300 cursor-not-allowed"
+                            : "bg-blue-600 text-white hover:bg-blue-700 active:scale-95"
+                        }`}
                       >
-                        Add
+                        {p.stock <= 0 ? "N/A" : "Add"}
                       </button>
                     </div>
                   </div>
@@ -613,11 +579,11 @@ const filtered = products.filter((p) => {
           </div>
 
           {/* CHECKOUT */}
-          <div className="w-96 bg-white shadow-lg p-2 flex flex-col rounded-lg h-full">
+          <div className="w-96 bg-white shadow-sm border border-gray-100 p-5 flex flex-col rounded-2xl h-full">
 
-            <h2 className="font-bold text-lg mb-0 text-gray-800">Checkout</h2>
+            <h2 className="font-bold text-lg mb-4 text-gray-900">Checkout</h2>
 
-            <div className="flex-1 overflow-auto border border-gray-200 rounded p-3 mb-0 bg-gray-50">
+            <div className="flex-1 overflow-auto rounded-xl bg-gray-50 border border-gray-100 p-3 mb-4">
 {Object.values(checkoutItems).map((item) => (
   <div
     key={item.id}
@@ -687,21 +653,21 @@ const filtered = products.filter((p) => {
 ))}
             </div>
 
-            <div className="mt-auto">
+            <div className="mt-auto space-y-3">
               {/* Subtotal */}
-              <div className="border-t-2 border-gray-200 pt-0 pb-1 mt-1">
+              <div className="bg-gray-50 rounded-xl p-3 border border-gray-100">
                 <div className="flex justify-between items-center">
-                  <span className="text-gray-700 font-semibold">Subtotal:</span>
-                  <span className="font-bold text-lg text-gray-900">₱{total.toFixed(2)}</span>
+                  <span className="text-sm text-gray-500 font-medium">Subtotal</span>
+                  <span className="text-xl font-bold text-gray-900">₱{total.toFixed(2)}</span>
                 </div>
               </div>
 
-              <div className="mb-3">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Checkout Dept</label>
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Department</label>
                 <select
                   value={checkoutDepartment}
                   onChange={(e) => setCheckoutDepartment(e.target.value)}
-                  className="w-full border border-gray-300 p-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full bg-gray-50 border border-gray-200 p-2.5 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                 >
                   <option value="Students">Students</option>
                   <option value="Teachers">Teachers</option>
@@ -709,49 +675,49 @@ const filtered = products.filter((p) => {
                 </select>
               </div>
 
-            {/* Customer Name Input */}
-            <div className="mb-1">
-              <input
-                type="text"
-                inputMode="text"
-                autoComplete="off"
-                placeholder="Customer name (optional)"
-                className="w-full border border-gray-300 p-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                value={customerName}
-                onChange={(e) => setCustomerName(e.target.value)}
-                onKeyDown={(e) => e.stopPropagation()}
-              />
-            </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Customer Name</label>
+                <input
+                  type="text"
+                  inputMode="text"
+                  autoComplete="off"
+                  placeholder="Optional"
+                  className="w-full bg-gray-50 border border-gray-200 p-2.5 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                  value={customerName}
+                  onChange={(e) => setCustomerName(e.target.value)}
+                  onKeyDown={(e) => e.stopPropagation()}
+                />
+              </div>
 
-            {/* Cash Input */}
-            <div className="mb-0">
-              <input
-                type="number"
-                inputMode="numeric"
-                autoComplete="off"
-                placeholder="Cash amount"
-                className="w-full border border-gray-300 p-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                value={cash}
-                onChange={(e) => setCash(e.target.value)}
-                onKeyDown={(e) => e.stopPropagation()}
-              />
-            </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Cash Amount</label>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  autoComplete="off"
+                  placeholder="0.00"
+                  className="w-full bg-gray-50 border border-gray-200 p-2.5 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                  value={cash}
+                  onChange={(e) => setCash(e.target.value)}
+                  onKeyDown={(e) => e.stopPropagation()}
+                />
+              </div>
 
-            {/* Change Display */}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-2 mb-0">
-              <p className="text-xs text-gray-600 font-medium">Change:</p>
-              <p className="text-xl font-bold text-blue-600">
-                ₱{change.toFixed(2)}
-              </p>
-            </div>
+              {/* Change Display */}
+              <div className="bg-green-50 border border-green-200 rounded-xl p-3">
+                <p className="text-xs text-green-600 font-semibold uppercase tracking-wider">Change</p>
+                <p className="text-2xl font-bold text-green-700">
+                  ₱{change.toFixed(2)}
+                </p>
+              </div>
 
-            {/* Pay Button */}
-            <button
-              onClick={handlePay}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded-lg transition shadow-md hover:shadow-lg mb-0"
-            >
-              Pay
-            </button>
+              {/* Pay Button */}
+              <button
+                onClick={handlePay}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition-all duration-200 active:scale-[0.98] shadow-sm hover:shadow-md"
+              >
+                Pay
+              </button>
 
             {/* Receipt */}
             {showReceipt && (
@@ -806,7 +772,6 @@ const filtered = products.filter((p) => {
 
           </div>
         </div>
-      </div>
-    </div>
+    </Layout>
   );
 }

@@ -37,7 +37,7 @@ export default function LogIn() {
             JSON.stringify({ name: data.name, role: data.role, canViewInventoryLogs: Boolean(data.canViewInventoryLogs) })
           );
 
-          const redirectUrl = data.role === "sub" ? "/stock" : "/dashboard";
+          const redirectUrl = data.role === "sub" ? "/stock" : "/admin-dashboard";
           window.location.href = redirectUrl;
         } else {
           alert(data.message);

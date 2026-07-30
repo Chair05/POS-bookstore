@@ -1,10 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, PieChart, Pie, Cell, Legend } from "recharts";
-import Sidebar from "./Sidebar";
+import Layout from "./Layout";
 import { getDepartmentInfo } from "../utils/departmentUtils";
 
 export default function MonthlySalesReport() {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [user] = useState(() => {
     try {
       return JSON.parse(localStorage.getItem("user") || "{}");
@@ -419,16 +418,7 @@ export default function MonthlySalesReport() {
   if (error) return <div className="h-screen w-screen flex items-center justify-center bg-gray-100 text-red-500">{error}</div>;
 
   return (
-    <div className="h-screen w-screen bg-gray-100 flex flex-col">
-      <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
-
-      <header className="flex items-center justify-between bg-gradient-to-r from-blue-600 to-blue-800 text-white px-4 py-2 shadow">
-        <div className="flex items-center gap-3">
-          <button onClick={() => setSidebarOpen(true)} className="text-2xl transition relative -top-[7px]">☰</button>
-          <h1 className="text-xl font-bold">Sales Report</h1>
-        </div>
-      </header>
-
+    <Layout title="Sales Report">
       <div className="flex-1 overflow-y-auto p-6 space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="bg-white rounded-2xl p-5 shadow-sm">
@@ -647,6 +637,6 @@ export default function MonthlySalesReport() {
           </table>
         </div>
       </div>
-    </div>
+    </Layout>
   );
 }

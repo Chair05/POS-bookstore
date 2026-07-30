@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import Sidebar from "./Sidebar";
+import Layout from "./Layout";
 
 export default function InventoryLog() {
   const navigate = useNavigate();
@@ -19,7 +19,6 @@ export default function InventoryLog() {
   const [typeFilter, setTypeFilter] = useState("all"); // all | IN | OUT
   const [search, setSearch] = useState("");
   const [dateFilter, setDateFilter] = useState("");
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
@@ -132,23 +131,7 @@ export default function InventoryLog() {
     );
 
   return (
-    <div className="h-screen w-screen bg-gray-100 flex flex-col">
-      <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
-
-      {/* HEADER */}
-      <header className="flex items-center justify-between bg-gradient-to-r from-blue-600 to-blue-800 text-white px-4 py-2 shadow min-h-[56px]">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setSidebarOpen(true)}
-            className="text-2xl relative -top-[7px]"
-          >
-            ☰
-          </button>
-
-          <h1 className="text-xl font-bold">Inventory Log</h1>
-        </div>
-      </header>
-
+    <Layout title="Inventory Log">
       {/* FILTERS */}
       <div className="p-4 bg-white shadow-md border-b">
         <div className="flex gap-3 flex-wrap items-center">
@@ -303,6 +286,6 @@ export default function InventoryLog() {
           )}
         </div>
       </div>
-    </div>
+    </Layout>
   );
 }

@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from "react";
-import Sidebar from "./Sidebar";
+import Layout from "./Layout";
 
 export default function ManageStaff() {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [staff, setStaff] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -91,27 +90,7 @@ export default function ManageStaff() {
   }
 
   return (
-    <div className="h-screen w-screen bg-gray-100 flex flex-col">
-      <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
-
-      <header className="flex items-center justify-between bg-gradient-to-r from-blue-600 to-blue-800 text-white px-4 py-2 shadow">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setSidebarOpen(true)}
-            className="text-2xl relative -top-[7px]"
-          >
-            ☰
-          </button>
-          <h1 className="text-xl font-bold">Manage Staff Access</h1>
-        </div>
-        <button
-          onClick={loadStaff}
-          className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg text-sm"
-        >
-          Refresh
-        </button>
-      </header>
-
+    <Layout title="Manage Staff">
       <main className="flex-1 overflow-y-auto p-6">
         <div className="bg-white rounded-3xl shadow-lg border border-gray-200 p-6">
           <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
@@ -176,6 +155,6 @@ export default function ManageStaff() {
           </div>
         </div>
       </main>
-    </div>
+    </Layout>
   );
 }

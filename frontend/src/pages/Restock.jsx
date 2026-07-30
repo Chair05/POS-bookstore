@@ -1,12 +1,10 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import Sidebar from "./Sidebar";
+import Layout from "./Layout";
 
 export default function Restock() {
   const navigate = useNavigate();
   const barcodeRef = useRef(null);
-
-  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const [barcode, setBarcode] = useState("");
   const [loadingProduct, setLoadingProduct] = useState(false);
@@ -233,25 +231,7 @@ const res = await fetch("http://localhost:5000/api/products/restock", {
   };
 
   return (
-    <div className="h-screen w-screen bg-gray-100 flex flex-col">
-      <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
-
-      {/* HEADER */}
-      <header className="flex items-center justify-between bg-gradient-to-r from-blue-600 to-blue-800 text-white px-4 py-2 shadow">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setSidebarOpen(true)}
-            className="text-2xl relative -top-[7px]"
-          >
-            ☰
-          </button>
-
-          <h1 className="text-xl font-bold leading-none whitespace-nowrap">
-            Restock Inventory
-          </h1>
-        </div>
-      </header>
-
+    <Layout title="Restock">
       {/* CONTENT */}
       <div className="flex-1 p-4 overflow-y-auto">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -404,6 +384,6 @@ const res = await fetch("http://localhost:5000/api/products/restock", {
           </div>
         </div>
       </div>
-    </div>
+    </Layout>
   );
 }

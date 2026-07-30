@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import Sidebar from "./Sidebar";
+import Layout from "./Layout";
 import { getDepartmentInfo } from "../utils/departmentUtils";
 
 export default function SalesPage() {
@@ -8,7 +8,6 @@ export default function SalesPage() {
   const [departmentFilter, setDepartmentFilter] = useState("all");
   const [customDate, setCustomDate] = useState("");
   const [openPanel, setOpenPanel] = useState(null);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
   /* ================= LOAD ================= */
@@ -395,21 +394,9 @@ export default function SalesPage() {
 
 
   return (
-    <div className="h-screen w-screen flex flex-col bg-gray-100">
-      <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
+    <Layout title="Sales">
 
-<header className="flex items-center justify-between bg-gradient-to-r from-blue-600 to-blue-800 text-white px-4 py-2 shadow">
-
-  {/* LEFT */}
-  <div className="flex items-center gap-3">
-    <button onClick={() => setSidebarOpen(true)}   
-     className="text-2xl transition relative -top-[7px]">☰</button>
-    <h1 className="text-2xl font-semibold">Sales</h1>
-  </div>
-
-</header>
-
-{/* BODY */}
+      {/* BODY */}
 <div className="flex-1 p-6 overflow-y-auto space-y-6">
 
   {/* ================= OVERVIEW ================= */}
@@ -616,6 +603,6 @@ export default function SalesPage() {
     </div>
   </div>
 )}
-    </div>
+    </Layout>
   );
 }

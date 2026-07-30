@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import Sidebar from "./Sidebar";
+import Layout from "./Layout";
 
 export default function Stock() {
   const [stock, setStock] = useState([]);
@@ -36,7 +36,6 @@ export default function Stock() {
   const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
   const categoryDropdownRef = useRef(null);
 
-  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const navigate = useNavigate();
 
@@ -247,24 +246,7 @@ export default function Stock() {
   );
 
   return (
-    <div className="h-screen w-screen bg-gray-100 flex flex-col">
-      <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
-
-      <header className="flex items-center justify-between bg-gradient-to-r from-blue-600 to-blue-800 text-white px-4 py-2 shadow">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setSidebarOpen(true)}
-            className="text-2xl transition relative -top-[7px]"
-          >
-            ☰
-          </button>
-
-          <h1 className="text-xl font-bold leading-none whitespace-nowrap">
-            Stock Inventory
-          </h1>
-        </div>
-      </header>
-
+    <Layout title="Inventory Management">
       {/* Notification toast */}
       {notification && (
         <div className="fixed top-4 right-4 z-50">
@@ -746,6 +728,6 @@ export default function Stock() {
           </div>
         </div>
       )}
-    </div>
+    </Layout>
   );
 }

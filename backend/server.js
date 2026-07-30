@@ -6,6 +6,7 @@ const path = require("path");
 const db = require("./db"); // Your MySQL connection
 const authRoutes = require("./routes/authRoutes");
 const productsRoute = require("./routes/productRoutes");
+const orderRoutes = require("./routes/orderRoutes");
 
 const app = express();
 
@@ -21,6 +22,7 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 // -------------------------
 app.use("/api", authRoutes);
 app.use("/api/products", productsRoute);
+app.use("/api/orders", orderRoutes);
 
 // Default route
 app.get("/", (req, res) => {
@@ -155,6 +157,72 @@ db.query(`
   FROM restocks r
   LEFT JOIN products p ON r.product_id = p.id
 `, (err) => err && console.error("IN backfill error:", err));
+
+// -------------------------
+// Online Orders Tables
+// -------------------------
+db.query(`
+  CREATE TABLE IF NOT EXISTS customers (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) UNIQUE,
+    contact VARCHAR(50),
+    password VARCHAR(255),
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )
+`);
+
+db.query(`
+  CREATE TABLE IF NOT EXISTS online_orders (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    order_number VARCHAR(50) UNIQUE NOT NULL,
+    customer_id INT NOT NULL,
+    total_amount DECIMAL(10,2) NOT NULL DEFAULT 0,
+    payment_method ENUM('gcash','rcbc') DEFAULT 'gcash',
+    payment_status ENUM('pending','verified','rejected') DEFAULT 'pending',
+    order_status ENUM('pending_payment','verified','preparing','ready_for_pickup','completed','rejected') DEFAULT 'pending_payment',
+    reference_number VARCHAR(100),
+    receipt_image VARCHAR(500),
+    verified_by INT NULL,
+    verified_at DATETIME NULL,
+    notes TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE
+  )
+`);
+
+db.query(`
+  CREATE TABLE IF NOT EXISTS order_items (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    order_id INT NOT NULL,
+    product_id INT NOT NULL,
+    product_name VARCHAR(255) NOT NULL,
+    barcode VARCHAR(100),
+    quantity INT NOT NULL DEFAULT 1,
+    price DECIMAL(10,2) NOT NULL,
+    total DECIMAL(10,2) NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (order_id) REFERENCES online_orders(id) ON DELETE CASCADE,
+    FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+  )
+`);
+
+db.query(`
+  CREATE TABLE IF NOT EXISTS order_payments (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    order_id INT NOT NULL,
+    amount DECIMAL(10,2) NOT NULL,
+    payment_method VARCHAR(50),
+    reference_number VARCHAR(100),
+    receipt_image VARCHAR(500),
+    status ENUM('pending','verified','rejected') DEFAULT 'pending',
+    verified_by INT NULL,
+    verified_at DATETIME NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (order_id) REFERENCES online_orders(id) ON DELETE CASCADE
+  )
+`);
 
 app.get("/api/inventory-logs", (req, res) => {
   const role = req.header("x-user-role");

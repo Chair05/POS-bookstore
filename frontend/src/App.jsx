@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-d
 import SignIn from "./pages/SignIn";
 import LogIn from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
+import AdminDashboard from "./pages/AdminDashboard";
 import StartPage from "./pages/Start";
 import StockManager from "./pages/Stock";
 import SalesPage from "./pages/Sales";
@@ -10,6 +11,9 @@ import Restock from "./pages/Restock";
 import Log from "./pages/InventoryLog";
 import MonthlySalesReport from "./pages/MonthlySalesReport";
 import ManageStaff from "./pages/ManageStaff";
+import Orders from "./pages/Orders";
+import Customers from "./pages/Customers";
+import OnlineReports from "./pages/OnlineReports";
 import "./index.css";
 
 function ProtectedRoute({ children }) {
@@ -46,6 +50,15 @@ export default function App() {
 
           {/* Protected */}
           <Route
+            path="/admin-dashboard"
+            element={
+              <ProtectedRoute>
+                <AdminRoute><AdminDashboard /></AdminRoute>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
             path="/dashboard"
             element={
               <ProtectedRoute>
@@ -76,6 +89,9 @@ export default function App() {
           <Route path="/inventory-log" element={<ProtectedRoute><InventoryRoute><Log /></InventoryRoute></ProtectedRoute>} />
           <Route path="/sales-report" element={<ProtectedRoute><AdminRoute><MonthlySalesReport /></AdminRoute></ProtectedRoute>} />
           <Route path="/manage-staff" element={<ProtectedRoute><AdminRoute><ManageStaff /></AdminRoute></ProtectedRoute>} />
+          <Route path="/orders" element={<ProtectedRoute><AdminRoute><Orders /></AdminRoute></ProtectedRoute>} />
+          <Route path="/customers" element={<ProtectedRoute><AdminRoute><Customers /></AdminRoute></ProtectedRoute>} />
+          <Route path="/online-reports" element={<ProtectedRoute><AdminRoute><OnlineReports /></AdminRoute></ProtectedRoute>} />
 
           {/* Catch-all */}
           <Route path="*" element={<Navigate to="/" />} />
