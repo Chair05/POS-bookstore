@@ -5,6 +5,13 @@ import toast from 'react-hot-toast'
 export default function ProductCard({ product }) {
   const { addToCart } = useCart()
 
+  const imageSrc = (() => {
+    if (!product.image) return '/placeholder-book.svg'
+    if (product.image.startsWith('http://') || product.image.startsWith('https://')) return product.image
+    if (product.image.startsWith('/uploads')) return product.image
+    return product.image
+  })()
+
   const handleAddToCart = (e) => {
     e.preventDefault()
     e.stopPropagation()
@@ -29,11 +36,11 @@ export default function ProductCard({ product }) {
       <div className="card card-hover h-full flex flex-col">
         <div className="relative overflow-hidden rounded-lg bg-gray-50 aspect-square mb-4">
           <img
-            src={product.image || '/placeholder-book.png'}
+            src={imageSrc}
             alt={product.name}
             className="w-full h-full object-contain p-4 group-hover:scale-105 transition-transform duration-300"
             onError={(e) => {
-              e.target.src = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIj48cmVjdCBmaWxsPSIjZjFmNWY5IiB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIvPjx0ZXh0IGZpbGw9IiM5NGEzYjgiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgeD0iNTAlIiB5PSI1MCUiIGRvbWluYW50LWJhc2VsaW5lPSJtaWRkbGUiIHRleHQtYW5jaG9yPSJtaWRkbGUiPk5vIEltYWdlPC90ZXh0Pjwvc3ZnPg=='
+              e.target.src = '/placeholder-book.svg'
             }}
           />
           <span className={`absolute top-2 right-2 badge ${status.color}`}>

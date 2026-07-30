@@ -4,6 +4,13 @@ import api from '../config/api'
 import OrderStatusBadge, { StatusTimeline } from '../components/OrderStatusBadge'
 import Loading from '../components/Loading'
 
+const resolveImageSrc = (image) => {
+  if (!image) return '/placeholder-book.svg'
+  if (image.startsWith('http://') || image.startsWith('https://')) return image
+  if (image.startsWith('/uploads')) return image
+  return image
+}
+
 export default function OrderStatus() {
   const { orderId } = useParams()
   const [order, setOrder] = useState(null)
@@ -13,7 +20,7 @@ export default function OrderStatus() {
   useEffect(() => {
     const fetchOrder = async () => {
       try {
-        const response = await api.get(`/orders/${orderId}`)
+        const response = await api.get(`/customer/orders/${orderId}`)
         setOrder(response.data.order || response.data)
       } catch (err) {
         console.error('Failed to fetch order:', err)
@@ -80,9 +87,12 @@ export default function OrderStatus() {
                   <div key={index} className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
                     <div className="w-12 h-12 bg-white rounded-lg overflow-hidden shrink-0">
                       <img
-                        src={item.product?.image || item.image || '/placeholder-book.png'}
+                        src={resolveImageSrc(item.product?.image || item.image)}
                         alt={item.name}
                         className="w-full h-full object-contain p-1"
+                        onError={(e) => {
+                          e.target.src = '/placeholder-book.svg'
+                        }}
                       />
                     </div>
                     <div className="flex-1 min-w-0">
@@ -144,13 +154,50 @@ export default function OrderStatus() {
             </div>
           )}
 
+          {order.status === 'Payment Verified' && (
+            <div className="card border-2 border-blue-200 bg-blue-50">
+              <h3 className="font-semibold text-blue-800 mb-2">Payment Verified</h3>
+              <p className="text-sm text-blue-700 mb-4">
+                Your payment has been confirmed. Your order is being prepared for pickup.
+              </p>
+              {order.pickupCode && (
+                <div className="bg-white rounded-xl p-4 border border-blue-200 text-center">
+                  <p className="text-xs text-gray-500 mb-1">Your Pickup Code</p>
+                  <p className="text-3xl font-mono font-bold tracking-[0.3em] text-blue-700">{order.pickupCode}</p>
+                  <p className="text-xs text-gray-500 mt-2">Save this code — show it to the seller when collecting your order</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {order.status === 'Preparing' && order.pickupCode && (
+            <div className="card border-2 border-amber-200 bg-amber-50">
+              <h3 className="font-semibold text-amber-800 mb-2">Preparing Your Order</h3>
+              <p className="text-sm text-amber-700 mb-4">
+                Your order is being prepared. We'll notify you when it's ready.
+              </p>
+              <div className="bg-white rounded-xl p-4 border border-amber-200 text-center">
+                <p className="text-xs text-gray-500 mb-1">Your Pickup Code</p>
+                <p className="text-3xl font-mono font-bold tracking-[0.3em] text-amber-700">{order.pickupCode}</p>
+                <p className="text-xs text-gray-500 mt-2">Show this code to the seller when collecting your order</p>
+              </div>
+            </div>
+          )}
+
           {order.status === 'Ready for Pickup' && (
             <div className="card border-2 border-green-200 bg-green-50">
               <h3 className="font-semibold text-green-800 mb-2">Ready for Pickup!</h3>
-              <p className="text-sm text-green-700">
+              <p className="text-sm text-green-700 mb-4">
                 Please pick up your order at the LCCB Bookstore during operating hours 
-                (Mon-Fri, 8:00 AM - 5:00 PM). Bring a valid ID.
+                (Mon-Fri, 8:00 AM - 5:00 PM).
               </p>
+              {order.pickupCode && (
+                <div className="bg-white rounded-xl p-4 border border-green-200 text-center">
+                  <p className="text-xs text-gray-500 mb-1">Your Pickup Code</p>
+                  <p className="text-3xl font-mono font-bold tracking-[0.3em] text-green-700">{order.pickupCode}</p>
+                  <p className="text-xs text-gray-500 mt-2">Show this code to the seller when collecting your order</p>
+                </div>
+              )}
             </div>
           )}
 

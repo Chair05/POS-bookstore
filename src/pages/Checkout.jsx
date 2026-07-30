@@ -5,6 +5,13 @@ import { useCart } from '../context/CartContext'
 import { useAuth } from '../context/AuthContext'
 import toast from 'react-hot-toast'
 
+const resolveImageSrc = (image) => {
+  if (!image) return '/placeholder-book.svg'
+  if (image.startsWith('http://') || image.startsWith('https://')) return image
+  if (image.startsWith('/uploads')) return image
+  return image
+}
+
 export default function Checkout() {
   const { cart, getCartTotal, clearCart } = useCart()
   const { user } = useAuth()
@@ -51,7 +58,7 @@ export default function Checkout() {
         },
       }
 
-      const response = await api.post('/orders', orderData)
+      const response = await api.post('/customer/orders', orderData)
       const orderId = response.data.order?._id || response.data._id || response.data.orderId
 
       clearCart()
@@ -134,7 +141,7 @@ export default function Checkout() {
                     <div key={`${item._id}-${item.selectedSize}`} className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
                       <div className="w-12 h-12 bg-white rounded-lg overflow-hidden shrink-0">
                         <img
-                          src={item.image || '/placeholder-book.png'}
+                          src={resolveImageSrc(item.image)}
                           alt={item.name}
                           className="w-full h-full object-contain p-1"
                         />

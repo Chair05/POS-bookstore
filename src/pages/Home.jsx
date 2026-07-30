@@ -4,33 +4,39 @@ import api from '../config/api'
 import ProductCard from '../components/ProductCard'
 import Loading from '../components/Loading'
 
-const categories = [
-  { name: 'Textbooks', icon: '📚', color: 'bg-blue-50 text-blue-600' },
-  { name: 'Uniforms', icon: '👕', color: 'bg-indigo-50 text-indigo-600' },
-  { name: 'School Supplies', icon: '✏️', color: 'bg-emerald-50 text-emerald-600' },
-  { name: 'Novels', icon: '📖', color: 'bg-purple-50 text-purple-600' },
-  { name: 'Stationery', icon: '🖊️', color: 'bg-amber-50 text-amber-600' },
-  { name: 'Accessories', icon: '🎒', color: 'bg-rose-50 text-rose-600' },
-]
+const categoryMeta = {
+  'Shirt': { icon: '👕', color: 'bg-indigo-50 text-indigo-600' },
+  'School Supplies': { icon: '✏️', color: 'bg-emerald-50 text-emerald-600' },
+  'School Clothes': { icon: '👔', color: 'bg-purple-50 text-purple-600' },
+  'foot wear': { icon: '👟', color: 'bg-amber-50 text-amber-600' },
+  'Textbooks': { icon: '📚', color: 'bg-blue-50 text-blue-600' },
+  'Stationery': { icon: '🖊️', color: 'bg-rose-50 text-rose-600' },
+  'Accessories': { icon: '🎒', color: 'bg-cyan-50 text-cyan-600' },
+}
+const defaultMeta = { icon: '📦', color: 'bg-gray-50 text-gray-600' }
 
 export default function Home() {
   const [featuredProducts, setFeaturedProducts] = useState([])
+  const [categories, setCategories] = useState([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
 
   useEffect(() => {
-    const fetchProducts = async () => {
+    const fetchData = async () => {
       try {
-        const response = await api.get('/products?limit=8&sort=-createdAt')
-        setFeaturedProducts(response.data.products || response.data || [])
+        const [productsRes, categoriesRes] = await Promise.all([
+          api.get('/customer/products?limit=8&sort=-createdAt'),
+          api.get('/customer/products/categories/list'),
+        ])
+        setFeaturedProducts(productsRes.data.products || [])
+        setCategories(categoriesRes.data.categories || [])
       } catch (err) {
-        console.error('Failed to fetch products:', err)
-        setFeaturedProducts([])
+        console.error('Failed to fetch data:', err)
       } finally {
         setLoading(false)
       }
     }
-    fetchProducts()
+    fetchData()
   }, [])
 
   return (
@@ -93,28 +99,34 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="text-center mb-10">
-          <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">Shop by Category</h2>
-          <p className="text-gray-500">Find exactly what you need</p>
-        </div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4">
-          {categories.map((category) => (
-            <Link
-              key={category.name}
-              to={`/products?category=${encodeURIComponent(category.name)}`}
-              className="group flex flex-col items-center p-6 rounded-2xl bg-white shadow-soft hover:shadow-card-hover transition-all duration-300 hover:-translate-y-1"
-            >
-              <div className={`w-14 h-14 rounded-xl flex items-center justify-center text-2xl mb-3 ${category.color} group-hover:scale-110 transition-transform`}>
-                {category.icon}
-              </div>
-              <span className="text-sm font-medium text-gray-700 group-hover:text-primary-600 transition-colors text-center">
-                {category.name}
-              </span>
-            </Link>
-          ))}
-        </div>
-      </section>
+      {categories.length > 0 && (
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+          <div className="text-center mb-10">
+            <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">Shop by Category</h2>
+            <p className="text-gray-500">Find exactly what you need</p>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+            {categories.map((cat) => {
+              const catName = typeof cat === 'string' ? cat : cat.name
+              const meta = categoryMeta[catName] || defaultMeta
+              return (
+                <Link
+                  key={typeof cat === 'string' ? cat : cat.id}
+                  to={`/products?category=${encodeURIComponent(catName)}`}
+                  className="group flex flex-col items-center p-6 rounded-2xl bg-white shadow-soft hover:shadow-card-hover transition-all duration-300 hover:-translate-y-1"
+                >
+                  <div className={`w-14 h-14 rounded-xl flex items-center justify-center text-2xl mb-3 ${meta.color} group-hover:scale-110 transition-transform`}>
+                    {meta.icon}
+                  </div>
+                  <span className="text-sm font-medium text-gray-700 group-hover:text-primary-600 transition-colors text-center">
+                    {catName}
+                  </span>
+                </Link>
+              )
+            })}
+          </div>
+        </section>
+      )}
 
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="flex items-center justify-between mb-8">

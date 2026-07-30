@@ -5,6 +5,13 @@ import { useCart } from '../context/CartContext'
 import Loading from '../components/Loading'
 import toast from 'react-hot-toast'
 
+const resolveImageSrc = (image) => {
+  if (!image) return '/placeholder-book.svg'
+  if (image.startsWith('http://') || image.startsWith('https://')) return image
+  if (image.startsWith('/uploads')) return image
+  return image
+}
+
 export default function ProductDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -17,7 +24,7 @@ export default function ProductDetail() {
   useEffect(() => {
     const fetchProduct = async () => {
       try {
-        const response = await api.get(`/products/${id}`)
+        const response = await api.get(`/customer/products/${id}`)
         setProduct(response.data.product || response.data)
       } catch (err) {
         console.error('Failed to fetch product:', err)

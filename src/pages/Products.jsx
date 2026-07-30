@@ -5,23 +5,23 @@ import ProductCard from '../components/ProductCard'
 import SearchBar from '../components/SearchBar'
 import Loading from '../components/Loading'
 
-const allCategories = [
-  'All',
-  'Textbooks',
-  'Uniforms',
-  'School Supplies',
-  'Novels',
-  'Stationery',
-  'Accessories',
-]
-
 export default function Products() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [products, setProducts] = useState([])
+  const [allCategories, setAllCategories] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState(searchParams.get('search') || '')
   const [selectedCategory, setSelectedCategory] = useState(searchParams.get('category') || 'All')
   const [sortBy, setSortBy] = useState('newest')
+
+  useEffect(() => {
+    api.get('/customer/products/categories/list')
+      .then((res) => {
+        const cats = res.data.categories || []
+        setAllCategories(cats.map((c) => (typeof c === 'string' ? c : c.name)))
+      })
+      .catch(() => {})
+  }, [])
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -33,7 +33,7 @@ export default function Products() {
         params.append('sort', sortBy === 'newest' ? '-createdAt' : sortBy === 'price-low' ? 'price' : sortBy === 'price-high' ? '-price' : 'name')
         params.append('limit', '50')
 
-        const response = await api.get(`/products?${params.toString()}`)
+        const response = await api.get(`/customer/products?${params.toString()}`)
         setProducts(response.data.products || response.data || [])
       } catch (err) {
         console.error('Failed to fetch products:', err)
@@ -65,7 +65,7 @@ export default function Products() {
             <SearchBar
               value={search}
               onChange={setSearch}
-              placeholder="Search by name, description..."
+              placeholder="Search by name, barcode..."
             />
           </div>
           <div className="flex items-center gap-3">
@@ -83,19 +83,32 @@ export default function Products() {
         </div>
 
         <div className="flex flex-wrap gap-2 mb-8">
-          {allCategories.map((category) => (
-            <button
-              key={category}
-              onClick={() => setSelectedCategory(category)}
-              className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
-                selectedCategory === category
-                  ? 'bg-primary-600 text-white shadow-md'
-                  : 'bg-white text-gray-600 border border-gray-200 hover:border-primary-300 hover:text-primary-600'
-              }`}
-            >
-              {category}
-            </button>
-          ))}
+          <button
+            onClick={() => setSelectedCategory('All')}
+            className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+              selectedCategory === 'All'
+                ? 'bg-primary-600 text-white shadow-md'
+                : 'bg-white text-gray-600 border border-gray-200 hover:border-primary-300 hover:text-primary-600'
+            }`}
+          >
+            All
+          </button>
+          {allCategories.map((cat) => {
+            const catName = typeof cat === 'string' ? cat : cat.name
+            return (
+              <button
+                key={catName}
+                onClick={() => setSelectedCategory(catName)}
+                className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+                  selectedCategory === catName
+                    ? 'bg-primary-600 text-white shadow-md'
+                    : 'bg-white text-gray-600 border border-gray-200 hover:border-primary-300 hover:text-primary-600'
+                }`}
+              >
+                {catName}
+              </button>
+            )
+          })}
         </div>
 
         {loading ? (

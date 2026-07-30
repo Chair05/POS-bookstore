@@ -4,6 +4,13 @@ import api from '../config/api'
 import OrderStatusBadge from '../components/OrderStatusBadge'
 import Loading from '../components/Loading'
 
+const resolveImageSrc = (image) => {
+  if (!image) return '/placeholder-book.svg'
+  if (image.startsWith('http://') || image.startsWith('https://')) return image
+  if (image.startsWith('/uploads')) return image
+  return image
+}
+
 export default function OrderHistory() {
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
@@ -11,7 +18,7 @@ export default function OrderHistory() {
   useEffect(() => {
     const fetchOrders = async () => {
       try {
-        const response = await api.get('/orders/my-orders')
+        const response = await api.get('/customer/orders/my-orders')
         setOrders(response.data.orders || response.data || [])
       } catch (err) {
         console.error('Failed to fetch orders:', err)
@@ -72,9 +79,12 @@ export default function OrderHistory() {
                     {order.items.slice(0, 3).map((item, idx) => (
                       <div key={idx} className="w-10 h-10 bg-gray-50 rounded-lg overflow-hidden shrink-0">
                         <img
-                          src={item.product?.image || item.image || '/placeholder-book.png'}
+                          src={resolveImageSrc(item.product?.image || item.image)}
                           alt={item.name}
                           className="w-full h-full object-contain p-0.5"
+                          onError={(e) => {
+                            e.target.src = '/placeholder-book.svg'
+                          }}
                         />
                       </div>
                     ))}

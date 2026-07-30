@@ -49,7 +49,7 @@ export default function UploadPayment() {
       formData.append('receipt', receipt)
       formData.append('referenceNumber', referenceNumber)
 
-      await api.post(`/orders/${orderId}/payment`, formData, {
+      await api.post(`/customer/orders/${orderId}/payment`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       })
 

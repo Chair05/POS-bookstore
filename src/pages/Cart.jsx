@@ -3,6 +3,13 @@ import { useCart } from '../context/CartContext'
 import { useAuth } from '../context/AuthContext'
 import toast from 'react-hot-toast'
 
+const resolveImageSrc = (image) => {
+  if (!image) return '/placeholder-book.svg'
+  if (image.startsWith('http://') || image.startsWith('https://')) return image
+  if (image.startsWith('/uploads')) return image
+  return image
+}
+
 export default function Cart() {
   const { cart, removeFromCart, updateQuantity, getCartTotal, clearCart } = useCart()
   const { user } = useAuth()
@@ -66,11 +73,11 @@ export default function Cart() {
               <div key={`${item._id}-${item.selectedSize}`} className="card flex flex-col sm:flex-row gap-4 animate-slide-up">
                 <div className="w-full sm:w-28 h-28 bg-gray-50 rounded-xl overflow-hidden shrink-0">
                   <img
-                    src={item.image || '/placeholder-book.png'}
+                    src={resolveImageSrc(item.image)}
                     alt={item.name}
                     className="w-full h-full object-contain p-2"
                     onError={(e) => {
-                      e.target.src = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMTIiIGhlaWdodD0iMTEyIj48cmVjdCBmaWxsPSIjZjFmNWY5IiB3aWR0aD0iMTEyIiBoZWlnaHQ9IjExMiIvPjx0ZXh0IGZpbGw9IiM5NGEzYjgiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxMiIgeD0iNTAlIiB5PSI1MCUiIGRvbWluYW50LWJhc2VsaW5lPSJtaWRkbGUiIHRleHQtYW5jaG9yPSJtaWRkbGUiPk5vIEltYWdlPC90ZXh0Pjwvc3ZnPg=='
+                      e.target.src = '/placeholder-book.svg'
                     }}
                   />
                 </div>
