@@ -19,4 +19,7 @@ db.getConnection((err, connection) => {
   }
 });
 
+const promisePool = db.promise();
+
 module.exports = db;
+module.exports.promisePool = promisePool;

@@ -3,10 +3,20 @@ const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
 const path = require("path");
+const fs = require("fs");
 const db = require("./db"); // Your MySQL connection
+const { promisePool } = require("./db");
 const authRoutes = require("./routes/authRoutes");
 const productsRoute = require("./routes/productRoutes");
 const orderRoutes = require("./routes/orderRoutes");
+
+// E-commerce routes
+const ecomAuthRoutes = require("./ecommerce-routes/auth");
+const ecomProductRoutes = require("./ecommerce-routes/customerProducts");
+const ecomCartRoutes = require("./ecommerce-routes/customerCart");
+const ecomOrderRoutes = require("./ecommerce-routes/customerOrders");
+const ecomPaymentRoutes = require("./ecommerce-routes/customerPayments");
+const ecomAdminRoutes = require("./ecommerce-routes/admin");
 
 const app = express();
 
@@ -17,12 +27,28 @@ app.use(cors());
 app.use(express.json());
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
+// Ensure receipts upload directory exists
+const receiptsDir = path.join(__dirname, "uploads", "receipts");
+if (!fs.existsSync(receiptsDir)) fs.mkdirSync(receiptsDir, { recursive: true });
+
 // -------------------------
 // Routes
 // -------------------------
 app.use("/api", authRoutes);
 app.use("/api/products", productsRoute);
 app.use("/api/orders", orderRoutes);
+
+// E-commerce routes
+app.use("/api/auth", ecomAuthRoutes);
+app.use("/api/customer/products", ecomProductRoutes);
+app.use("/api/customer/cart", ecomCartRoutes);
+app.use("/api/customer/orders", ecomOrderRoutes);
+app.use("/api/customer/orders", ecomPaymentRoutes);
+app.use("/api/admin", ecomAdminRoutes);
+
+app.get("/api/health", (req, res) => {
+  res.json({ status: "ok", message: "LCCB Bookstore API is running" });
+});
 
 // Default route
 app.get("/", (req, res) => {
@@ -121,6 +147,14 @@ ensureColumn("inventory_logs", "receipt_id", "receipt_id INT NULL");
 ensureColumn("admins", "can_view_inventory_logs", "can_view_inventory_logs TINYINT(1) DEFAULT 0");
 ensureColumn("products", "department", "department VARCHAR(100) DEFAULT ''");
 
+// Ensure customers table has all columns needed by both POS and e-commerce
+ensureColumn("customers", "name", "name VARCHAR(255) NOT NULL");
+ensureColumn("customers", "contact", "contact VARCHAR(50)");
+ensureColumn("customers", "full_name", "full_name VARCHAR(255)");
+ensureColumn("customers", "contact_number", "contact_number VARCHAR(20)");
+ensureColumn("customers", "role", "role VARCHAR(20) DEFAULT 'customer'");
+ensureColumn("customers", "updated_at", "updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP");
+
 // -------------------------
 // Inventory Logs
 // -------------------------
@@ -159,16 +193,20 @@ db.query(`
 `, (err) => err && console.error("IN backfill error:", err));
 
 // -------------------------
-// Online Orders Tables
+// Online Orders Tables (POS)
 // -------------------------
 db.query(`
   CREATE TABLE IF NOT EXISTS customers (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
+    full_name VARCHAR(255),
     email VARCHAR(255) UNIQUE,
     contact VARCHAR(50),
+    contact_number VARCHAR(20),
     password VARCHAR(255),
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    role VARCHAR(20) DEFAULT 'customer',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
   )
 `);
 
@@ -221,6 +259,88 @@ db.query(`
     verified_at DATETIME NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (order_id) REFERENCES online_orders(id) ON DELETE CASCADE
+  )
+`);
+
+// -------------------------
+// E-commerce Tables
+// -------------------------
+db.query(`
+  CREATE TABLE IF NOT EXISTS ecom_orders (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    customer_id INT NOT NULL,
+    total_amount DECIMAL(10, 2) NOT NULL,
+    status VARCHAR(50) DEFAULT 'Pending Payment Verification',
+    customer_full_name VARCHAR(255),
+    customer_email VARCHAR(255),
+    customer_contact VARCHAR(20),
+    reference_number VARCHAR(255),
+    payment_method VARCHAR(50),
+    receipt_image VARCHAR(500),
+    payment_status VARCHAR(20) DEFAULT 'pending',
+    pickup_code VARCHAR(10),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE
+  )
+`);
+
+db.query(`
+  CREATE TABLE IF NOT EXISTS ecom_order_items (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    order_id INT NOT NULL,
+    product_id INT NOT NULL,
+    product_name VARCHAR(255) NOT NULL,
+    quantity INT NOT NULL,
+    price DECIMAL(10, 2) NOT NULL,
+    selected_size VARCHAR(50),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (order_id) REFERENCES ecom_orders(id) ON DELETE CASCADE,
+    FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+  )
+`);
+
+db.query(`
+  CREATE TABLE IF NOT EXISTS ecom_payments (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    order_id INT NOT NULL,
+    customer_id INT NOT NULL,
+    receipt_image VARCHAR(500),
+    reference_number VARCHAR(255),
+    payment_method VARCHAR(50),
+    amount DECIMAL(10, 2) NOT NULL,
+    status VARCHAR(20) DEFAULT 'pending',
+    verified_by INT,
+    verified_at TIMESTAMP NULL,
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (order_id) REFERENCES ecom_orders(id) ON DELETE CASCADE,
+    FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE
+  )
+`);
+
+db.query(`
+  CREATE TABLE IF NOT EXISTS ecom_carts (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    customer_id INT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE,
+    UNIQUE KEY unique_customer_cart (customer_id)
+  )
+`);
+
+db.query(`
+  CREATE TABLE IF NOT EXISTS ecom_cart_items (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    cart_id INT NOT NULL,
+    product_id INT NOT NULL,
+    quantity INT DEFAULT 1,
+    selected_size VARCHAR(50),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (cart_id) REFERENCES ecom_carts(id) ON DELETE CASCADE,
+    FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
   )
 `);
 
