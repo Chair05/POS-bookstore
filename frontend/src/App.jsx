@@ -14,6 +14,7 @@ import ManageStaff from "./pages/ManageStaff";
 import Orders from "./pages/Orders";
 import Customers from "./pages/Customers";
 import OnlineReports from "./pages/OnlineReports";
+import ErrorBoundary from "./components/ErrorBoundary";
 import "./index.css";
 
 function ProtectedRoute({ children }) {
@@ -53,7 +54,7 @@ export default function App() {
             path="/admin-dashboard"
             element={
               <ProtectedRoute>
-                <AdminRoute><AdminDashboard /></AdminRoute>
+                <AdminRoute><ErrorBoundary><AdminDashboard /></ErrorBoundary></AdminRoute>
               </ProtectedRoute>
             }
           />
@@ -62,7 +63,7 @@ export default function App() {
             path="/dashboard"
             element={
               <ProtectedRoute>
-                <Dashboard />
+                <ErrorBoundary><Dashboard /></ErrorBoundary>
               </ProtectedRoute>
             }
           />
@@ -71,27 +72,27 @@ export default function App() {
             path="/stock"
             element={
               <ProtectedRoute>
-                <StockManager />
+                <ErrorBoundary><StockManager /></ErrorBoundary>
               </ProtectedRoute>
             }
           />
 
-          <Route path="/sales" element={<ProtectedRoute><SalesPage /></ProtectedRoute>} />
+          <Route path="/sales" element={<ProtectedRoute><ErrorBoundary><SalesPage /></ErrorBoundary></ProtectedRoute>} />
           <Route
             path="/restock"
             element={
               <ProtectedRoute>
-                <Restock />
+                <ErrorBoundary><Restock /></ErrorBoundary>
               </ProtectedRoute>
             }
           />
 
-          <Route path="/inventory-log" element={<ProtectedRoute><InventoryRoute><Log /></InventoryRoute></ProtectedRoute>} />
-          <Route path="/sales-report" element={<ProtectedRoute><AdminRoute><MonthlySalesReport /></AdminRoute></ProtectedRoute>} />
-          <Route path="/manage-staff" element={<ProtectedRoute><AdminRoute><ManageStaff /></AdminRoute></ProtectedRoute>} />
-          <Route path="/orders" element={<ProtectedRoute><AdminRoute><Orders /></AdminRoute></ProtectedRoute>} />
-          <Route path="/customers" element={<ProtectedRoute><AdminRoute><Customers /></AdminRoute></ProtectedRoute>} />
-          <Route path="/online-reports" element={<ProtectedRoute><AdminRoute><OnlineReports /></AdminRoute></ProtectedRoute>} />
+          <Route path="/inventory-log" element={<ProtectedRoute><InventoryRoute><ErrorBoundary><Log /></ErrorBoundary></InventoryRoute></ProtectedRoute>} />
+          <Route path="/sales-report" element={<ProtectedRoute><AdminRoute><ErrorBoundary><MonthlySalesReport /></ErrorBoundary></AdminRoute></ProtectedRoute>} />
+          <Route path="/manage-staff" element={<ProtectedRoute><AdminRoute><ErrorBoundary><ManageStaff /></ErrorBoundary></AdminRoute></ProtectedRoute>} />
+          <Route path="/orders" element={<ProtectedRoute><AdminRoute><ErrorBoundary><Orders /></ErrorBoundary></AdminRoute></ProtectedRoute>} />
+          <Route path="/customers" element={<ProtectedRoute><AdminRoute><ErrorBoundary><Customers /></ErrorBoundary></AdminRoute></ProtectedRoute>} />
+          <Route path="/online-reports" element={<ProtectedRoute><AdminRoute><ErrorBoundary><OnlineReports /></ErrorBoundary></AdminRoute></ProtectedRoute>} />
 
           {/* Catch-all */}
           <Route path="*" element={<Navigate to="/" />} />

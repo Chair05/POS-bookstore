@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const db = require("../db");
+const { promisePool } = require("../db");
 const path = require("path");
 const multer = require("multer");
 
@@ -19,16 +20,73 @@ const generateOrderNumber = () => {
   return `ORD-${y}${m}${d}-${rand}`;
 };
 
+// ==================== E-COMMERCE HELPERS ====================
+
+// Map ecom_orders.status (human-friendly) <-> POS online_orders.order_status (enum)
+const ECOM_TO_POS_STATUS = {
+  "Pending Payment Verification": "pending_payment",
+  "Payment Verified": "verified",
+  "Preparing": "preparing",
+  "Ready for Pickup": "ready_for_pickup",
+  "Completed": "completed",
+  "Rejected": "rejected",
+  "Cancelled": "cancelled",
+};
+const POS_TO_ECOM_STATUS = {
+  pending_payment: "Pending Payment Verification",
+  verified: "Payment Verified",
+  preparing: "Preparing",
+  ready_for_pickup: "Ready for Pickup",
+  completed: "Completed",
+  rejected: "Rejected",
+  cancelled: "Cancelled",
+};
+
+const generatePickupCode = () => {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let code = "";
+  for (let i = 0; i < 6; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return code;
+};
+
+// Normalize an ecom_orders row to the same shape the POS Orders page expects
+const formatEcomOrder = (o) => {
+  const date = new Date(o.created_at);
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return {
+    id: o.id,
+    source: "ecom",
+    order_number: `ECO-${y}${m}${d}-${String(o.id).padStart(4, "0")}`,
+    customer_id: o.customer_id,
+    customer_name: o.customer_full_name || "",
+    customer_email: o.customer_email || "",
+    customer_contact: o.customer_contact || "",
+    total_amount: o.total_amount,
+    payment_method: String(o.payment_method || "gcash").toLowerCase().includes("rcbc") ? "rcbc" : "gcash",
+    reference_number: o.reference_number || null,
+    receipt_image: o.receipt_image || null,
+    payment_status: o.payment_status || "pending",
+    order_status: ECOM_TO_POS_STATUS[o.status] || o.status,
+    verified_at: o.verified_at || null,
+    pickup_code: o.pickup_code || null,
+    created_at: o.created_at,
+  };
+};
+
 // ==================== CUSTOMERS ====================
 
 router.get("/customers", (req, res) => {
   const sql = `
     SELECT c.*,
-      COUNT(DISTINCT o.id) AS total_orders,
-      COALESCE(SUM(o.total_amount), 0) AS total_purchases
+      (SELECT COUNT(*) FROM online_orders WHERE customer_id = c.id AND order_status != 'rejected') +
+      (SELECT COUNT(*) FROM ecom_orders WHERE customer_id = c.id AND status != 'Rejected') AS total_orders,
+      COALESCE((SELECT SUM(total_amount) FROM online_orders WHERE customer_id = c.id AND order_status != 'rejected'), 0) +
+      COALESCE((SELECT SUM(total_amount) FROM ecom_orders WHERE customer_id = c.id AND status != 'Rejected'), 0) AS total_purchases
     FROM customers c
-    LEFT JOIN online_orders o ON c.id = o.customer_id AND o.order_status != 'rejected'
-    GROUP BY c.id
     ORDER BY c.created_at DESC
   `;
   db.query(sql, (err, results) => {
@@ -40,12 +98,12 @@ router.get("/customers", (req, res) => {
 router.get("/customers/:id", (req, res) => {
   const sql = `
     SELECT c.*,
-      COUNT(DISTINCT o.id) AS total_orders,
-      COALESCE(SUM(o.total_amount), 0) AS total_purchases
+      (SELECT COUNT(*) FROM online_orders WHERE customer_id = c.id AND order_status != 'rejected') +
+      (SELECT COUNT(*) FROM ecom_orders WHERE customer_id = c.id AND status != 'Rejected') AS total_orders,
+      COALESCE((SELECT SUM(total_amount) FROM online_orders WHERE customer_id = c.id AND order_status != 'rejected'), 0) +
+      COALESCE((SELECT SUM(total_amount) FROM ecom_orders WHERE customer_id = c.id AND status != 'Rejected'), 0) AS total_purchases
     FROM customers c
-    LEFT JOIN online_orders o ON c.id = o.customer_id AND o.order_status != 'rejected'
     WHERE c.id = ?
-    GROUP BY c.id
   `;
   db.query(sql, [req.params.id], (err, results) => {
     if (err) return res.status(500).json({ success: false, message: "Database error" });
@@ -65,7 +123,20 @@ router.get("/customers/:id/orders", (req, res) => {
   `;
   db.query(sql, [req.params.id], (err, results) => {
     if (err) return res.status(500).json({ success: false, message: "Database error" });
-    res.json({ success: true, orders: results });
+    const posOrders = (results || []).map((o) => ({ ...o, source: "pos" }));
+
+    promisePool.query("SELECT * FROM ecom_orders WHERE customer_id = ?", [req.params.id])
+      .then(([ecomRows]) => {
+        const ecomOrders = (ecomRows || []).map(formatEcomOrder);
+        const orders = [...posOrders, ...ecomOrders].sort(
+          (a, b) => new Date(b.created_at) - new Date(a.created_at)
+        );
+        res.json({ success: true, orders });
+      })
+      .catch((err2) => {
+        console.error("Failed to fetch e-commerce customer orders:", err2);
+        res.json({ success: true, orders: posOrders });
+      });
   });
 });
 
@@ -74,18 +145,76 @@ router.get("/customers/:id/orders", (req, res) => {
 router.get("/orders", (req, res) => {
   const sql = `
     SELECT o.*,
-      c.name AS customer_name, c.email AS customer_email, c.contact AS customer_contact
+      c.name AS customer_name, c.email AS customer_email, c.contact AS customer_contact,
+      (SELECT GROUP_CONCAT(oi.product_name SEPARATOR ', ')
+         FROM order_items oi WHERE oi.order_id = o.id) AS product_names
     FROM online_orders o
     JOIN customers c ON o.customer_id = c.id
     ORDER BY o.created_at DESC
   `;
   db.query(sql, (err, results) => {
     if (err) return res.status(500).json({ success: false, message: "Database error", error: err.message });
-    res.json({ success: true, orders: results });
+
+    const posOrders = (results || []).map((o) => ({ ...o, source: "pos" }));
+
+    promisePool.query("SELECT * FROM ecom_orders")
+      .then(([ecomRows]) => {
+        const ecomOrders = (ecomRows || []).map(formatEcomOrder);
+        const orderIds = ecomOrders.map((o) => o.id);
+        if (orderIds.length === 0) {
+          return res.json({ success: true, orders: [...posOrders, ...ecomOrders] });
+        }
+        const placeholders = orderIds.map(() => "?").join(",");
+        return promisePool.query(
+          `SELECT order_id, GROUP_CONCAT(product_name SEPARATOR ', ') AS product_names
+           FROM ecom_order_items WHERE order_id IN (${placeholders}) GROUP BY order_id`,
+          orderIds
+        ).then(([nameRows]) => {
+          const nameMap = {};
+          (nameRows || []).forEach((r) => { nameMap[r.order_id] = r.product_names; });
+          ecomOrders.forEach((o) => { o.product_names = nameMap[o.id] || ""; });
+          const orders = [...posOrders, ...ecomOrders].sort(
+            (a, b) => new Date(b.created_at) - new Date(a.created_at)
+          );
+          res.json({ success: true, orders });
+        });
+      })
+      .catch((err2) => {
+        console.error("Failed to fetch e-commerce orders:", err2);
+        res.json({ success: true, orders: posOrders });
+      });
   });
 });
 
 router.get("/orders/:id", (req, res) => {
+  const source = req.query.source || "pos";
+
+  if (source === "ecom") {
+    promisePool.query("SELECT * FROM ecom_orders WHERE id = ?", [req.params.id])
+      .then(([orders]) => {
+        if (!orders.length) return res.status(404).json({ success: false, message: "Order not found" });
+        const order = formatEcomOrder(orders[0]);
+        return promisePool.query("SELECT * FROM ecom_order_items WHERE order_id = ?", [order.id])
+          .then(([items]) => {
+            order.items = items.map((item) => ({
+              id: item.id,
+              product_id: item.product_id,
+              product_name: item.product_name,
+              barcode: null,
+              quantity: item.quantity,
+              price: item.price,
+              total: Number(item.price) * Number(item.quantity),
+            }));
+            res.json({ success: true, order });
+          });
+      })
+      .catch((err) => {
+        console.error("Failed to fetch e-commerce order:", err);
+        res.status(500).json({ success: false, message: "Database error" });
+      });
+    return;
+  }
+
   const sql = `
     SELECT o.*,
       c.name AS customer_name, c.email AS customer_email, c.contact AS customer_contact
@@ -171,9 +300,24 @@ router.post("/orders", (req, res) => {
 
 router.put("/orders/:id/status", (req, res) => {
   const { status } = req.body;
-  const validStatuses = ["pending_payment", "verified", "preparing", "ready_for_pickup", "completed", "rejected"];
+  const source = req.query.source || "pos";
+  const validStatuses = ["pending_payment", "verified", "preparing", "ready_for_pickup", "completed", "rejected", "cancelled"];
   if (!validStatuses.includes(status)) {
     return res.status(400).json({ success: false, message: "Invalid status" });
+  }
+
+  if (source === "ecom") {
+    const ecomStatus = POS_TO_ECOM_STATUS[status] || status;
+    promisePool.query("UPDATE ecom_orders SET status = ? WHERE id = ?", [ecomStatus, req.params.id])
+      .then(([result]) => {
+        if (result.affectedRows === 0) return res.status(404).json({ success: false, message: "Order not found" });
+        res.json({ success: true, message: "Status updated" });
+      })
+      .catch((err) => {
+        console.error("Failed to update e-commerce order status:", err);
+        res.status(500).json({ success: false, message: "Database error" });
+      });
+    return;
   }
 
   const paymentStatusMap = {
@@ -183,6 +327,7 @@ router.put("/orders/:id/status", (req, res) => {
     ready_for_pickup: "verified",
     completed: "verified",
     rejected: "rejected",
+    cancelled: "rejected",
   };
 
   const sql = `
@@ -217,6 +362,71 @@ router.put("/orders/:id/status", (req, res) => {
 
 router.put("/orders/:id/verify-payment", (req, res) => {
   const { verified_by } = req.body;
+  const source = req.query.source || "pos";
+
+  if (source === "ecom") {
+    promisePool.query("SELECT * FROM ecom_orders WHERE id = ?", [req.params.id])
+      .then(async ([orders]) => {
+        if (!orders.length) return res.status(404).json({ success: false, message: "Order not found" });
+        const connection = await promisePool.getConnection();
+        try {
+          await connection.beginTransaction();
+
+          let pickupCode = null;
+          let isUnique = false;
+          while (!isUnique) {
+            pickupCode = generatePickupCode();
+            const [existing] = await connection.query(
+              "SELECT id FROM ecom_orders WHERE pickup_code = ?",
+              [pickupCode]
+            );
+            if (existing.length === 0) isUnique = true;
+          }
+
+          await connection.query(
+            "UPDATE ecom_orders SET payment_status = 'verified', status = 'Payment Verified', pickup_code = ? WHERE id = ?",
+            [pickupCode, req.params.id]
+          );
+
+          await connection.query(
+            "UPDATE ecom_payments SET status = 'verified', verified_by = ?, verified_at = NOW() WHERE order_id = ?",
+            [verified_by || null, req.params.id]
+          );
+
+          const [items] = await connection.query(
+            "SELECT product_id, quantity, product_name FROM ecom_order_items WHERE order_id = ?",
+            [req.params.id]
+          );
+
+          for (const item of items) {
+            await connection.query(
+              "UPDATE products SET stock = GREATEST(stock - ?, 0) WHERE id = ?",
+              [item.quantity, item.product_id]
+            );
+            await connection.query(
+              `INSERT INTO inventory_logs (product_id, product_name, type, quantity, reason, staff, receipt_id)
+               VALUES (?, ?, 'OUT', ?, ?, 'System', ?)`,
+              [item.product_id, item.product_name, item.quantity, `Ecommerce Order ${req.params.id}`, req.params.id]
+            );
+          }
+
+          await connection.commit();
+          res.json({ success: true, message: "Payment verified", pickup_code: pickupCode });
+        } catch (err2) {
+          await connection.rollback();
+          console.error("Failed to verify e-commerce payment:", err2);
+          res.status(500).json({ success: false, message: "Database error" });
+        } finally {
+          connection.release();
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to verify e-commerce payment:", err);
+        res.status(500).json({ success: false, message: "Database error" });
+      });
+    return;
+  }
+
   const sql = `
     UPDATE online_orders
     SET payment_status = 'verified', order_status = 'verified',
@@ -237,6 +447,22 @@ router.put("/orders/:id/verify-payment", (req, res) => {
 });
 
 router.put("/orders/:id/reject-payment", (req, res) => {
+  const source = req.query.source || "pos";
+
+  if (source === "ecom") {
+    promisePool.query("UPDATE ecom_orders SET payment_status = 'rejected', status = 'Rejected' WHERE id = ?", [req.params.id])
+      .then(([result]) => {
+        if (result.affectedRows === 0) return res.status(404).json({ success: false, message: "Order not found" });
+        return promisePool.query("UPDATE ecom_payments SET status = 'rejected' WHERE order_id = ?", [req.params.id])
+          .then(() => res.json({ success: true, message: "Payment rejected" }));
+      })
+      .catch((err) => {
+        console.error("Failed to reject e-commerce payment:", err);
+        res.status(500).json({ success: false, message: "Database error" });
+      });
+    return;
+  }
+
   const sql = `
     UPDATE online_orders
     SET payment_status = 'rejected', order_status = 'rejected'
@@ -278,42 +504,32 @@ router.post("/orders/:id/upload-receipt", upload.single("receipt"), (req, res) =
 router.get("/notifications", (req, res) => {
   const notifications = [];
 
-  db.query(
-    "SELECT COUNT(*) AS count FROM online_orders WHERE order_status = 'pending_payment'",
-    (err1, pendingPayments) => {
-      if (!err1) notifications.push({ type: "pending_payment", count: pendingPayments[0].count });
-
-      db.query(
-        "SELECT COUNT(*) AS count FROM online_orders WHERE order_status = 'verified' AND payment_status = 'verified'",
-        (err2, pendingPrep) => {
-          if (!err2) notifications.push({ type: "pending_preparation", count: pendingPrep[0].count });
-
-          db.query(
-            "SELECT COUNT(*) AS count FROM products WHERE stock <= 30 AND stock > 0",
-            (err3, lowStock) => {
-              if (!err3) notifications.push({ type: "low_stock", count: lowStock[0].count });
-
-              db.query(
-                "SELECT COUNT(*) AS count FROM online_orders WHERE order_status = 'pending_payment'",
-                (err4, newOrders) => {
-                  if (!err4) notifications.push({ type: "new_orders", count: newOrders[0].count });
-
-                  db.query(
-                    "SELECT COUNT(*) AS count FROM online_orders WHERE order_status = 'ready_for_pickup'",
-                    (err5, readyPickup) => {
-                      if (!err5) notifications.push({ type: "ready_for_pickup", count: readyPickup[0].count });
-
-                      res.json({ success: true, notifications });
-                    }
-                  );
-                }
-              );
-            }
-          );
-        }
-      );
-    }
-  );
+  Promise.all([
+    promisePool.query("SELECT COUNT(*) AS count FROM online_orders WHERE order_status = 'pending_payment'"),
+    promisePool.query("SELECT COUNT(*) AS count FROM ecom_orders WHERE status = 'Pending Payment Verification'"),
+    promisePool.query("SELECT COUNT(*) AS count FROM online_orders WHERE order_status = 'verified' AND payment_status = 'verified'"),
+    promisePool.query("SELECT COUNT(*) AS count FROM ecom_orders WHERE status = 'Payment Verified'"),
+    promisePool.query("SELECT COUNT(*) AS count FROM products WHERE stock <= 30 AND stock > 0"),
+    promisePool.query("SELECT COUNT(*) AS count FROM online_orders WHERE order_status = 'ready_for_pickup'"),
+    promisePool.query("SELECT COUNT(*) AS count FROM ecom_orders WHERE status = 'Ready for Pickup'"),
+  ])
+    .then(([
+      [posPending], [ecomPending],
+      [posPrep], [ecomPrep],
+      [lowStock],
+      [posReady], [ecomReady],
+    ]) => {
+      notifications.push({ type: "pending_payment", count: posPending[0].count + ecomPending[0].count });
+      notifications.push({ type: "pending_preparation", count: posPrep[0].count + ecomPrep[0].count });
+      notifications.push({ type: "low_stock", count: lowStock[0].count });
+      notifications.push({ type: "new_orders", count: posPending[0].count + ecomPending[0].count });
+      notifications.push({ type: "ready_for_pickup", count: posReady[0].count + ecomReady[0].count });
+      res.json({ success: true, notifications });
+    })
+    .catch((err) => {
+      console.error("Failed to fetch notifications:", err);
+      res.json({ success: true, notifications });
+    });
 });
 
 // ==================== REPORTS ====================
@@ -415,34 +631,39 @@ router.get("/reports/best-sellers", (req, res) => {
 
 router.get("/dashboard-stats", (req, res) => {
   const stats = {};
-  let pending = 5;
+  let pending = 6;
   const done = () => {
-    pending--;
     if (pending === 0) res.json({ success: true, stats });
   };
 
   db.query("SELECT COUNT(*) AS count FROM products", (e, r) => {
     stats.total_products = e ? 0 : r[0].count;
-    done();
+    pending--; done();
   });
   db.query("SELECT COUNT(*) AS count FROM categories", (e, r) => {
     stats.total_categories = e ? 0 : r[0].count;
-    done();
+    pending--; done();
   });
   db.query("SELECT COUNT(*) AS count FROM products WHERE stock <= 30", (e, r) => {
     stats.low_stock = e ? 0 : r[0].count;
-    done();
+    pending--; done();
   });
   db.query(
     "SELECT COUNT(*) AS count FROM online_orders WHERE order_status IN ('pending_payment','verified','preparing')",
     (e, r) => {
       stats.pending_orders = e ? 0 : r[0].count;
-      done();
+      pending--;
+      promisePool.query("SELECT COUNT(*) AS count FROM ecom_orders WHERE status IN ('Pending Payment Verification','Payment Verified','Preparing')")
+        .then(([ecomR]) => {
+          stats.pending_orders += ecomR[0].count;
+          pending--; done();
+        })
+        .catch(() => { pending--; done(); });
     }
   );
   db.query("SELECT COUNT(*) AS count FROM customers", (e, r) => {
     stats.total_customers = e ? 0 : r[0].count;
-    done();
+    pending--; done();
   });
 });
 

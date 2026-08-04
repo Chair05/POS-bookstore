@@ -9,6 +9,7 @@ const STATUS_CONFIG = {
   ready_for_pickup: { label: "Ready for Pickup", color: "bg-green-100 text-green-800 border-green-300" },
   completed: { label: "Completed", color: "bg-gray-100 text-gray-700 border-gray-300" },
   rejected: { label: "Rejected", color: "bg-red-100 text-red-800 border-red-300" },
+  cancelled: { label: "Cancelled", color: "bg-gray-100 text-gray-400 border-gray-200" },
 };
 
 const STATUS_FILTERS = [
@@ -19,6 +20,7 @@ const STATUS_FILTERS = [
   { key: "ready_for_pickup", label: "Ready for Pickup" },
   { key: "completed", label: "Completed" },
   { key: "rejected", label: "Rejected" },
+  { key: "cancelled", label: "Cancelled" },
 ];
 
 export default function Orders() {
@@ -46,14 +48,19 @@ export default function Orders() {
     try {
       const res = await fetch("http://localhost:5000/api/orders/orders");
       const data = await res.json();
-      if (data.success) setOrders(data.orders);
+      if (data.success) setOrders(Array.isArray(data.orders) ? data.orders : []);
     } catch (err) { console.error(err); }
   };
 
   useEffect(() => { loadOrders(); }, []);
 
+  const genId = () => {
+    if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") return crypto.randomUUID();
+    return Date.now().toString(36) + Math.random().toString(36).slice(2);
+  };
+
   const addNotification = (message, type = "info") => {
-    const id = crypto.randomUUID();
+    const id = genId();
     setNotifications((prev) => [...prev, { id, message, type }]);
     setTimeout(() => setNotifications((prev) => prev.filter((n) => n.id !== id)), 5000);
   };
@@ -78,11 +85,17 @@ export default function Orders() {
     return filtered.slice(start, start + itemsPerPage);
   }, [filtered, currentPage]);
 
-  const formatDate = (d) => new Date(d).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" });
-
-  const handleStatusChange = async (orderId, newStatus) => {
+  const formatDate = (d) => {
     try {
-      const res = await fetch(`http://localhost:5000/api/orders/orders/${orderId}/status`, {
+      const date = new Date(d);
+      if (isNaN(date.getTime())) return "—";
+      return date.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" });
+    } catch { return "—"; }
+  };
+
+  const handleStatusChange = async (orderId, newStatus, source = "pos") => {
+    try {
+      const res = await fetch(`http://localhost:5000/api/orders/orders/${orderId}/status?source=${source}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: newStatus }),
@@ -103,9 +116,9 @@ export default function Orders() {
     setConfirmAction(null);
   };
 
-  const handleVerifyPayment = async (orderId) => {
+  const handleVerifyPayment = async (orderId, source = "pos") => {
     try {
-      const res = await fetch(`http://localhost:5000/api/orders/orders/${orderId}/verify-payment`, {
+      const res = await fetch(`http://localhost:5000/api/orders/orders/${orderId}/verify-payment?source=${source}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ verified_by: user.id || null }),
@@ -124,9 +137,9 @@ export default function Orders() {
     setConfirmAction(null);
   };
 
-  const handleRejectPayment = async (orderId) => {
+  const handleRejectPayment = async (orderId, source = "pos") => {
     try {
-      const res = await fetch(`http://localhost:5000/api/orders/orders/${orderId}/reject-payment`, {
+      const res = await fetch(`http://localhost:5000/api/orders/orders/${orderId}/reject-payment?source=${source}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
       });
@@ -144,9 +157,9 @@ export default function Orders() {
     setConfirmAction(null);
   };
 
-  const viewOrderDetail = async (orderId) => {
+  const viewOrderDetail = async (order) => {
     try {
-      const res = await fetch(`http://localhost:5000/api/orders/orders/${orderId}`);
+      const res = await fetch(`http://localhost:5000/api/orders/orders/${order.id}?source=${order.source || "pos"}`);
       const data = await res.json();
       if (data.success) {
         setSelectedOrder(data.order);
@@ -250,7 +263,16 @@ export default function Orders() {
                 ) : (
                   paginated.map((order) => (
                     <tr key={order.id} className="border-b border-gray-100 hover:bg-gray-50 transition">
-                      <td className="px-4 py-3 font-mono font-semibold text-blue-700">{order.order_number}</td>
+                      <td className="px-4 py-3 font-mono font-semibold text-blue-700">
+                        <span className="inline-flex items-center gap-1.5">
+                          {order.source === "ecom" && (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase bg-purple-100 text-purple-700 border border-purple-200">
+                              ECO
+                            </span>
+                          )}
+                          {order.order_number}
+                        </span>
+                      </td>
                       <td className="px-4 py-3">
                         <div>
                           <p className="font-medium text-gray-800">{order.customer_name}</p>
@@ -259,7 +281,7 @@ export default function Orders() {
                       </td>
                       <td className="px-4 py-3 text-gray-600">{formatDate(order.created_at)}</td>
                       <td className="px-4 py-3 text-gray-600 text-xs max-w-[200px] truncate">
-                        {order.total_amount ? `${order.total_amount}` : "—"}
+                        {order.product_names || "—"}
                       </td>
                       <td className="px-4 py-3 text-right font-bold text-gray-800">₱{Number(order.total_amount).toFixed(2)}</td>
                       <td className="px-4 py-3">
@@ -274,7 +296,7 @@ export default function Orders() {
                       </td>
                       <td className="px-4 py-3 text-center">
                         <div className="flex items-center justify-center gap-1">
-                          <button onClick={() => viewOrderDetail(order.id)} className="px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 rounded transition">
+                          <button onClick={() => viewOrderDetail(order)} className="px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 rounded transition">
                             View
                           </button>
                           {order.receipt_image && (
@@ -352,6 +374,13 @@ export default function Orders() {
                 <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold border ${STATUS_CONFIG[selectedOrder.order_status]?.color}`}>
                   {STATUS_CONFIG[selectedOrder.order_status]?.label}
                 </span>
+                {selectedOrder.pickup_code && (
+                  <div className="mt-3 bg-purple-50 rounded-xl p-4 border border-purple-200">
+                    <p className="text-xs text-purple-700 mb-1">Pickup Code</p>
+                    <p className="text-2xl font-mono font-bold tracking-[0.3em] text-purple-700">{selectedOrder.pickup_code}</p>
+                    <p className="text-xs text-gray-500 mt-1">Show this to the customer when they collect their order</p>
+                  </div>
+                )}
                 {selectedOrder.verified_at && (
                   <p className="text-xs text-gray-500 mt-1">Verified: {formatDate(selectedOrder.verified_at)}</p>
                 )}
@@ -405,10 +434,10 @@ export default function Orders() {
               <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-200">
                 {selectedOrder.order_status === "pending_payment" && (
                   <>
-                    <button onClick={() => setConfirmAction({ type: "verify", orderId: selectedOrder.id })} className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-semibold hover:bg-green-700 transition">
+                    <button onClick={() => setConfirmAction({ type: "verify", orderId: selectedOrder.id, source: selectedOrder.source })} className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-semibold hover:bg-green-700 transition">
                       ✓ Verify Payment
                     </button>
-                    <button onClick={() => setConfirmAction({ type: "reject", orderId: selectedOrder.id })} className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-semibold hover:bg-red-700 transition">
+                    <button onClick={() => setConfirmAction({ type: "reject", orderId: selectedOrder.id, source: selectedOrder.source })} className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-semibold hover:bg-red-700 transition">
                       ✕ Reject Payment
                     </button>
                   </>
@@ -416,7 +445,7 @@ export default function Orders() {
                 {getNextStatuses(selectedOrder.order_status).filter((s) => s !== "rejected").map((nextStatus) => (
                   <button
                     key={nextStatus}
-                    onClick={() => setConfirmAction({ type: "status", orderId: selectedOrder.id, status: nextStatus })}
+                    onClick={() => setConfirmAction({ type: "status", orderId: selectedOrder.id, source: selectedOrder.source, status: nextStatus })}
                     className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 transition"
                   >
                     Mark as {STATUS_CONFIG[nextStatus]?.label}
@@ -424,7 +453,7 @@ export default function Orders() {
                 ))}
                 {selectedOrder.order_status === "pending_payment" && (
                   <button
-                    onClick={() => setConfirmAction({ type: "status", orderId: selectedOrder.id, status: "rejected" })}
+                    onClick={() => setConfirmAction({ type: "status", orderId: selectedOrder.id, source: selectedOrder.source, status: "rejected" })}
                     className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-semibold hover:bg-red-700 transition"
                   >
                     Reject Order
@@ -466,9 +495,9 @@ export default function Orders() {
               </button>
               <button
                 onClick={() => {
-                  if (confirmAction.type === "verify") handleVerifyPayment(confirmAction.orderId);
-                  else if (confirmAction.type === "reject") handleRejectPayment(confirmAction.orderId);
-                  else handleStatusChange(confirmAction.orderId, confirmAction.status);
+                  if (confirmAction.type === "verify") handleVerifyPayment(confirmAction.orderId, confirmAction.source);
+                  else if (confirmAction.type === "reject") handleRejectPayment(confirmAction.orderId, confirmAction.source);
+                  else handleStatusChange(confirmAction.orderId, confirmAction.status, confirmAction.source);
                 }}
                 className={`px-4 py-2 text-sm font-semibold text-white rounded-lg transition ${confirmAction.type === "reject" ? "bg-red-600 hover:bg-red-700" : "bg-blue-600 hover:bg-blue-700"}`}
               >

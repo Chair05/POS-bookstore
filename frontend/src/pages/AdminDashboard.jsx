@@ -99,6 +99,7 @@ export default function AdminDashboard() {
       ready_for_pickup: { label: "Ready for Pickup", color: "bg-green-100 text-green-800" },
       completed: { label: "Completed", color: "bg-gray-100 text-gray-700" },
       rejected: { label: "Rejected", color: "bg-red-100 text-red-800" },
+      cancelled: { label: "Cancelled", color: "bg-gray-100 text-gray-400" },
     };
     return map[status] || { label: status, color: "bg-gray-100 text-gray-600" };
   };
