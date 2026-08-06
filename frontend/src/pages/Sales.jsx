@@ -1,15 +1,37 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Layout from "./Layout";
 import { getDepartmentInfo } from "../utils/departmentUtils";
+import SalesKpiCard from "../components/sales/SalesKpiCard";
+import SalesChart from "../components/sales/SalesChart";
+import SalesToolbar from "../components/sales/SalesToolbar";
+import ReceiptCard from "../components/sales/ReceiptCard";
+import ReceiptDetails from "../components/sales/ReceiptDetails";
+import MiniDonut from "../components/sales/MiniDonut";
+import Sparkline from "../components/sales/Sparkline";
+import {
+  ShoppingBagIcon,
+  WalletIcon,
+  TrophyIcon,
+  PrinterIcon,
+  ChevronDownIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  ReceiptIcon,
+} from "../components/Icons";
 
 export default function SalesPage() {
   const [sales, setSales] = useState([]);
   const [filter, setFilter] = useState("all");
   const [departmentFilter, setDepartmentFilter] = useState("all");
   const [customDate, setCustomDate] = useState("");
-  const [openPanel, setOpenPanel] = useState(null);
+  const [search, setSearch] = useState("");
+  const [selectedReceiptId, setSelectedReceiptId] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [printDate, setPrintDate] = useState("");
+  const [printMonth, setPrintMonth] = useState("");
+  const [printOpen, setPrintOpen] = useState(false);
   const itemsPerPage = 10;
+
   /* ================= LOAD ================= */
   const loadSales = useCallback(async () => {
     try {
@@ -83,23 +105,43 @@ export default function SalesPage() {
     });
   }, [sales, filter, customDate, departmentFilter, getSaleDepartmentLabel]);
 
+  /* ================= SEARCH ================= */
+  const searchedSales = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return filtered;
+
+    return filtered.filter((s) => {
+      const receiptId = String(s.receipt_id != null ? s.receipt_id : s.id);
+      const customer = String(s.customer_name || "");
+      const product = String(s.product_name || "");
+      return (
+        receiptId.toLowerCase().includes(q) ||
+        customer.toLowerCase().includes(q) ||
+        product.toLowerCase().includes(q)
+      );
+    });
+  }, [filtered, search]);
+
   /* ================= SUMMARY ================= */
   const totalEarnings = useMemo(
-    () =>
-      filtered
-        .reduce((sum, sale) => sum + Number(sale.total || 0), 0),
-    [filtered]
+    () => searchedSales.reduce((sum, sale) => sum + Number(sale.total || 0), 0),
+    [searchedSales]
+  );
+
+  const totalUnits = useMemo(
+    () => searchedSales.reduce((sum, sale) => sum + (Number(sale.quantity) || 0), 0),
+    [searchedSales]
   );
 
   const productSummary = useMemo(() => {
-    return filtered
+    return searchedSales
       .reduce((acc, sale) => {
         const name = sale.product_name;
         const qty = Number(sale.quantity) || 0;
         acc[name] = (acc[name] || 0) + qty;
         return acc;
       }, {});
-  }, [filtered]);
+  }, [searchedSales]);
 
   const mostBoughtItems = useMemo(
     () =>
@@ -112,7 +154,7 @@ export default function SalesPage() {
   /* ================= GROUP ================= */
   const groupedByReceipt = useMemo(() => {
     return Object.values(
-      filtered.reduce((acc, row) => {
+      searchedSales.reduce((acc, row) => {
         const key = row.receipt_id != null ? row.receipt_id : row.id;
 
         if (!acc[key]) {
@@ -154,7 +196,7 @@ export default function SalesPage() {
         items: Object.values(receipt.items),
       }))
       .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-  }, [filtered, getProductDepartmentLabel, getSaleBuyerTypeLabel]);
+  }, [searchedSales, getProductDepartmentLabel, getSaleBuyerTypeLabel]);
 
   const paginatedSales = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;
@@ -185,6 +227,60 @@ export default function SalesPage() {
 
     return pages;
   }, [currentPage, totalPages]);
+
+  /* ================= CHART DATA ================= */
+  const chartData = useMemo(() => {
+    const map = {};
+    searchedSales.forEach((s) => {
+      const d = new Date(s.created_at);
+      if (isNaN(d)) return;
+      const key = toDateStr(d);
+      if (!map[key]) {
+        map[key] = {
+          date: key,
+          label: d.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+          revenue: 0,
+          sales: 0,
+        };
+      }
+      map[key].revenue += Number(s.total) || 0;
+      map[key].sales += 1;
+    });
+    return Object.values(map).sort((a, b) => a.date.localeCompare(b.date));
+  }, [searchedSales]);
+
+  /* ================= MINI CHART DATA ================= */
+  const dailyReceipts = useMemo(() => chartData.map((d) => d.sales), [chartData]);
+  const dailyRevenue = useMemo(() => chartData.map((d) => d.revenue), [chartData]);
+  const topItemPercent = useMemo(() => {
+    if (!totalUnits) return 0;
+    return Math.round(((mostBoughtItems[0]?.[1] || 0) / totalUnits) * 100);
+  }, [mostBoughtItems, totalUnits]);
+
+  /* ================= SELECTION ================= */
+  useEffect(() => {
+    setSelectedReceiptId((prev) => {
+      if (prev && groupedByReceipt.some((r) => r.receiptId === prev)) return prev;
+      return groupedByReceipt[0]?.receiptId ?? null;
+    });
+  }, [groupedByReceipt]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, filter, customDate, departmentFilter]);
+
+  const selectedReceipt = useMemo(
+    () => groupedByReceipt.find((r) => r.receiptId === selectedReceiptId) ?? null,
+    [groupedByReceipt, selectedReceiptId]
+  );
+
+  const resetFilters = () => {
+    setFilter("all");
+    setCustomDate("");
+    setDepartmentFilter("all");
+    setSearch("");
+    setCurrentPage(1);
+  };
 
   /* ================= PRINT ================= */
   const handlePrint = () => {
@@ -391,218 +487,199 @@ export default function SalesPage() {
     w.print();
   };
 
-
-
   return (
     <Layout title="Sales">
+      <div className="flex-1 p-6 overflow-y-auto space-y-6 bg-gray-50">
 
-      {/* BODY */}
-<div className="flex-1 p-6 overflow-y-auto space-y-6">
+        {/* ================= HEADER ================= */}
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Sales Overview</h1>
+            <p className="text-sm text-gray-500 mt-1">Track and review your bookstore transactions</p>
+          </div>
 
-  {/* ================= OVERVIEW ================= */}
-  <div className="space-y-4">
+          {/* PRINT */}
+          <div className="relative">
+            <button
+              onClick={() => setPrintOpen((v) => !v)}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 shadow-sm shadow-blue-600/20 transition"
+            >
+              <PrinterIcon className="w-4 h-4" />
+              Print Report
+              <ChevronDownIcon className={`w-4 h-4 transition-transform ${printOpen ? "rotate-180" : ""}`} />
+            </button>
 
-    <h2 className="text-xl font-semibold">Overview</h2>
-
-    {/* KPI CARDS */}
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-
-      <div className="bg-white p-4 rounded-2xl shadow-sm">
-        <p className="text-sm text-gray-500">Total Sales</p>
-        <p className="text-xl font-bold">{filtered.length}</p>
-      </div>
-
-      <div className="bg-white p-4 rounded-2xl shadow-sm">
-        <p className="text-sm text-gray-500">Revenue</p>
-        <p className="text-xl font-bold text-green-600">
-          ₱{totalEarnings}
-        </p>
-      </div>
-
-      <div className="bg-white p-4 rounded-2xl shadow-sm">
-        <p className="text-sm text-gray-500">Top Item</p>
-        <p className="text-sm font-semibold">
-          {mostBoughtItems[0]?.[0] || "N/A"}
-        </p>
-      </div>
-
-    </div>
-
-  </div>
-
-  {/* ================= TRANSACTIONS ================= */}
-<div>
-
-  {/* HEADER ROW */}
-  <div className="flex justify-between items-center flex-wrap gap-2">
-
-    <h2 className="text-xl font-semibold">Transactions</h2>
-
-    <div className="flex flex-wrap items-center gap-2">
-
-      {/* DATE FILTER */}
-      <input
-        type="date"
-        value={customDate}
-        onChange={(e) => {
-          setFilter("custom");
-          setCustomDate(e.target.value);
-        }}
-        className="border px-3 py-1 rounded-md text-sm"
-      />
-
-
-      {/* FILTER RESET */}
-      <button
-        onClick={() => setFilter("all")}
-        className="px-3 py-1 rounded-md bg-gray-200 text-sm hover:bg-gray-300 transition relative -top-[7px]"
-      >
-        Reset
-      </button>
-
-    </div>
-  </div>
-
-
-    {/* SALES LIST */}
-{paginatedSales.map((sale) => (
-  <div
-    key={sale.receiptId}
-    className="bg-white rounded-2xl p-5 shadow-sm hover:shadow-md transition"
-  >
-    <div className="flex justify-between gap-6 flex-wrap">
-
-      {/* LEFT */}
-      <div className="flex-1 min-w-[250px]">
-        <p className="font-semibold text-lg">
-          Receipt {sale.receiptId}
-        </p>
-
-        {sale.customer_name?.trim() && (
-          <p className="text-sm text-gray-600 font-medium">
-            Customer: {sale.customer_name.trim()}
-          </p>
-        )}
-
-        <p className="text-sm text-gray-500 mt-1">
-          {formatDate(sale.created_at)}
-        </p>
-
-        <div className="mt-3 space-y-1">
-          {sale.items.map((item) => (
-            <p key={item.id} className="text-sm text-gray-700">
-              • {item.product_name} × {item.quantity}
-              {item.department ? ` (${item.department})` : ""}
-            </p>
-          ))}
+            {printOpen && (
+              <div className="absolute right-0 mt-2 w-64 bg-white rounded-xl border border-gray-200 shadow-lg p-4 z-30 space-y-4">
+                <div>
+                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                    Daily Report Date
+                  </label>
+                  <input
+                    type="date"
+                    value={printDate}
+                    onChange={(e) => setPrintDate(e.target.value)}
+                    className="w-full mt-1.5 px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                  />
+                  <button
+                    onClick={() => { handlePrint(); setPrintOpen(false); }}
+                    className="w-full mt-2 px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium transition inline-flex items-center justify-center gap-1.5"
+                  >
+                    <PrinterIcon className="w-4 h-4" /> Print Daily
+                  </button>
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                    Monthly Report Month
+                  </label>
+                  <input
+                    type="month"
+                    value={printMonth}
+                    onChange={(e) => setPrintMonth(e.target.value)}
+                    className="w-full mt-1.5 px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                  />
+                  <button
+                    onClick={() => { handleMonthlyPrint(); setPrintOpen(false); }}
+                    className="w-full mt-2 px-3 py-2 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-100 transition inline-flex items-center justify-center gap-1.5"
+                  >
+                    <PrinterIcon className="w-4 h-4" /> Print Monthly
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
 
-      {/* RIGHT - TOTAL */}
-      <div className="flex flex-col justify-end items-end min-w-[120px]">
-        <p className="text-sm text-gray-500">Total</p>
-        <p className="text-xl font-bold text-green-600">
-          ₱{sale.total}
-        </p>
-      </div>
+        {/* ================= OVERVIEW ================= */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+          <SalesKpiCard
+            icon={<ShoppingBagIcon className="w-6 h-6" />}
+            tileClass="bg-blue-50 text-blue-600"
+            label="Total Sales"
+            value={groupedByReceipt.length}
+            sub={`${searchedSales.length} item record(s)`}
+            chart={<Sparkline data={dailyReceipts} color="#2563EB" />}
+          />
+          <SalesKpiCard
+            icon={<WalletIcon className="w-6 h-6" />}
+            tileClass="bg-emerald-50 text-emerald-600"
+            label="Revenue"
+            value={`₱${totalEarnings.toFixed(2)}`}
+            sub={`${totalUnits} item(s) sold`}
+            chart={<Sparkline data={dailyRevenue} color="#16A34A" />}
+          />
+          <SalesKpiCard
+            icon={<TrophyIcon className="w-6 h-6" />}
+            tileClass="bg-amber-50 text-amber-600"
+            label="Top Item"
+            value={mostBoughtItems[0]?.[0] || "N/A"}
+            sub={mostBoughtItems[0] ? `${mostBoughtItems[0][1]} unit(s) sold` : "No sales yet"}
+            chart={<MiniDonut percent={topItemPercent} color="#F59E0B" />}
+          />
+        </div>
 
-    </div>
-  </div>
-))}
-    {/* PAGINATION */}
-    <div className="flex flex-wrap justify-center items-center gap-2 pt-4">
-      <button
-        onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-        disabled={currentPage === 1}
-        className="px-4 py-2 rounded-md border border-gray-300 bg-white text-sm text-gray-700 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 transition"
-      >
-        Previous
-      </button>
+        {/* ================= CHART ================= */}
+        <SalesChart data={chartData} />
 
-      {paginationItems.map((page, index) =>
-        page === "..." ? (
-          <span key={`dots-${index}`} className="px-3 py-2 text-sm text-gray-500">
-            ...
-          </span>
-        ) : (
-          <button
-            key={page}
-            onClick={() => setCurrentPage(page)}
-            className={`min-w-[38px] px-4 py-2 rounded-md border text-sm transition ${
-              currentPage === page
-                ? "bg-blue-600 text-white border-blue-600"
-                : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
-            }`}
-          >
-            {page}
-          </button>
-        )
-      )}
+        {/* ================= TRANSACTIONS ================= */}
+        <div>
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+            <h2 className="text-xl font-bold text-gray-900">Transactions</h2>
+            {groupedByReceipt.length > 0 && (
+              <span className="text-sm text-gray-500">
+                {groupedByReceipt.length} receipt(s) found
+              </span>
+            )}
+          </div>
 
-      <button
-        onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
-        disabled={currentPage === totalPages || totalPages === 0}
-        className="px-4 py-2 rounded-md border border-gray-300 bg-white text-sm text-gray-700 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 transition"
-      >
-        Next
-      </button>
-    </div>
-
-  </div>
-
-</div>
-
-{/* MODAL (UNCHANGED) */}
-{openPanel && (
-  <div className="fixed inset-0 bg-black/40 flex justify-center items-center backdrop-blur-sm">
-    <div className="bg-white rounded-2xl p-6 w-80 shadow-lg">
-
-      <button
-        onClick={() => setOpenPanel(null)}
-        className="mb-3 text-sm text-gray-500"
-      >
-        Close
-      </button>
-
-      {openPanel === "filter" && (
-        <>
-          <button onClick={() => setFilter("today")} className="block mb-2">Today</button>
-          <button onClick={() => setFilter("month")} className="block mb-2">Month</button>
-          <button onClick={() => setFilter("all")} className="block mb-2">All</button>
-
-          <input
-            type="date"
-            className="border p-2 w-full mt-2"
-            onChange={(e) => {
+          <SalesToolbar
+            customDate={customDate}
+            onDateChange={(e) => {
               setFilter("custom");
               setCustomDate(e.target.value);
             }}
+            search={search}
+            onSearchChange={setSearch}
+            filter={filter}
+            onFilterChange={setFilter}
+            departments={departmentOptions}
+            departmentFilter={departmentFilter}
+            onDepartmentChange={(e) => setDepartmentFilter(e.target.value)}
+            onReset={resetFilters}
           />
-        </>
-      )}
 
-      {openPanel === "summary" && (
-        <>
-          <h2 className="text-lg font-semibold mb-3">Summary</h2>
-          <p>Total Sales: {filtered.length}</p>
-          <p className="text-green-600 font-bold">
-            ₱{totalEarnings}
-          </p>
-        </>
-      )}
+          <div className="mt-6 grid grid-cols-1 xl:grid-cols-3 gap-6 items-start">
+            {/* LIST */}
+            <div className="xl:col-span-2 space-y-4">
+              {paginatedSales.length > 0 ? (
+                paginatedSales.map((sale) => (
+                  <ReceiptCard
+                    key={sale.receiptId}
+                    sale={sale}
+                    selected={sale.receiptId === selectedReceiptId}
+                    onSelect={() => setSelectedReceiptId(sale.receiptId)}
+                    formatDate={formatDate}
+                  />
+                ))
+              ) : (
+                <div className="bg-white rounded-2xl border border-dashed border-gray-300 p-12 text-center">
+                  <div className="h-14 w-14 rounded-xl bg-gray-100 flex items-center justify-center mx-auto mb-3">
+                    <ReceiptIcon className="w-7 h-7 text-gray-400" />
+                  </div>
+                  <p className="text-sm font-medium text-gray-600">No transactions found</p>
+                  <p className="text-xs text-gray-400 mt-1">Try adjusting your filters or search</p>
+                </div>
+              )}
 
-      {openPanel === "most" && (
-        <>
-          {mostBoughtItems.map(([n, q]) => (
-            <p key={n}>{n} - {q}</p>
-          ))}
-        </>
-      )}
+              {/* PAGINATION */}
+              {totalPages > 1 && (
+                <div className="flex flex-wrap justify-center items-center gap-2 pt-2">
+                  <button
+                    onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                    disabled={currentPage === 1}
+                    className="inline-flex items-center gap-1 px-4 py-2 rounded-lg border border-gray-300 bg-white text-sm text-gray-700 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 transition"
+                  >
+                    <ChevronLeftIcon className="w-4 h-4" /> Previous
+                  </button>
 
+                  {paginationItems.map((page, index) =>
+                    page === "..." ? (
+                      <span key={`dots-${index}`} className="px-3 py-2 text-sm text-gray-500">
+                        ...
+                      </span>
+                    ) : (
+                      <button
+                        key={page}
+                        onClick={() => setCurrentPage(page)}
+                        className={`min-w-[38px] px-4 py-2 rounded-lg border text-sm transition ${
+                          currentPage === page
+                            ? "bg-blue-600 text-white border-blue-600 shadow-sm shadow-blue-600/30"
+                            : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    )
+                  )}
 
-    </div>
-  </div>
-)}
+                  <button
+                    onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                    disabled={currentPage === totalPages || totalPages === 0}
+                    className="inline-flex items-center gap-1 px-4 py-2 rounded-lg border border-gray-300 bg-white text-sm text-gray-700 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 transition"
+                  >
+                    Next <ChevronRightIcon className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* DETAILS PANEL */}
+            <div className="xl:col-span-1">
+              <ReceiptDetails sale={selectedReceipt} formatDate={formatDate} />
+            </div>
+          </div>
+        </div>
+      </div>
     </Layout>
   );
 }

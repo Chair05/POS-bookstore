@@ -11,7 +11,7 @@ router.post('/', async (req, res) => {
   try {
     await connection.beginTransaction();
 
-    const { items, totalAmount, customerInfo } = req.body;
+    const { items, totalAmount, customerInfo, paymentMethod } = req.body;
 
     if (!items || items.length === 0) {
       return res.status(400).json({ message: 'Order must contain at least one item' });
@@ -37,9 +37,9 @@ router.post('/', async (req, res) => {
     }
 
     const [orderResult] = await connection.query(
-      `INSERT INTO ecom_orders (customer_id, total_amount, status, customer_full_name, customer_email, customer_contact)
-       VALUES (?, ?, 'Pending Payment Verification', ?, ?, ?)`,
-      [req.user.id, totalAmount, customerInfo.fullName, customerInfo.email, customerInfo.contactNumber]
+      `INSERT INTO ecom_orders (customer_id, total_amount, status, customer_full_name, customer_email, customer_contact, payment_method)
+       VALUES (?, ?, 'Pending Payment Verification', ?, ?, ?, ?)`,
+      [req.user.id, totalAmount, customerInfo.fullName, customerInfo.email, customerInfo.contactNumber, paymentMethod || 'GCash']
     );
     const orderId = orderResult.insertId;
 

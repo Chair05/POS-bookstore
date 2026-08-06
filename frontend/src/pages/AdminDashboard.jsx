@@ -2,6 +2,10 @@ import React, { useEffect, useState, useMemo } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import Layout from "./Layout";
 import {
+  ShoppingBagIcon, WalletIcon, PackageIcon, TagsIcon,
+  AlertTriangleIcon, UsersIcon, ReceiptIcon, ClockIcon,
+} from "../components/Icons";
+import {
   BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
@@ -112,20 +116,25 @@ export default function AdminDashboard() {
         {/* SUMMARY CARDS */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
           {[
-            { label: "Total Products", value: stats?.total_products ?? "—", icon: "📦", color: "text-blue-600" },
-            { label: "Categories", value: stats?.total_categories ?? "—", icon: "🏷️", color: "text-indigo-600" },
-            { label: "Low Stock", value: stats?.low_stock ?? "—", icon: "⚠️", color: "text-amber-600" },
-            { label: "Pending Orders", value: stats?.pending_orders ?? "—", icon: "🛒", color: "text-orange-600" },
-            { label: "Customers", value: stats?.total_customers ?? "—", icon: "👤", color: "text-emerald-600" },
-          ].map((card, i) => (
-            <div key={i} className="bg-white p-4 rounded-2xl shadow-sm hover:shadow-md transition">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-2xl">{card.icon}</span>
+            { label: "Total Products", value: stats?.total_products ?? "—", icon: PackageIcon, color: "text-blue-600" },
+            { label: "Categories", value: stats?.total_categories ?? "—", icon: TagsIcon, color: "text-indigo-600" },
+            { label: "Low Stock", value: stats?.low_stock ?? "—", icon: AlertTriangleIcon, color: "text-amber-600" },
+            { label: "Pending Orders", value: stats?.pending_orders ?? "—", icon: ShoppingBagIcon, color: "text-orange-600" },
+            { label: "Customers", value: stats?.total_customers ?? "—", icon: UsersIcon, color: "text-emerald-600" },
+          ].map((card, i) => {
+            const IconCmp = card.icon;
+            return (
+              <div key={i} className="bg-white p-4 rounded-2xl shadow-sm hover:shadow-md transition">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+                    <IconCmp className="w-5 h-5" />
+                  </div>
+                </div>
+                <p className={`text-2xl font-bold ${card.color}`}>{card.value}</p>
+                <p className="text-sm text-gray-500 mt-1">{card.label}</p>
               </div>
-              <p className={`text-2xl font-bold ${card.color}`}>{card.value}</p>
-              <p className="text-sm text-gray-500 mt-1">{card.label}</p>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* ORDER SUMMARY CARDS */}
@@ -151,7 +160,7 @@ export default function AdminDashboard() {
             <h3 className="text-sm font-semibold text-gray-600 mb-3">Daily Sales (Last 30 Days)</h3>
             {dailySales.length > 0 ? (
               <ResponsiveContainer width="100%" height={250}>
-                <BarChart data={[...dailySales].reverse()}>
+                <BarChart data={[...dailySales].reverse().map((d) => ({ ...d, revenue: Number(d.revenue) || 0 }))}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                   <XAxis dataKey="date" tick={{ fontSize: 11 }} tickFormatter={(d) => new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric" })} />
                   <YAxis tick={{ fontSize: 11 }} />
@@ -171,7 +180,7 @@ export default function AdminDashboard() {
               <ResponsiveContainer width="100%" height={250}>
                 <PieChart>
                   <Pie
-                    data={bestSellers.map((b) => ({ name: b.product_name, value: b.total_sold }))}
+                    data={bestSellers.map((b) => ({ name: b.product_name, value: Number(b.total_sold) || 0 }))}
                     cx="50%"
                     cy="50%"
                     outerRadius={90}
@@ -201,25 +210,34 @@ export default function AdminDashboard() {
               {notifications.filter((n) => n.count > 0).length === 0 ? (
                 <p className="text-sm text-gray-400 py-4 text-center">No alerts</p>
               ) : (
-                notifications.filter((n) => n.count > 0).map((n, i) => (
-                  <div key={i} className="flex items-center justify-between p-3 rounded-lg bg-gray-50">
-                    <div className="flex items-center gap-3">
-                      <span className="text-lg">
-                        {n.type === "low_stock" ? "⚠️" : n.type === "pending_payment" ? "💳" : n.type === "pending_preparation" ? "📋" : n.type === "ready_for_pickup" ? "📦" : "🔔"}
-                      </span>
-                      <div>
-                        <p className="text-sm font-medium text-gray-800">
-                          {n.type === "low_stock" && "Low Stock Products"}
-                          {n.type === "pending_payment" && "Pending Payment Verification"}
-                          {n.type === "pending_preparation" && "Orders Ready to Prepare"}
-                          {n.type === "new_orders" && "New Online Orders"}
-                          {n.type === "ready_for_pickup" && "Ready for Pickup"}
-                        </p>
+                notifications.filter((n) => n.count > 0).map((n, i) => {
+                  const AlertIcon =
+                    n.type === "low_stock" ? AlertTriangleIcon
+                    : n.type === "pending_payment" ? WalletIcon
+                    : n.type === "pending_preparation" ? ReceiptIcon
+                    : n.type === "ready_for_pickup" ? PackageIcon
+                    : n.type === "new_orders" ? ShoppingBagIcon
+                    : ClockIcon;
+                  return (
+                    <div key={i} className="flex items-center justify-between p-3 rounded-lg bg-gray-50">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                          <AlertIcon className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-800">
+                            {n.type === "low_stock" && "Low Stock Products"}
+                            {n.type === "pending_payment" && "Pending Payment Verification"}
+                            {n.type === "pending_preparation" && "Orders Ready to Prepare"}
+                            {n.type === "new_orders" && "New Online Orders"}
+                            {n.type === "ready_for_pickup" && "Ready for Pickup"}
+                          </p>
+                        </div>
                       </div>
+                      <span className="bg-red-100 text-red-700 text-xs font-bold px-2 py-0.5 rounded-full">{n.count}</span>
                     </div>
-                    <span className="bg-red-100 text-red-700 text-xs font-bold px-2 py-0.5 rounded-full">{n.count}</span>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           </div>

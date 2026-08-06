@@ -2,6 +2,18 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, PieChart, Pie, Cell, Legend } from "recharts";
 import Layout from "./Layout";
 import { getDepartmentInfo } from "../utils/departmentUtils";
+import SalesKpiCard from "../components/sales/SalesKpiCard";
+import { ShoppingBagIcon, WalletIcon, ReceiptIcon, CalendarIcon, ChartIcon } from "../components/Icons";
+
+const TOOLTIP_STYLE = {
+  borderRadius: 12,
+  border: "1px solid #e5e7eb",
+  boxShadow: "0 8px 24px rgba(15, 23, 42, 0.08)",
+  fontSize: 13,
+};
+
+const selectClass =
+  "px-3.5 py-2 rounded-lg border border-gray-300 bg-white text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition cursor-pointer";
 
 export default function MonthlySalesReport() {
   const [user] = useState(() => {
@@ -325,6 +337,20 @@ export default function MonthlySalesReport() {
             <h1>Monthly Sales Report</h1>
             <p>${monthName}</p>
           </div>
+          <div class="summary">
+            <div class="summary-card">
+              <div class="label">Total Revenue</div>
+              <div class="value">₱${total.toFixed(2)}</div>
+            </div>
+            <div class="summary-card">
+              <div class="label">Items Sold</div>
+              <div class="value">${monthly.reduce((sum, sale) => sum + (Number(sale.quantity) || 0), 0)}</div>
+            </div>
+            <div class="summary-card">
+              <div class="label">Days with Sales</div>
+              <div class="value">${new Set(monthly.map((sale) => new Date(sale.created_at).toDateString())).size}</div>
+            </div>
+          </div>
           <table>
             <thead>
               <tr>
@@ -414,83 +440,160 @@ export default function MonthlySalesReport() {
 
   const PIE_COLORS = ["#4f46e5", "#06b6d4", "#10b981", "#f59e0b", "#ef4444", "#7c3aed", "#0ea5e9"];
 
-  if (loading) return <div className="h-screen w-screen flex items-center justify-center bg-gray-100">Loading...</div>;
-  if (error) return <div className="h-screen w-screen flex items-center justify-center bg-gray-100 text-red-500">{error}</div>;
+  const maxDepartmentRevenue = Math.max(...departmentSales.map((d) => d.value), 1);
+
+  if (loading)
+    return (
+      <div className="h-screen w-screen flex items-center justify-center bg-gray-50">
+        <div className="flex items-center gap-3 text-gray-500">
+          <div className="h-6 w-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+          <span className="text-sm font-medium">Loading sales report...</span>
+        </div>
+      </div>
+    );
+  if (error)
+    return (
+      <div className="h-screen w-screen flex items-center justify-center bg-gray-50 text-red-500 font-medium">
+        {error}
+      </div>
+    );
 
   return (
     <Layout title="Sales Report">
-      <div className="flex-1 overflow-y-auto p-6 space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-white rounded-2xl p-5 shadow-sm">
-            <p className="text-sm text-gray-500">Total Revenue</p>
-            <p className="text-2xl font-bold text-green-600">₱{totalRevenue.toFixed(2)}</p>
-          </div>
-          <div className="bg-white rounded-2xl p-5 shadow-sm">
-            <p className="text-sm text-gray-500">Total Items Sold</p>
-            <p className="text-2xl font-bold">{totalItems}</p>
-          </div>
-          <div className="bg-white rounded-2xl p-5 shadow-sm">
-            <p className="text-sm text-gray-500">Total Transactions</p>
-            <p className="text-2xl font-bold">{totalTransactions}</p>
-          </div>
-        </div>
+      <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-gray-50">
 
-        <div className="bg-white rounded-2xl p-5 shadow-sm">
-          <div className="flex flex-wrap items-center gap-4 mb-5 justify-between">
-            <div className="flex flex-wrap items-center gap-4">
-              <h2 className="font-semibold text-lg">Sales Trend</h2>
-              <select value={chartFilter} onChange={(e) => setChartFilter(e.target.value)} className="border border-gray-300 bg-white px-3 py-1 rounded-md text-sm shadow-sm hover:bg-blue-50 hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 cursor-pointer">
-                <option value="all">All</option>
-                <option value="year">Year</option>
-                <option value="month">Month</option>
-                <option value="week">Week</option>
-                <option value="day">Day</option>
-              </select>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
+        {/* ================= HEADER ================= */}
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Sales Report</h1>
+            <p className="text-sm text-gray-500 mt-1">Analytics and performance overview for the bookstore</p>
+          </div>
+
+          {/* PRINT CONTROLS */}
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-1.5 bg-white rounded-xl border border-gray-200 shadow-sm p-1.5 pl-3">
+              <CalendarIcon className="w-4 h-4 text-gray-400 shrink-0" />
               <input
                 type="date"
                 value={printDate}
                 onChange={(e) => setPrintDate(e.target.value)}
-                className="border border-gray-300 bg-white px-3 py-1 rounded-md text-sm shadow-sm hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+                className="bg-transparent text-sm text-gray-700 focus:outline-none"
               />
               <button
                 onClick={handlePrint}
-                className="bg-blue-600 text-white px-4 py-1 rounded-md text-sm hover:bg-blue-700 transition relative -top-[9px]"
+                className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium transition"
               >
                 Print Day
               </button>
+            </div>
+            <div className="flex items-center gap-1.5 bg-white rounded-xl border border-gray-200 shadow-sm p-1.5 pl-3">
+              <CalendarIcon className="w-4 h-4 text-gray-400 shrink-0" />
               <input
                 type="month"
                 value={printMonth}
                 onChange={(e) => setPrintMonth(e.target.value)}
-                className="border border-gray-300 bg-white px-3 py-1 rounded-md text-sm shadow-sm hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+                className="bg-transparent text-sm text-gray-700 focus:outline-none"
               />
               <button
                 onClick={handleMonthlyPrint}
-                className="bg-blue-600 text-white px-4 py-1 rounded-md text-sm hover:bg-blue-700 transition relative -top-[9px]"
+                className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium transition"
               >
                 Print Month
               </button>
             </div>
           </div>
-          <div className="h-[260px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={chartData} margin={{ left: 0, right: 30 }}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" />
-                <YAxis orientation="left" />
-                <Tooltip />
-                <Line type="monotone" dataKey="total" stroke="#2563eb" strokeWidth={2} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
         </div>
 
-        <div className="bg-white rounded-2xl p-5 shadow-sm">
-          <div className="flex flex-wrap items-center gap-4 mb-5">
-            <h2 className="font-semibold text-lg">Department Sales</h2>
-            <select value={departmentFilter} onChange={(e) => setDepartmentFilter(e.target.value)} className="border border-gray-300 bg-white px-3 py-1 rounded-md text-sm shadow-sm hover:bg-blue-50 hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 cursor-pointer">
+        {/* ================= KPI CARDS ================= */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <SalesKpiCard
+            icon={<WalletIcon className="w-6 h-6" />}
+            tileClass="bg-emerald-50 text-emerald-600"
+            label="Total Revenue"
+            value={`₱${totalRevenue.toFixed(2)}`}
+            sub="gross revenue across all sales"
+          />
+          <SalesKpiCard
+            icon={<ShoppingBagIcon className="w-6 h-6" />}
+            tileClass="bg-blue-50 text-blue-600"
+            label="Items Sold"
+            value={totalItems}
+            sub="total units sold"
+          />
+          <SalesKpiCard
+            icon={<ReceiptIcon className="w-6 h-6" />}
+            tileClass="bg-amber-50 text-amber-600"
+            label="Transactions"
+            value={totalTransactions}
+            sub="unique receipts recorded"
+          />
+        </div>
+
+        {/* ================= SALES TREND ================= */}
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">Sales Trend</h3>
+              <p className="text-sm text-gray-500">Revenue grouped over time</p>
+            </div>
+            <select value={chartFilter} onChange={(e) => setChartFilter(e.target.value)} className={selectClass}>
+              <option value="all">All</option>
+              <option value="year">Year</option>
+              <option value="month">Month</option>
+              <option value="week">Week</option>
+              <option value="day">Day</option>
+            </select>
+          </div>
+          {chartData.length > 0 ? (
+            <ResponsiveContainer width="100%" height={280}>
+              <LineChart data={chartData} margin={{ top: 4, right: 12, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+                <XAxis
+                  dataKey="name"
+                  tick={{ fontSize: 12, fill: "#64748b" }}
+                  axisLine={false}
+                  tickLine={false}
+                  minTickGap={24}
+                />
+                <YAxis
+                  tick={{ fontSize: 12, fill: "#64748b" }}
+                  axisLine={false}
+                  tickLine={false}
+                  width={72}
+                  tickFormatter={(v) => `₱${v}`}
+                />
+                <Tooltip
+                  formatter={(value) => [`₱${Number(value).toFixed(2)}`, "Revenue"]}
+                  contentStyle={TOOLTIP_STYLE}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="total"
+                  stroke="#2563EB"
+                  strokeWidth={2.5}
+                  dot={{ r: 3, fill: "#2563EB", strokeWidth: 0 }}
+                  activeDot={{ r: 5 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-16 text-gray-400">
+              <div className="h-14 w-14 rounded-xl bg-gray-100 flex items-center justify-center mb-3">
+                <ChartIcon className="w-7 h-7" />
+              </div>
+              <p className="text-sm font-medium text-gray-500">No trend data available</p>
+            </div>
+          )}
+        </div>
+
+        {/* ================= DEPARTMENT SALES ================= */}
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">Department Sales</h3>
+              <p className="text-sm text-gray-500">Revenue share by product department</p>
+            </div>
+            <select value={departmentFilter} onChange={(e) => setDepartmentFilter(e.target.value)} className={selectClass}>
               <option value="all">All Departments</option>
               {departmentOptions.map((dept) => (
                 <option key={dept} value={dept}>
@@ -499,8 +602,8 @@ export default function MonthlySalesReport() {
               ))}
             </select>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="h-[240px]">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="h-[260px] flex items-center justify-center">
               {hasDepartmentSales ? (
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
@@ -514,25 +617,41 @@ export default function MonthlySalesReport() {
                       {departmentSales.map((entry, index) => (<Cell key={`dept-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />))}
                     </Pie>
                     <Legend />
-                    <Tooltip formatter={(value) => `₱${value}`} />
+                    <Tooltip formatter={(value) => `₱${Number(value).toFixed(2)}`} contentStyle={TOOLTIP_STYLE} />
                   </PieChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="h-full flex items-center justify-center text-sm text-gray-500">
-                  No department sales data available.
+                <div className="text-center text-gray-400">
+                  <ChartIcon className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+                  <p className="text-sm font-medium text-gray-500">No department sales data available.</p>
                 </div>
               )}
             </div>
             <div className="space-y-3">
-              {departmentCards.length > 0 ? departmentCards.map((card) => (
-                <div key={card.name} className="rounded-xl border border-gray-200 p-3">
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium text-gray-700">{card.name}</span>
-                    <span className="text-sm text-blue-600 font-semibold">{card.quantity} items</span>
+              {departmentCards.length > 0 ? departmentCards.map((card) => {
+                const revenueEntry = departmentSales.find((d) => d.name === card.name);
+                const rev = revenueEntry?.value || 0;
+                const pct = (rev / maxDepartmentRevenue) * 100;
+                return (
+                  <div key={card.name} className="rounded-xl border border-gray-200 p-4 bg-gray-50/60 hover:bg-gray-50 transition">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="font-medium text-gray-700">{card.name}</span>
+                      <span className="text-sm text-gray-500">{card.quantity} items</span>
+                    </div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-xs text-gray-400">Revenue</span>
+                      <span className="text-sm font-semibold text-blue-600">₱{rev.toFixed(2)}</span>
+                    </div>
+                    <div className="h-1.5 rounded-full bg-gray-200 overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-blue-500 transition-all duration-500"
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
                   </div>
-                </div>
-              )) : (
-                <div className="rounded-xl border border-gray-200 p-3 text-sm text-gray-500">
+                );
+              }) : (
+                <div className="rounded-xl border border-dashed border-gray-300 p-6 text-sm text-gray-500 text-center">
                   No department cards to display.
                 </div>
               )}
@@ -540,32 +659,43 @@ export default function MonthlySalesReport() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-white rounded-2xl p-5 shadow-sm">
-            <h3 className="font-semibold mb-3">Sales by Category</h3>
+        {/* ================= BREAKDOWN ================= */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+            <h3 className="text-lg font-semibold text-gray-900">Sales by Category</h3>
+            <p className="text-sm text-gray-500 mb-4">Share of items sold per category</p>
             <div className="h-[260px] flex items-center justify-center">
-              <ResponsiveContainer width="100%" height={260}>
-                <PieChart>
-                  <Pie
-                    data={pieData}
-                    dataKey="value"
-                    nameKey="name"
-                    outerRadius={90}
-                    fill="#8884d8"
-                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                  >
-                    {pieData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Legend />
-                  <Tooltip formatter={(value, name, props) => [`${Number(value).toFixed(2)}%`, name]} />
-                </PieChart>
-              </ResponsiveContainer>
+              {pieData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={260}>
+                  <PieChart>
+                    <Pie
+                      data={pieData}
+                      dataKey="value"
+                      nameKey="name"
+                      outerRadius={90}
+                      fill="#8884d8"
+                      label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                    >
+                      {pieData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Legend />
+                    <Tooltip formatter={(value, name, props) => [`${Number(value).toFixed(2)}%`, name]} contentStyle={TOOLTIP_STYLE} />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="text-center text-gray-400">
+                  <ChartIcon className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+                  <p className="text-sm font-medium text-gray-500">No category data available.</p>
+                </div>
+              )}
             </div>
           </div>
-          <div className="bg-white rounded-2xl p-5 shadow-sm">
-            <h3 className="font-semibold mb-3">Student/Teacher/Personnel Sales</h3>
+
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+            <h3 className="text-lg font-semibold text-gray-900">Buyer Breakdown</h3>
+            <p className="text-sm text-gray-500 mb-4">Student / Teacher / Personnel sales</p>
             <div className="h-[260px] flex items-center justify-center">
               {hasStaffDepartmentSales ? (
                 <ResponsiveContainer width="100%" height={260}>
@@ -582,25 +712,38 @@ export default function MonthlySalesReport() {
                       ))}
                     </Pie>
                     <Legend />
-                    <Tooltip formatter={(value) => `${value} items`} />
+                    <Tooltip formatter={(value) => `${value} items`} contentStyle={TOOLTIP_STYLE} />
                   </PieChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="h-full flex items-center justify-center text-sm text-gray-500">
-                  No student/teacher/personnel sales data available.
+                <div className="text-center text-gray-400">
+                  <ChartIcon className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+                  <p className="text-sm font-medium text-gray-500">No buyer breakdown data available.</p>
                 </div>
               )}
             </div>
           </div>
-          <div className="bg-white rounded-2xl p-5 shadow-sm">
-            <h3 className="font-semibold mb-3">Top Products by Category</h3>
-            <div className="space-y-3 max-h-[260px] overflow-y-auto">
-              {Object.keys(topProductsByCategory).length === 0 && <p className="text-sm text-gray-500">No category data available.</p>}
+
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+            <h3 className="text-lg font-semibold text-gray-900">Top Products by Category</h3>
+            <p className="text-sm text-gray-500 mb-4">Best sellers within each category</p>
+            <div className="space-y-3 max-h-[260px] overflow-y-auto pr-1">
+              {Object.keys(topProductsByCategory).length === 0 && (
+                <p className="text-sm text-gray-500">No category data available.</p>
+              )}
               {Object.entries(topProductsByCategory).map(([cat, items]) => (
-                <div key={cat} className="border-b pb-2">
-                  <p className="font-medium">{cat}</p>
-                  <ul className="text-sm mt-1 space-y-1">
-                    {items.map((it) => <li key={it.name} className="flex justify-between"><span>{it.name}</span><span className="text-gray-600">{it.qty}</span></li>)}
+                <div key={cat} className="rounded-xl border border-gray-100 bg-gray-50/60 p-3">
+                  <p className="text-sm font-semibold text-gray-800 flex items-center gap-1.5">
+                    <span className="h-2 w-2 rounded-full bg-blue-500 shrink-0" />
+                    {cat}
+                  </p>
+                  <ul className="text-sm mt-2 space-y-1.5">
+                    {items.map((it) => (
+                      <li key={it.name} className="flex justify-between text-gray-600 gap-3">
+                        <span className="truncate">{it.name}</span>
+                        <span className="font-medium text-gray-900 shrink-0">{it.qty}</span>
+                      </li>
+                    ))}
                   </ul>
                 </div>
               ))}
@@ -608,33 +751,47 @@ export default function MonthlySalesReport() {
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Month</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Transactions</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Items Sold</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Revenue</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Top Product</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {monthlyReports.map((report) => {
-                const [year, month] = report.month.split("-");
-                const monthName = new Date(year, month - 1).toLocaleString("en-US", { month: "long", year: "numeric" });
-                return (
-                  <tr key={report.month} className="hover:bg-gray-50 transition">
-                    <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-900">{monthName}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-gray-700">{report.transactions}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-gray-700">{report.items}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-green-600 font-medium">₱{Number(report.revenue).toFixed(2)}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-gray-700">{report.top_product}</td>
+        {/* ================= MONTHLY REPORT TABLE ================= */}
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-100">
+            <h3 className="text-lg font-semibold text-gray-900">Monthly Summary</h3>
+            <p className="text-sm text-gray-500 mt-0.5">Transactions, items, and revenue per month</p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Month</th>
+                  <th className="px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Transactions</th>
+                  <th className="px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Items Sold</th>
+                  <th className="px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Revenue</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Top Product</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {monthlyReports.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-10 text-center text-sm text-gray-500">
+                      No monthly reports to display.
+                    </td>
                   </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                )}
+                {monthlyReports.map((report) => {
+                  const [year, month] = report.month.split("-");
+                  const monthName = new Date(year, month - 1).toLocaleString("en-US", { month: "long", year: "numeric" });
+                  return (
+                    <tr key={report.month} className="hover:bg-gray-50 transition">
+                      <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-900">{monthName}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-gray-700">{report.transactions}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-gray-700">{report.items}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-emerald-600 font-semibold">₱{Number(report.revenue).toFixed(2)}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-gray-700">{report.top_product}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </Layout>

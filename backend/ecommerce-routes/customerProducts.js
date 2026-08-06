@@ -5,7 +5,7 @@ const router = Router();
 
 router.get('/', async (req, res) => {
   try {
-    const { search, category, sort, limit = 50, page = 1 } = req.query;
+    const { search, category, size, sort, limit = 50, page = 1 } = req.query;
 
     let query = 'SELECT * FROM products WHERE stock > 0';
     const params = [];
@@ -18,6 +18,14 @@ router.get('/', async (req, res) => {
     if (category) {
       query += ' AND category = ?';
       params.push(category);
+    }
+
+    if (size) {
+      query += ` AND (
+        CASE WHEN JSON_VALID(sizes) THEN JSON_CONTAINS(sizes, JSON_QUOTE(?)) ELSE 0 END = 1
+        OR FIND_IN_SET(?, COALESCE(size, '')) > 0
+      )`;
+      params.push(size, size);
     }
 
     const [columnRows] = await promisePool.query("SHOW COLUMNS FROM products LIKE 'created_at'");
@@ -85,6 +93,33 @@ router.get('/categories/list', async (req, res) => {
   } catch (error) {
     console.error('Get categories error:', error);
     res.status(500).json({ message: 'Failed to fetch categories' });
+  }
+});
+
+router.get('/sizes/list', async (req, res) => {
+  try {
+    const [rows] = await promisePool.query('SELECT sizes, size FROM products');
+    const set = new Set();
+    rows.forEach((r) => {
+      let arr = [];
+      if (r.sizes) {
+        try {
+          arr = typeof r.sizes === 'string' ? JSON.parse(r.sizes) : r.sizes;
+        } catch {
+          arr = [];
+        }
+      }
+      if (arr.length === 0 && r.size) {
+        arr = r.size.split(',').map((s) => s.trim()).filter(Boolean);
+      }
+      arr.forEach((s) => {
+        if (s && s.trim().toLowerCase() !== 'n/a') set.add(s.trim());
+      });
+    });
+    res.json({ sizes: [...set].sort() });
+  } catch (error) {
+    console.error('Get sizes error:', error);
+    res.status(500).json({ message: 'Failed to fetch sizes' });
   }
 });
 

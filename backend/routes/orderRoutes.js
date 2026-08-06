@@ -153,7 +153,10 @@ router.get("/orders", (req, res) => {
     ORDER BY o.created_at DESC
   `;
   db.query(sql, (err, results) => {
-    if (err) return res.status(500).json({ success: false, message: "Database error", error: err.message });
+    if (err) {
+      console.error("GET /orders (online_orders) SQL error:", err);
+      return res.status(500).json({ success: false, message: "Database error", error: err.message });
+    }
 
     const posOrders = (results || []).map((o) => ({ ...o, source: "pos" }));
 
@@ -540,22 +543,29 @@ router.get("/reports/summary", (req, res) => {
   const params = [];
 
   if (start_date && end_date) {
-    dateFilter = "AND o.created_at BETWEEN ? AND ?";
-    params.push(start_date, end_date + " 23:59:59");
+    dateFilter = "AND created_at BETWEEN ? AND ?";
+    params.push(start_date, end_date + " 23:59:59", start_date, end_date + " 23:59:59");
   }
 
   const sql = `
     SELECT
-      COUNT(DISTINCT o.id) AS total_orders,
-      COUNT(DISTINCT CASE WHEN o.order_status = 'completed' THEN o.id END) AS completed_orders,
-      COUNT(DISTINCT CASE WHEN o.order_status = 'preparing' THEN o.id END) AS preparing_orders,
-      COUNT(DISTINCT CASE WHEN o.order_status = 'ready_for_pickup' THEN o.id END) AS ready_for_pickup_orders,
-      COUNT(DISTINCT CASE WHEN o.order_status = 'rejected' THEN o.id END) AS rejected_orders,
-      COUNT(DISTINCT CASE WHEN o.payment_status = 'verified' THEN o.id END) AS verified_payments,
-      COALESCE(SUM(CASE WHEN o.order_status = 'completed' THEN o.total_amount ELSE 0 END), 0) AS completed_revenue,
-      COALESCE(SUM(o.total_amount), 0) AS total_revenue
-    FROM online_orders o
-    WHERE 1=1 ${dateFilter}
+      COUNT(*) AS total_orders,
+      COUNT(CASE WHEN order_status = 'completed' THEN 1 END) AS completed_orders,
+      COUNT(CASE WHEN order_status = 'preparing' THEN 1 END) AS preparing_orders,
+      COUNT(CASE WHEN order_status = 'ready_for_pickup' THEN 1 END) AS ready_for_pickup_orders,
+      COUNT(CASE WHEN order_status = 'rejected' THEN 1 END) AS rejected_orders,
+      COUNT(CASE WHEN payment_status = 'verified' THEN 1 END) AS verified_payments,
+      COALESCE(SUM(CASE WHEN order_status = 'completed' THEN total_amount ELSE 0 END), 0) AS completed_revenue,
+      COALESCE(SUM(total_amount), 0) AS total_revenue
+    FROM (
+      SELECT id, order_status, payment_status, total_amount, created_at
+      FROM online_orders
+      WHERE 1=1 ${dateFilter}
+      UNION ALL
+      SELECT id, REPLACE(LOWER(status), ' ', '_') AS order_status, payment_status, total_amount, created_at
+      FROM ecom_orders
+      WHERE 1=1 ${dateFilter}
+    ) o
   `;
   db.query(sql, params, (err, results) => {
     if (err) return res.status(500).json({ success: false, message: "Database error", error: err.message });
@@ -570,13 +580,18 @@ router.get("/reports/daily-sales", (req, res) => {
 
   if (start_date && end_date) {
     dateFilter = "AND created_at BETWEEN ? AND ?";
-    params.push(start_date, end_date + " 23:59:59");
+    params.push(start_date, end_date + " 23:59:59", start_date, end_date + " 23:59:59");
   }
 
   const sql = `
-    SELECT DATE(created_at) AS date, COUNT(*) AS orders, SUM(total_amount) AS revenue
-    FROM online_orders WHERE order_status != 'rejected' ${dateFilter}
-    GROUP BY DATE(created_at) ORDER BY date DESC
+    SELECT date, COUNT(*) AS orders, SUM(revenue) AS revenue FROM (
+      SELECT DATE(created_at) AS date, 1 AS revenue
+      FROM online_orders WHERE order_status != 'rejected' ${dateFilter}
+      UNION ALL
+      SELECT DATE(created_at) AS date, total_amount AS revenue
+      FROM ecom_orders WHERE REPLACE(LOWER(status), ' ', '_') != 'rejected' ${dateFilter}
+    ) t
+    GROUP BY date ORDER BY date DESC
   `;
   db.query(sql, params, (err, results) => {
     if (err) return res.status(500).json({ success: false, message: "Database error" });
@@ -586,18 +601,26 @@ router.get("/reports/daily-sales", (req, res) => {
 
 router.get("/reports/customer-summary", (req, res) => {
   const sql = `
-    SELECT c.id, c.name, c.email, c.contact,
-      COUNT(o.id) AS total_orders,
+    SELECT c.id,
+      COALESCE(NULLIF(c.name, ''), NULLIF(c.full_name, ''), c.email) AS name,
+      c.email, c.contact,
+      COUNT(*) AS total_orders,
       COALESCE(SUM(o.total_amount), 0) AS total_spent,
       MIN(o.created_at) AS first_order,
       MAX(o.created_at) AS last_order
     FROM customers c
-    JOIN online_orders o ON c.id = o.customer_id AND o.order_status != 'rejected'
+    JOIN (
+      SELECT customer_id, total_amount, created_at
+      FROM online_orders WHERE order_status != 'rejected'
+      UNION ALL
+      SELECT customer_id, total_amount, created_at
+      FROM ecom_orders WHERE REPLACE(LOWER(status), ' ', '_') != 'rejected'
+    ) o ON c.id = o.customer_id
     GROUP BY c.id
     ORDER BY total_spent DESC
   `;
   db.query(sql, (err, results) => {
-    if (err) return res.status(500).json({ success: false, message: "Database error" });
+    if (err) return res.status(500).json({ success: false, message: "Database error", error: err.message });
     res.json({ success: true, data: results });
   });
 });
@@ -609,15 +632,23 @@ router.get("/reports/best-sellers", (req, res) => {
 
   if (start_date && end_date) {
     dateFilter = "AND oi.created_at BETWEEN ? AND ?";
-    params.push(start_date, end_date + " 23:59:59");
+    params.push(start_date, end_date + " 23:59:59", start_date, end_date + " 23:59:59");
   }
 
   const sql = `
-    SELECT oi.product_id, oi.product_name, SUM(oi.quantity) AS total_sold, SUM(oi.total) AS total_revenue
-    FROM order_items oi
-    JOIN online_orders o ON oi.order_id = o.id
-    WHERE o.order_status != 'rejected' ${dateFilter}
-    GROUP BY oi.product_id, oi.product_name
+    SELECT product_id, product_name, SUM(quantity) AS total_sold, SUM(total) AS total_revenue FROM (
+      SELECT oi.product_id, oi.product_name, oi.quantity, oi.total
+      FROM order_items oi
+      JOIN online_orders o ON oi.order_id = o.id
+      WHERE o.order_status != 'rejected' ${dateFilter}
+      UNION ALL
+      SELECT oi.product_id, oi.product_name, oi.quantity, (oi.quantity * oi.price) AS total
+      FROM ecom_order_items oi
+      JOIN ecom_orders o ON oi.order_id = o.id
+      WHERE REPLACE(LOWER(o.status), ' ', '_') != 'rejected'
+      ${dateFilter ? dateFilter.replaceAll("oi.created_at", "o.created_at") : ""}
+    ) t
+    GROUP BY product_id, product_name
     ORDER BY total_sold DESC
     LIMIT 10
   `;

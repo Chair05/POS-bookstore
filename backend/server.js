@@ -155,6 +155,23 @@ ensureColumn("customers", "contact_number", "contact_number VARCHAR(20)");
 ensureColumn("customers", "role", "role VARCHAR(20) DEFAULT 'customer'");
 ensureColumn("customers", "updated_at", "updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP");
 
+// Ensure order_items has all columns needed by the merged orders list/reports
+ensureColumn("order_items", "product_name", "product_name VARCHAR(255) NULL");
+ensureColumn("order_items", "barcode", "barcode VARCHAR(100) NULL");
+ensureColumn("order_items", "price", "price DECIMAL(10,2) NOT NULL DEFAULT 0");
+ensureColumn("order_items", "total", "total DECIMAL(10,2) NOT NULL DEFAULT 0");
+ensureColumn("order_items", "created_at", "created_at DATETIME DEFAULT CURRENT_TIMESTAMP");
+
+// Ensure ecom_order_items has product_name for the merged orders list GROUP_CONCAT
+ensureColumn("ecom_order_items", "product_name", "product_name VARCHAR(255) NULL");
+ensureColumn("ecom_order_items", "price", "price DECIMAL(10,2) NOT NULL DEFAULT 0");
+ensureColumn("ecom_order_items", "selected_size", "selected_size VARCHAR(50) NULL");
+
+// Ensure ecom_orders has verified_at (used by GCash online payment + POS display)
+ensureColumn("ecom_orders", "verified_at", "verified_at DATETIME NULL");
+ensureColumn("ecom_orders", "payment_method", "payment_method VARCHAR(50) NULL");
+ensureColumn("ecom_orders", "pickup_code", "pickup_code VARCHAR(10) NULL");
+
 // -------------------------
 // Inventory Logs
 // -------------------------

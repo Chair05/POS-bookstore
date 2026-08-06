@@ -49,6 +49,7 @@ export default function Orders() {
       const res = await fetch("http://localhost:5000/api/orders/orders");
       const data = await res.json();
       if (data.success) setOrders(Array.isArray(data.orders) ? data.orders : []);
+      else console.error("GET /api/orders/orders failed:", data);
     } catch (err) { console.error(err); }
   };
 
@@ -296,7 +297,7 @@ export default function Orders() {
                       </td>
                       <td className="px-4 py-3 text-center">
                         <div className="flex items-center justify-center gap-1">
-                          <button onClick={() => viewOrderDetail(order)} className="px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 rounded transition">
+                          <button onClick={() => viewOrderDetail(order)} className="relative top-[-8px] px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 rounded transition">
                             View
                           </button>
                           {order.receipt_image && (
@@ -432,7 +433,7 @@ export default function Orders() {
 
               {/* Actions */}
               <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-200">
-                {selectedOrder.order_status === "pending_payment" && (
+                {selectedOrder.order_status === "pending_payment" ? (
                   <>
                     <button onClick={() => setConfirmAction({ type: "verify", orderId: selectedOrder.id, source: selectedOrder.source })} className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-semibold hover:bg-green-700 transition">
                       ✓ Verify Payment
@@ -441,23 +442,18 @@ export default function Orders() {
                       ✕ Reject Payment
                     </button>
                   </>
-                )}
-                {getNextStatuses(selectedOrder.order_status).filter((s) => s !== "rejected").map((nextStatus) => (
-                  <button
-                    key={nextStatus}
-                    onClick={() => setConfirmAction({ type: "status", orderId: selectedOrder.id, source: selectedOrder.source, status: nextStatus })}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 transition"
-                  >
-                    Mark as {STATUS_CONFIG[nextStatus]?.label}
-                  </button>
-                ))}
-                {selectedOrder.order_status === "pending_payment" && (
-                  <button
-                    onClick={() => setConfirmAction({ type: "status", orderId: selectedOrder.id, source: selectedOrder.source, status: "rejected" })}
-                    className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-semibold hover:bg-red-700 transition"
-                  >
-                    Reject Order
-                  </button>
+                ) : (
+                  getNextStatuses(selectedOrder.order_status)
+                    .filter((s) => s !== "rejected")
+                    .map((nextStatus) => (
+                      <button
+                        key={nextStatus}
+                        onClick={() => setConfirmAction({ type: "status", orderId: selectedOrder.id, source: selectedOrder.source, status: nextStatus })}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 transition"
+                      >
+                        Mark as {STATUS_CONFIG[nextStatus]?.label}
+                      </button>
+                    ))
                 )}
               </div>
             </div>

@@ -51,6 +51,17 @@ export default function Customers() {
 
   const formatDate = (d) => new Date(d).toLocaleDateString("en-US", { dateStyle: "medium" });
 
+  const displayName = (c) => {
+    const raw = (c.name || c.full_name || "").trim();
+    if (raw) return raw;
+    const local = (c.email || "").split("@")[0] || "";
+    return local
+      ? local.replace(/[._-]+/g, " ").replace(/\b\w/g, (m) => m.toUpperCase())
+      : "—";
+  };
+
+  const initial = (c) => displayName(c).charAt(0).toUpperCase();
+
   const viewCustomerProfile = async (customerId) => {
     try {
       const [profileRes, ordersRes] = await Promise.all([
@@ -127,10 +138,10 @@ export default function Customers() {
                     <tr key={customer.id} className="border-b border-gray-100 hover:bg-gray-50 transition">
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-sm">
-                            {customer.name?.charAt(0)?.toUpperCase() || "?"}
+                          <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-sm shrink-0">
+                            {initial(customer)}
                           </div>
-                          <span className="font-medium text-gray-800">{customer.name}</span>
+                          <span className="font-medium text-gray-800">{displayName(customer)}</span>
                         </div>
                       </td>
                       <td className="px-4 py-3 text-gray-600">{customer.email || "—"}</td>
@@ -184,10 +195,10 @@ export default function Customers() {
               <div className="flex justify-between items-start mb-6">
                 <div className="flex items-center gap-4">
                   <div className="w-14 h-14 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-xl">
-                    {selectedCustomer.name?.charAt(0)?.toUpperCase() || "?"}
+                    {initial(selectedCustomer)}
                   </div>
                   <div>
-                    <h2 className="text-xl font-bold text-gray-900">{selectedCustomer.name}</h2>
+                    <h2 className="text-xl font-bold text-gray-900">{displayName(selectedCustomer)}</h2>
                     <p className="text-sm text-gray-500">{selectedCustomer.email || "No email"}</p>
                   </div>
                 </div>
