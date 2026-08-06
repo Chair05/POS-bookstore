@@ -79,13 +79,15 @@ export default function ProductCard({ product }) {
                 </svg>
               </button>
             </div>
-            {product.sizes && product.sizes.length > 0 && (
+            {product.sizes && product.sizes.filter((s) => s && s.trim().toLowerCase() !== 'n/a').length > 0 && (
               <div className="mt-2 flex flex-wrap gap-1">
-                {product.sizes.map((size) => (
-                  <span key={size} className="text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded">
-                    {size}
-                  </span>
-                ))}
+                {product.sizes
+                  .filter((s) => s && s.trim().toLowerCase() !== 'n/a')
+                  .map((size) => (
+                    <span key={size} className="text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded">
+                      {size}
+                    </span>
+                  ))}
               </div>
             )}
           </div>

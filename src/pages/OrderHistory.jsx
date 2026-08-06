@@ -11,6 +11,18 @@ const resolveImageSrc = (image) => {
   return image
 }
 
+const getOrderId = (order) => order._id ?? order.id
+const formatOrderId = (order) => String(getOrderId(order) ?? '').slice(-8).toUpperCase() || '—'
+const formatDate = (value) => {
+  const date = new Date(value)
+  if (isNaN(date.getTime())) return '—'
+  return date.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  })
+}
+
 export default function OrderHistory() {
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
@@ -55,21 +67,17 @@ export default function OrderHistory() {
           <div className="space-y-4">
             {orders.map((order) => (
               <Link
-                key={order._id}
-                to={`/order-status/${order._id}`}
+                key={getOrderId(order)}
+                to={`/order-status/${getOrderId(order)}`}
                 className="card hover:shadow-card-hover transition-all block"
               >
                 <div className="flex items-start justify-between mb-3">
                   <div>
                     <p className="text-sm text-gray-500">
-                      Order #{order._id?.slice(-8).toUpperCase()}
+                      Order #{formatOrderId(order)}
                     </p>
                     <p className="text-xs text-gray-400 mt-0.5">
-                      {new Date(order.createdAt).toLocaleDateString('en-US', {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric',
-                      })}
+                      {formatDate(order.createdAt)}
                     </p>
                   </div>
                   <OrderStatusBadge status={order.status} showDescription={false} />

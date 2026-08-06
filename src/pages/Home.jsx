@@ -4,16 +4,27 @@ import api from '../config/api'
 import ProductCard from '../components/ProductCard'
 import Loading from '../components/Loading'
 
-const categoryMeta = {
-  'Shirt': { icon: '👕', color: 'bg-indigo-50 text-indigo-600' },
-  'School Supplies': { icon: '✏️', color: 'bg-emerald-50 text-emerald-600' },
-  'School Clothes': { icon: '👔', color: 'bg-purple-50 text-purple-600' },
-  'foot wear': { icon: '👟', color: 'bg-amber-50 text-amber-600' },
-  'Textbooks': { icon: '📚', color: 'bg-blue-50 text-blue-600' },
-  'Stationery': { icon: '🖊️', color: 'bg-rose-50 text-rose-600' },
-  'Accessories': { icon: '🎒', color: 'bg-cyan-50 text-cyan-600' },
+const iconPaths = {
+  'Shirt': 'M20.38 3.46L16 2a4 4 0 01-8 0L3.62 3.46a2 2 0 00-1.34 2.23l.58 3.47a1 1 0 00.99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 002-2V10h2.15a1 1 0 00.99-.84l.58-3.47a2 2 0 00-1.34-2.23z',
+  'School Supplies': 'M12 2a10 10 0 100 20 10 10 0 000-20zm0 18a8 8 0 110-16 8 8 0 010 16zm-1-13h2v6h-2zm0 8h2v2h-2z',
+  'School Clothes': 'M9 3L4 6v12h5v-3a3 3 0 016 0v3h5V6l-5-3a4 4 0 01-6 0zM14.5 9l1 2-3.5 2-3.5-2 1-2 2.5 1.5L14.5 9z',
+  'foot wear': 'M8 5h8a4 4 0 014 4v2a3 3 0 01-3 3H9l-3 2H3v-5H1V9h2l1.5-3a2 2 0 011.7-1H8z',
+  'Textbooks': 'M12 4a5 5 0 015-5h3v20h-3a5 5 0 00-5 5 5 5 0 00-5-5H4V4h3a5 5 0 015 5V4zM8 6h8m-8 4h8m-8 4h8',
+  'Stationery': 'M12 2a10 10 0 100 20 10 10 0 000-20zm3.8 4.2L13.5 14l-1.5-1.5L10 14 9.2 12l3.8-1.8 1-4h1.8zM7 17l2-2 2 2-2 2-2-2zm8 0l2 2 2-2-2-2-2 2z',
+  'Accessories': 'M20 7l-8-4-8 4v10l8 4 8-4V7zM12 8a3 3 0 100 6 3 3 0 000-6z',
 }
-const defaultMeta = { icon: '📦', color: 'bg-gray-50 text-gray-600' }
+const defaultIcon = 'M4 6h16v12H4V6zm2 2v8h12V8H6z'
+
+const categoryMeta = {
+  'Shirt': { icon: iconPaths['Shirt'] },
+  'School Supplies': { icon: iconPaths['School Supplies'] },
+  'School Clothes': { icon: iconPaths['School Clothes'] },
+  'foot wear': { icon: iconPaths['foot wear'] },
+  'Textbooks': { icon: iconPaths['Textbooks'] },
+  'Stationery': { icon: iconPaths['Stationery'] },
+  'Accessories': { icon: iconPaths['Accessories'] },
+}
+const defaultMeta = { icon: defaultIcon }
 
 export default function Home() {
   const [featuredProducts, setFeaturedProducts] = useState([])
@@ -113,10 +124,12 @@ export default function Home() {
                 <Link
                   key={typeof cat === 'string' ? cat : cat.id}
                   to={`/products?category=${encodeURIComponent(catName)}`}
-                  className="group flex flex-col items-center p-6 rounded-2xl bg-white shadow-soft hover:shadow-card-hover transition-all duration-300 hover:-translate-y-1"
+                  className="group flex flex-col items-center p-6 rounded-2xl border border-gray-100 bg-white shadow-soft hover:shadow-card-hover transition-all duration-300 hover:-translate-y-1 hover:border-primary-100"
                 >
-                  <div className={`w-14 h-14 rounded-xl flex items-center justify-center text-2xl mb-3 ${meta.color} group-hover:scale-110 transition-transform`}>
-                    {meta.icon}
+                  <div className="w-14 h-14 rounded-xl bg-primary-50 flex items-center justify-center mb-3 group-hover:bg-primary-100 group-hover:scale-110 transition-all duration-300 ring-1 ring-primary-100">
+                    <svg className="w-7 h-7 text-primary-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+                      <path d={meta.icon} />
+                    </svg>
                   </div>
                   <span className="text-sm font-medium text-gray-700 group-hover:text-primary-600 transition-colors text-center">
                     {catName}

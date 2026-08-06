@@ -37,13 +37,17 @@ export default function ProductDetail() {
     fetchProduct()
   }, [id, navigate])
 
+  const hasRealSizes = (product?.sizes || []).some(
+    (s) => s && s.trim().toLowerCase() !== "n/a"
+  );
+
   const handleAddToCart = () => {
     if (!product || product.stock <= 0) return
-    if (product.sizes && product.sizes.length > 0 && !selectedSize) {
+    if (hasRealSizes && !selectedSize) {
       toast.error('Please select a size')
       return
     }
-    addToCart(product, quantity, selectedSize)
+    addToCart(product, quantity, hasRealSizes ? selectedSize : null)
     toast.success(`Added ${quantity} item(s) to cart!`)
   }
 
@@ -115,7 +119,7 @@ export default function ProductDetail() {
               </div>
             )}
 
-            {product.sizes && product.sizes.length > 0 && (
+            {hasRealSizes && (
               <div className="mb-6">
                 <h3 className="font-semibold text-gray-900 mb-3">Size</h3>
                 <div className="flex flex-wrap gap-2">

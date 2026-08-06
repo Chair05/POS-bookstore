@@ -9,7 +9,7 @@ const statusConfig = {
     icon: '✓',
     description: 'Your payment has been confirmed. Your order is being prepared.',
   },
-  'Preparing Order': {
+  'Preparing': {
     color: 'bg-indigo-100 text-indigo-800 border border-indigo-200',
     icon: '📦',
     description: 'Your items are being prepared for pickup.',
@@ -24,10 +24,15 @@ const statusConfig = {
     icon: '✅',
     description: 'Your order has been picked up. Thank you!',
   },
-  'Payment Rejected': {
+  'Rejected': {
     color: 'bg-red-100 text-red-800 border border-red-200',
     icon: '✗',
     description: 'Your payment could not be verified. Please contact the bookstore.',
+  },
+  'Cancelled': {
+    color: 'bg-gray-100 text-gray-800 border border-gray-200',
+    icon: '✕',
+    description: 'This order was cancelled.',
   },
 }
 
@@ -55,13 +60,13 @@ export function StatusTimeline({ statuses, currentStatus }) {
   const allStatuses = [
     'Pending Payment Verification',
     'Payment Verified',
-    'Preparing Order',
+    'Preparing',
     'Ready for Pickup',
     'Completed',
   ]
 
   const currentIndex = allStatuses.indexOf(currentStatus)
-  const isRejected = currentStatus === 'Payment Rejected'
+  const isRejected = currentStatus === 'Rejected'
 
   return (
     <div className="space-y-3">
@@ -101,7 +106,7 @@ export function StatusTimeline({ statuses, currentStatus }) {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </div>
-          <p className="text-sm font-medium text-red-600">Payment Rejected</p>
+          <p className="text-sm font-medium text-red-600">Rejected</p>
         </div>
       )}
     </div>

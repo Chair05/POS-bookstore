@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useCart } from '../context/CartContext'
+import LccbLogo from '../assets/LCCB-Logo.jpeg'
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false)
@@ -21,8 +22,8 @@ export default function Navbar() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           <Link to="/" className="flex items-center space-x-2">
-            <div className="w-9 h-9 bg-lccb-blue rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-sm">L</span>
+            <div className="w-9 h-9 rounded-lg overflow-hidden bg-white shadow-sm">
+              <img src={LccbLogo} alt="LCCB Logo" className="w-full h-full object-cover" />
             </div>
             <div className="hidden sm:block">
               <span className="font-bold text-lccb-blue text-lg leading-tight">LCCB</span>

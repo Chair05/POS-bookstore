@@ -144,7 +144,7 @@ export default function OrderStatus() {
             </div>
           </div>
 
-          {order.status === 'Payment Rejected' && (
+          {order.status === 'Rejected' && (
             <div className="card border-2 border-red-200 bg-red-50">
               <h3 className="font-semibold text-red-800 mb-2">Payment Rejected</h3>
               <p className="text-sm text-red-700">

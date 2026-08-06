@@ -9,9 +9,11 @@ export default function Products() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [products, setProducts] = useState([])
   const [allCategories, setAllCategories] = useState([])
+  const [allSizes, setAllSizes] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState(searchParams.get('search') || '')
   const [selectedCategory, setSelectedCategory] = useState(searchParams.get('category') || 'All')
+  const [selectedSize, setSelectedSize] = useState(searchParams.get('size') || 'All')
   const [sortBy, setSortBy] = useState('newest')
 
   useEffect(() => {
@@ -24,12 +26,19 @@ export default function Products() {
   }, [])
 
   useEffect(() => {
+    api.get('/customer/products/sizes/list')
+      .then((res) => setAllSizes(res.data.sizes || []))
+      .catch(() => {})
+  }, [])
+
+  useEffect(() => {
     const fetchProducts = async () => {
       setLoading(true)
       try {
         const params = new URLSearchParams()
         if (search) params.append('search', search)
         if (selectedCategory !== 'All') params.append('category', selectedCategory)
+        if (selectedSize !== 'All') params.append('size', selectedSize)
         params.append('sort', sortBy === 'newest' ? '-createdAt' : sortBy === 'price-low' ? 'price' : sortBy === 'price-high' ? '-price' : 'name')
         params.append('limit', '50')
 
@@ -43,14 +52,15 @@ export default function Products() {
       }
     }
     fetchProducts()
-  }, [search, selectedCategory, sortBy])
+  }, [search, selectedCategory, selectedSize, sortBy])
 
   useEffect(() => {
     const params = new URLSearchParams()
     if (search) params.set('search', search)
     if (selectedCategory !== 'All') params.set('category', selectedCategory)
+    if (selectedSize !== 'All') params.set('size', selectedSize)
     setSearchParams(params, { replace: true })
-  }, [search, selectedCategory, setSearchParams])
+  }, [search, selectedCategory, selectedSize, setSearchParams])
 
   return (
     <div className="page-container animate-fade-in">
@@ -105,11 +115,40 @@ export default function Products() {
                     : 'bg-white text-gray-600 border border-gray-200 hover:border-primary-300 hover:text-primary-600'
                 }`}
               >
-                {catName}
-              </button>
+              {catName}
+            </button>
             )
           })}
         </div>
+
+        {allSizes.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-8">
+            <span className="inline-flex items-center px-2 text-sm font-medium text-gray-500">Size:</span>
+            <button
+              onClick={() => setSelectedSize('All')}
+              className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+                selectedSize === 'All'
+                  ? 'bg-primary-600 text-white shadow-md'
+                  : 'bg-white text-gray-600 border border-gray-200 hover:border-primary-300 hover:text-primary-600'
+              }`}
+            >
+              All
+            </button>
+            {allSizes.map((size) => (
+              <button
+                key={size}
+                onClick={() => setSelectedSize(size)}
+                className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+                  selectedSize === size
+                    ? 'bg-primary-600 text-white shadow-md'
+                    : 'bg-white text-gray-600 border border-gray-200 hover:border-primary-300 hover:text-primary-600'
+                }`}
+              >
+                {size}
+              </button>
+            ))}
+          </div>
+        )}
 
         {loading ? (
           <Loading text="Loading products..." />
@@ -124,11 +163,12 @@ export default function Products() {
             <p className="text-gray-500">
               {search ? `No results for "${search}"` : 'No products available in this category.'}
             </p>
-            {(search || selectedCategory !== 'All') && (
+            {(search || selectedCategory !== 'All' || selectedSize !== 'All') && (
               <button
                 onClick={() => {
                   setSearch('')
                   setSelectedCategory('All')
+                  setSelectedSize('All')
                 }}
                 className="mt-4 text-primary-600 hover:text-primary-700 font-medium"
               >
