@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext'
 import toast from 'react-hot-toast'
 import gcashLogo from '../assets/gcash.png'
 import rcbcLogo from '../assets/rcbc.png'
+import gcashQr from '../assets/qr.jpg'
 
 const resolveImageSrc = (image) => {
   if (!image) return '/placeholder-book.svg'
@@ -21,8 +22,6 @@ export default function Checkout() {
   const [loading, setLoading] = useState(false)
   const [paymentMethod, setPaymentMethod] = useState('GCash')
   const [showGcash, setShowGcash] = useState(false)
-  const [gcashNumber, setGcashNumber] = useState('')
-  const [gcashPin, setGcashPin] = useState('')
   const [gcashLoading, setGcashLoading] = useState(false)
   const [gcashError, setGcashError] = useState('')
   const [paidOrder, setPaidOrder] = useState(null)
@@ -91,15 +90,6 @@ export default function Checkout() {
   const handleGcashPay = async (e) => {
     e.preventDefault()
     setGcashError('')
-
-    if (!gcashNumber.trim() || gcashNumber.trim().length < 10) {
-      setGcashError('Please enter a valid GCash mobile number')
-      return
-    }
-    if (!gcashPin || gcashPin.length < 4) {
-      setGcashError('Please enter your 4-digit MPIN')
-      return
-    }
 
     setGcashLoading(true)
     try {
@@ -267,10 +257,15 @@ export default function Checkout() {
                 {paymentMethod === 'GCash' ? (
                   <div className="mt-6 p-4 bg-blue-50 rounded-xl border border-blue-200">
                     <h4 className="font-medium text-blue-800 mb-2">GCash Payment</h4>
-                    <p className="text-sm text-blue-700">
-                      Send the exact amount to <b>0916-413-8090</b> (LCCB Bookstore) using the
+                    <p className="text-sm text-blue-700 mb-4">
+                      Scan the QR code or send the exact amount to <b>0916-413-8090</b> (LCCB Bookstore) using the
                       GCash app. After paying, upload your receipt to complete the order.
                     </p>
+                    <img
+                      src={gcashQr}
+                      alt="GCash QR Code"
+                      className="w-48 h-48 mx-auto rounded-lg border border-blue-200 bg-white object-contain shadow-sm"
+                    />
                   </div>
                 ) : (
                   <div className="mt-6 p-4 bg-amber-50 rounded-xl border border-amber-200">
@@ -370,30 +365,14 @@ export default function Checkout() {
                 <span className="text-2xl font-bold text-gray-900">₱{getCartTotal().toLocaleString()}</span>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">GCash Mobile Number</label>
-                <input
-                  type="tel"
-                  value={gcashNumber}
-                  onChange={(e) => setGcashNumber(e.target.value)}
-                  placeholder="09XX-XXX-XXXX"
-                  className="input-field"
-                  maxLength={11}
-                  autoFocus
+              <div className="rounded-xl border border-blue-100 bg-blue-50 p-4 text-center">
+                <img
+                  src={gcashQr}
+                  alt="GCash QR Code"
+                  className="w-40 h-40 mx-auto rounded-lg bg-white object-contain border border-blue-100"
                 />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">MPIN</label>
-                <input
-                  type="password"
-                  value={gcashPin}
-                  onChange={(e) => setGcashPin(e.target.value)}
-                  placeholder="Enter your 4-digit MPIN"
-                  className="input-field"
-                  maxLength={4}
-                  inputMode="numeric"
-                />
+                <p className="text-xs text-blue-700 mt-2">Scan this QR code with GCash to pay</p>
+                <p className="text-xs text-blue-700">Account: 0916-413-8090 (LCCB Bookstore)</p>
               </div>
 
               {gcashError && (
