@@ -247,6 +247,63 @@ router.post("/", upload.single("image"), (req, res) => {
 });
 
 // -------------------------
+// UPDATE product
+// -------------------------
+router.put("/:id", upload.single("image"), (req, res) => {
+  const { id } = req.params;
+  let { name, price, category, barcode, stock, size, department } = req.body;
+
+  name = name?.trim();
+  category = category?.trim();
+  barcode = barcode?.toString().trim();
+  size = size && size.trim() !== "" ? size.trim() : null;
+  department = department || "";
+
+  if (!name || !price || !category || !barcode) {
+    return res.status(400).json({
+      success: false,
+      message: "Missing required fields",
+    });
+  }
+
+  const newImage = req.file ? "/uploads/" + req.file.filename : null;
+
+  db.query("SELECT image FROM products WHERE id = ?", [id], (err, results) => {
+    if (err) return res.status(500).json({ success: false, message: err.message });
+
+    if (results.length === 0)
+      return res.status(404).json({ success: false, message: "Product not found" });
+
+    const oldImage = results[0].image;
+
+    const sql = `
+      UPDATE products
+      SET name = ?, price = ?, category = ?, barcode = ?, stock = ?, size = ?, department = ?
+      ${newImage ? ", image = ?" : ""}
+      WHERE id = ?
+    `;
+
+    const params = [name, price, category, barcode, stock || 0, size, department];
+    if (newImage) params.push(newImage);
+    params.push(id);
+
+    db.query(sql, params, (err) => {
+      if (err) {
+        console.error("❌ Product update error:", err);
+        return res.status(500).json({ success: false, message: err.message });
+      }
+
+      if (newImage && oldImage) {
+        const oldPath = path.join(__dirname, "..", oldImage);
+        fs.unlink(oldPath, () => {});
+      }
+
+      res.json({ success: true, message: "Product updated successfully" });
+    });
+  });
+});
+
+// -------------------------
 // UPDATE product category
 // -------------------------
 router.put("/:id/update-category", (req, res) => {

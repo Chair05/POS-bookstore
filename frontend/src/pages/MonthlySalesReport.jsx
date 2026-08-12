@@ -481,7 +481,7 @@ export default function MonthlySalesReport() {
               />
               <button
                 onClick={handlePrint}
-                className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium transition"
+                className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium transition relative top-0"
               >
                 Print Day
               </button>
@@ -496,7 +496,7 @@ export default function MonthlySalesReport() {
               />
               <button
                 onClick={handleMonthlyPrint}
-                className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium transition"
+                className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium transition relative top-0"
               >
                 Print Month
               </button>
