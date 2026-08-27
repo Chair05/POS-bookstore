@@ -109,20 +109,16 @@ router.post('/:id/payment', upload.single('receipt'), async (req, res) => {
       return res.status(400).json({ message: 'Payment receipt image is required' });
     }
 
-    if (!referenceNumber) {
-      return res.status(400).json({ message: 'Reference number is required' });
-    }
-
     const receiptPath = `/uploads/receipts/${req.file.filename}`;
 
     await promisePool.query(
       "UPDATE ecom_orders SET reference_number = ?, receipt_image = ?, payment_method = ?, payment_status = 'pending' WHERE id = ?",
-      [referenceNumber, receiptPath, paymentMethod, id]
+      [referenceNumber || '', receiptPath, paymentMethod, id]
     );
 
     await promisePool.query(
       'INSERT INTO ecom_payments (order_id, customer_id, receipt_image, reference_number, payment_method, amount, status) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [id, req.user.id, receiptPath, referenceNumber, paymentMethod, orders[0].total_amount, 'pending']
+      [id, req.user.id, receiptPath, referenceNumber || '', paymentMethod, orders[0].total_amount, 'pending']
     );
 
     res.json({ message: 'Payment submitted successfully' });

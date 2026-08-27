@@ -88,6 +88,27 @@ async function setup() {
     console.log('  + Added "updated_at" column to products');
   }
 
+  if (!productColumnNames.includes('product_group_id')) {
+    await connection.query('ALTER TABLE products ADD COLUMN product_group_id INT NULL AFTER sizes');
+    console.log('  + Added "product_group_id" column to products');
+  }
+  if (!productColumnNames.includes('variant_size')) {
+    await connection.query('ALTER TABLE products ADD COLUMN variant_size VARCHAR(50) NULL AFTER product_group_id');
+    console.log('  + Added "variant_size" column to products');
+  }
+  if (!productColumnNames.includes('barcode')) {
+    await connection.query('ALTER TABLE products ADD COLUMN barcode VARCHAR(100) NULL AFTER stock');
+    console.log('  + Added "barcode" column to products');
+  }
+  if (!productColumnNames.includes('cost_price')) {
+    await connection.query('ALTER TABLE products ADD COLUMN cost_price DECIMAL(10,2) DEFAULT 0 AFTER size');
+    console.log('  + Added "cost_price" column to products');
+  }
+  if (!productColumnNames.includes('department')) {
+    await connection.query("ALTER TABLE products ADD COLUMN department VARCHAR(100) DEFAULT '' AFTER cost_price");
+    console.log('  + Added "department" column to products');
+  }
+
   const [orderColumns] = await connection.query('SHOW COLUMNS FROM orders');
   const orderColumnNames = orderColumns.map((column) => column.Field);
   if (!orderColumnNames.includes('reference_number')) {
@@ -188,6 +209,33 @@ async function setup() {
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
       FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE
+    )
+  `);
+
+  await connection.query(`
+    CREATE TABLE IF NOT EXISTS inventory_logs (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      receipt_id INT NULL,
+      product_id INT NOT NULL,
+      product_name VARCHAR(255) NOT NULL,
+      type ENUM('IN','OUT') NOT NULL,
+      quantity INT NOT NULL,
+      reason VARCHAR(255) DEFAULT '',
+      staff VARCHAR(100) DEFAULT 'System',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  await connection.query(`
+    CREATE TABLE IF NOT EXISTS otp_codes (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      email VARCHAR(255) NOT NULL,
+      otp_code VARCHAR(6) NOT NULL,
+      purpose ENUM('login', 'register') NOT NULL,
+      expires_at DATETIME NOT NULL,
+      used TINYINT(1) DEFAULT 0,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_email_purpose (email, purpose)
     )
   `);
 

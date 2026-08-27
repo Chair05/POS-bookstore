@@ -18,6 +18,11 @@ export function AuthProvider({ children }) {
 
   const login = async (email, password) => {
     const response = await api.post('/auth/login', { email, password })
+    return response.data
+  }
+
+  const verifyOtpLogin = async (email, otp, purpose = 'login') => {
+    const response = await api.post('/auth/verify-otp', { email, otp, purpose })
     const { token, user: userData } = response.data
     localStorage.setItem('token', token)
     localStorage.setItem('user', JSON.stringify(userData))
@@ -25,13 +30,14 @@ export function AuthProvider({ children }) {
     return userData
   }
 
+  const resendOtp = async (email, purpose = 'login') => {
+    const response = await api.post('/auth/resend-otp', { email, purpose })
+    return response.data
+  }
+
   const register = async (data) => {
     const response = await api.post('/auth/register', data)
-    const { token, user: userData } = response.data
-    localStorage.setItem('token', token)
-    localStorage.setItem('user', JSON.stringify(userData))
-    setUser(userData)
-    return userData
+    return response.data
   }
 
   const logout = () => {
@@ -52,9 +58,19 @@ export function AuthProvider({ children }) {
     await api.put('/auth/change-password', data)
   }
 
+  const sendOtp = async (email, purpose) => {
+    const response = await api.post('/otp/send', { email, purpose })
+    return response.data
+  }
+
+  const verifyOtp = async (email, otp, purpose) => {
+    const response = await api.post('/otp/verify', { email, otp, purpose })
+    return response.data
+  }
+
   return (
     <AuthContext.Provider
-      value={{ user, loading, login, register, logout, updateProfile, changePassword }}
+      value={{ user, loading, login, verifyOtpLogin, resendOtp, register, logout, updateProfile, changePassword, sendOtp, verifyOtp }}
     >
       {children}
     </AuthContext.Provider>

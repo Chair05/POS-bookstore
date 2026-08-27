@@ -17,6 +17,7 @@ const ecomCartRoutes = require("./ecommerce-routes/customerCart");
 const ecomOrderRoutes = require("./ecommerce-routes/customerOrders");
 const ecomPaymentRoutes = require("./ecommerce-routes/customerPayments");
 const ecomAdminRoutes = require("./ecommerce-routes/admin");
+const otpRoutes = require("./ecommerce-routes/otp");
 
 const app = express();
 
@@ -45,6 +46,28 @@ app.use("/api/customer/cart", ecomCartRoutes);
 app.use("/api/customer/orders", ecomOrderRoutes);
 app.use("/api/customer/orders", ecomPaymentRoutes);
 app.use("/api/admin", ecomAdminRoutes);
+app.use("/api/otp", otpRoutes);
+
+// OTP codes table for email verification
+promisePool.query(`
+  CREATE TABLE IF NOT EXISTS otp_codes (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    email VARCHAR(255) NOT NULL,
+    otp_code VARCHAR(6) NOT NULL,
+    purpose ENUM('login', 'register') NOT NULL,
+    expires_at DATETIME NOT NULL,
+    used TINYINT(1) DEFAULT 0,
+    attempts INT DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_email_purpose (email, purpose)
+  )
+`).then(() => {
+  return promisePool.query("SHOW COLUMNS FROM otp_codes LIKE 'attempts'");
+}).then(([cols]) => {
+  if (cols.length === 0) {
+    return promisePool.query("ALTER TABLE otp_codes ADD COLUMN attempts INT DEFAULT 0 AFTER used");
+  }
+}).catch(() => {});
 
 app.get("/api/health", (req, res) => {
   res.json({ status: "ok", message: "LCCB Bookstore API is running" });
@@ -146,6 +169,9 @@ ensureColumn("sales", "adminId", "adminId INT NULL");
 ensureColumn("inventory_logs", "receipt_id", "receipt_id INT NULL");
 ensureColumn("admins", "can_view_inventory_logs", "can_view_inventory_logs TINYINT(1) DEFAULT 0");
 ensureColumn("products", "department", "department VARCHAR(100) DEFAULT ''");
+ensureColumn("products", "barcode", "barcode VARCHAR(100) NULL");
+ensureColumn("products", "size", "size VARCHAR(50) NULL");
+ensureColumn("products", "cost_price", "cost_price DECIMAL(10,2) DEFAULT 0");
 
 // Ensure customers table has all columns needed by both POS and e-commerce
 ensureColumn("customers", "name", "name VARCHAR(255) NOT NULL");

@@ -19,13 +19,28 @@ export default function ProductDetail() {
   const [product, setProduct] = useState(null)
   const [loading, setLoading] = useState(true)
   const [quantity, setQuantity] = useState(1)
-  const [selectedSize, setSelectedSize] = useState(null)
+  const [selectedVariant, setSelectedVariant] = useState(null)
 
   useEffect(() => {
     const fetchProduct = async () => {
+      setLoading(true)
       try {
         const response = await api.get(`/customer/products/${id}`)
-        setProduct(response.data.product || response.data)
+        const p = response.data.product || response.data
+        setProduct(p)
+        if (p.variants && p.variants.length > 0) {
+          setSelectedVariant(p.variants[0])
+        } else {
+          setSelectedVariant({
+            _id: p._id,
+            id: p.id,
+            size: null,
+            name: p.name,
+            price: p.price,
+            stock: p.stock,
+            image: p.image,
+          })
+        }
       } catch (err) {
         console.error('Failed to fetch product:', err)
         toast.error('Product not found')
@@ -37,17 +52,16 @@ export default function ProductDetail() {
     fetchProduct()
   }, [id, navigate])
 
-  const hasRealSizes = (product?.sizes || []).some(
-    (s) => s && s.trim().toLowerCase() !== "n/a"
-  );
+  const handleSizeChange = (variant) => {
+    if (variant.stock <= 0) return
+    setSelectedVariant(variant)
+    setQuantity(1)
+  }
 
   const handleAddToCart = () => {
-    if (!product || product.stock <= 0) return
-    if (hasRealSizes && !selectedSize) {
-      toast.error('Please select a size')
-      return
-    }
-    addToCart(product, quantity, hasRealSizes ? selectedSize : null)
+    if (!selectedVariant || selectedVariant.stock <= 0) return
+    const sizeVal = selectedVariant.size || null
+    addToCart(selectedVariant, quantity, sizeVal, product?.variants || [])
     toast.success(`Added ${quantity} item(s) to cart!`)
   }
 
@@ -58,6 +72,9 @@ export default function ProductDetail() {
 
   if (loading) return <Loading text="Loading product..." />
   if (!product) return null
+
+  const current = selectedVariant || product
+  const hasVariants = product.hasVariants && product.variants && product.variants.length > 1
 
   return (
     <div className="page-container animate-fade-in">
@@ -78,7 +95,7 @@ export default function ProductDetail() {
           <div className="bg-white rounded-2xl p-8 shadow-soft">
             <div className="aspect-square bg-gray-50 rounded-xl overflow-hidden">
               <img
-                src={product.image || '/placeholder-book.png'}
+                src={resolveImageSrc(current.image)}
                 alt={product.name}
                 className="w-full h-full object-contain p-6"
                 onError={(e) => {
@@ -95,17 +112,17 @@ export default function ProductDetail() {
               </span>
             )}
             <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">{product.name}</h1>
-            
+
             <div className="mb-4">
               <span className="text-3xl font-bold text-primary-600">
-                ₱{product.price?.toLocaleString()}
+                ₱{current.price?.toLocaleString()}
               </span>
             </div>
 
             <div className="mb-4">
-              {product.stock > 0 ? (
-                <span className={`badge ${product.stock <= 5 ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'}`}>
-                  {product.stock <= 5 ? `Only ${product.stock} left in stock` : `${product.stock} in stock`}
+              {current.stock > 0 ? (
+                <span className={`badge ${current.stock <= 5 ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'}`}>
+                  {current.stock <= 5 ? `Only ${current.stock} left in stock` : `${current.stock} in stock`}
                 </span>
               ) : (
                 <span className="badge bg-red-100 text-red-700">Out of Stock</span>
@@ -119,24 +136,31 @@ export default function ProductDetail() {
               </div>
             )}
 
-            {hasRealSizes && (
+            {hasVariants && (
               <div className="mb-6">
-                <h3 className="font-semibold text-gray-900 mb-3">Size</h3>
-                <div className="flex flex-wrap gap-2">
-                  {product.sizes.map((size) => (
-                    <button
-                      key={size}
-                      onClick={() => setSelectedSize(size)}
-                      className={`px-4 py-2 rounded-lg text-sm font-medium border transition-all ${
-                        selectedSize === size
-                          ? 'border-primary-600 bg-primary-50 text-primary-700 ring-2 ring-primary-200'
-                          : 'border-gray-200 text-gray-700 hover:border-gray-300'
-                      }`}
+                <label className="block font-semibold text-gray-900 mb-2">
+                  Size
+                </label>
+                <select
+                  value={selectedVariant?.id || ''}
+                  onChange={(e) => {
+                    const variant = product.variants.find(
+                      (v) => v.id === Number(e.target.value) || v._id === Number(e.target.value)
+                    )
+                    if (variant && variant.stock > 0) handleSizeChange(variant)
+                  }}
+                  className="px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm font-medium text-gray-900 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 transition-colors cursor-pointer"
+                >
+                  {product.variants.map((variant) => (
+                    <option
+                      key={variant.id}
+                      value={variant.id}
+                      disabled={variant.stock <= 0}
                     >
-                      {size}
-                    </button>
+                      {variant.size}
+                    </option>
                   ))}
-                </div>
+                </select>
               </div>
             )}
 
@@ -153,7 +177,7 @@ export default function ProductDetail() {
                 </button>
                 <span className="w-12 text-center font-medium text-lg">{quantity}</span>
                 <button
-                  onClick={() => setQuantity(Math.min(product.stock, quantity + 1))}
+                  onClick={() => setQuantity(Math.min(current.stock, quantity + 1))}
                   className="w-10 h-10 rounded-lg border border-gray-200 flex items-center justify-center text-gray-600 hover:bg-gray-50 transition-colors"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -166,7 +190,7 @@ export default function ProductDetail() {
             <div className="flex flex-col sm:flex-row gap-3 mt-auto">
               <button
                 onClick={handleAddToCart}
-                disabled={product.stock === 0}
+                disabled={current.stock === 0}
                 className="btn-secondary flex-1 flex items-center justify-center gap-2"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -176,7 +200,7 @@ export default function ProductDetail() {
               </button>
               <button
                 onClick={handleBuyNow}
-                disabled={product.stock === 0}
+                disabled={current.stock === 0}
                 className="btn-primary flex-1 flex items-center justify-center gap-2"
               >
                 Buy Now

@@ -10,6 +10,7 @@ import customerCartRoutes from './src/backend/routes/customerCart.js';
 import customerOrderRoutes from './src/backend/routes/customerOrders.js';
 import customerPaymentRoutes from './src/backend/routes/customerPayments.js';
 import adminRoutes from './src/backend/routes/admin.js';
+import otpRoutes from './src/backend/routes/otp.js';
 
 dotenv.config();
 
@@ -30,6 +31,43 @@ app.use('/api/customer/cart', customerCartRoutes);
 app.use('/api/customer/orders', customerOrderRoutes);
 app.use('/api/customer/orders', customerPaymentRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/otp', otpRoutes);
+
+// Ensure otp_codes table exists
+import pool from './src/backend/config/database.js';
+pool.query(`
+  CREATE TABLE IF NOT EXISTS otp_codes (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    email VARCHAR(255) NOT NULL,
+    otp_code VARCHAR(6) NOT NULL,
+    purpose ENUM('login', 'register') NOT NULL,
+    expires_at DATETIME NOT NULL,
+    used TINYINT(1) DEFAULT 0,
+    attempts INT DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_email_purpose (email, purpose)
+  )
+`).then(() => {
+  return pool.query("SHOW COLUMNS FROM otp_codes LIKE 'attempts'");
+}).then(([cols]) => {
+  if (cols.length === 0) {
+    return pool.query("ALTER TABLE otp_codes ADD COLUMN attempts INT DEFAULT 0 AFTER used");
+  }
+}).catch(() => {});
+
+pool.query(`
+  CREATE TABLE IF NOT EXISTS inventory_logs (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    receipt_id INT NULL,
+    product_id INT NOT NULL,
+    product_name VARCHAR(255) NOT NULL,
+    type ENUM('IN','OUT') NOT NULL,
+    quantity INT NOT NULL,
+    reason VARCHAR(255) DEFAULT '',
+    staff VARCHAR(100) DEFAULT 'System',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )
+`).catch(() => {});
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'LCCB Bookstore API is running' });

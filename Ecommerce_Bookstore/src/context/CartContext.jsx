@@ -1,18 +1,69 @@
-import { createContext, useContext, useState, useEffect } from 'react'
+import { createContext, useContext, useState, useEffect, useCallback } from 'react'
+import { useAuth } from './AuthContext'
 
 const CartContext = createContext(null)
 
+function getCartKey(userId) {
+  return userId ? `cart_${userId}` : 'cart_guest'
+}
+
 export function CartProvider({ children }) {
-  const [cart, setCart] = useState(() => {
-    const savedCart = localStorage.getItem('cart')
-    return savedCart ? JSON.parse(savedCart) : []
-  })
+  const { user } = useAuth()
+  const [cart, setCart] = useState([])
+  const [selectedIds, setSelectedIds] = useState(new Set())
 
   useEffect(() => {
-    localStorage.setItem('cart', JSON.stringify(cart))
+    const key = getCartKey(user?.id)
+    const savedCart = localStorage.getItem(key)
+    setCart(savedCart ? JSON.parse(savedCart) : [])
+    setSelectedIds(new Set())
+  }, [user?.id])
+
+  useEffect(() => {
+    const key = getCartKey(user?.id)
+    localStorage.setItem(key, JSON.stringify(cart))
+  }, [cart, user?.id])
+
+  useEffect(() => {
+    if (cart.length > 0 && selectedIds.size === 0) {
+      setSelectedIds(new Set(cart.map((item) => `${item._id}_${item.selectedSize || ''}`)))
+    }
   }, [cart])
 
-  const addToCart = (product, quantity = 1, selectedSize = null) => {
+  const getItemKey = (item) => `${item._id}_${item.selectedSize || ''}`
+
+  const toggleItem = useCallback((itemKey) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(itemKey)) {
+        next.delete(itemKey)
+      } else {
+        next.add(itemKey)
+      }
+      return next
+    })
+  }, [])
+
+  const toggleAll = useCallback(() => {
+    setSelectedIds((prev) => {
+      if (prev.size === cart.length) {
+        return new Set()
+      }
+      return new Set(cart.map((item) => getItemKey(item)))
+    })
+  }, [cart])
+
+  const selectedItems = cart.filter((item) => selectedIds.has(getItemKey(item)))
+  const selectedTotal = selectedItems.reduce((sum, item) => sum + item.price * item.quantity, 0)
+  const selectedCount = selectedItems.reduce((sum, item) => sum + item.quantity, 0)
+  const allSelected = cart.length > 0 && selectedIds.size === cart.length
+
+  const removeSelectedFromCart = () => {
+    setCart((prev) => prev.filter((item) => !selectedIds.has(getItemKey(item))))
+    setSelectedIds(new Set())
+  }
+
+  const addToCart = (product, quantity = 1, selectedSize = null, variants = []) => {
     setCart((prevCart) => {
       const existingIndex = prevCart.findIndex(
         (item) => item._id === product._id && item.selectedSize === selectedSize
@@ -33,6 +84,8 @@ export function CartProvider({ children }) {
           image: product.image,
           category: product.category,
           stock: product.stock,
+          sizes: product.sizes || [],
+          variants: variants.length > 0 ? variants : (product.variants || []),
           selectedSize,
           quantity,
         },
@@ -62,8 +115,47 @@ export function CartProvider({ children }) {
     )
   }
 
+  const changeSize = (cartItemId, newSize) => {
+    setCart((prevCart) => {
+      const oldIndex = prevCart.findIndex((item) => item._id === cartItemId)
+      if (oldIndex === -1) return prevCart
+
+      const oldItem = prevCart[oldIndex]
+      const newVariant = (oldItem.variants || []).find(
+        (v) => v.size === newSize || v.variant_size === newSize
+      )
+      if (!newVariant) return prevCart
+
+      const existingIndex = prevCart.findIndex(
+        (item) => item._id === newVariant._id && item.selectedSize === newSize
+      )
+
+      if (existingIndex > -1 && existingIndex !== oldIndex) {
+        const updated = [...prevCart]
+        updated[existingIndex].quantity += oldItem.quantity
+        updated.splice(oldIndex, 1)
+        return updated
+      }
+
+      return prevCart.map((item) =>
+        item._id === cartItemId
+          ? {
+              ...item,
+              _id: newVariant._id,
+              name: newVariant.name || item.name,
+              price: newVariant.price,
+              image: newVariant.image || item.image,
+              stock: newVariant.stock,
+              selectedSize: newSize,
+            }
+          : item
+      )
+    })
+  }
+
   const clearCart = () => {
     setCart([])
+    setSelectedIds(new Set())
   }
 
   const getCartTotal = () => {
@@ -78,9 +170,18 @@ export function CartProvider({ children }) {
     <CartContext.Provider
       value={{
         cart,
+        selectedIds,
+        selectedItems,
+        selectedTotal,
+        selectedCount,
+        allSelected,
+        toggleItem,
+        toggleAll,
+        removeSelectedFromCart,
         addToCart,
         removeFromCart,
         updateQuantity,
+        changeSize,
         clearCart,
         getCartTotal,
         getCartCount,

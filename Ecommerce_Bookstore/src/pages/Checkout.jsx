@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../config/api'
 import { useCart } from '../context/CartContext'
@@ -8,6 +8,7 @@ import gcashLogo from '../assets/gcash.png'
 import rcbcLogo from '../assets/rcbc.png'
 import gcashQr from '../assets/qr.jpg'
 
+
 const resolveImageSrc = (image) => {
   if (!image) return '/placeholder-book.svg'
   if (image.startsWith('http://') || image.startsWith('https://')) return image
@@ -16,13 +17,18 @@ const resolveImageSrc = (image) => {
 }
 
 export default function Checkout() {
-  const { cart, getCartTotal, clearCart } = useCart()
+  const { cart, selectedItems, selectedTotal, getCartTotal, removeSelectedFromCart } = useCart()
+  const checkoutItems = selectedItems.length > 0 ? selectedItems : cart
+  const checkoutTotal = selectedItems.length > 0 ? selectedTotal : getCartTotal()
   const { user } = useAuth()
   const navigate = useNavigate()
+  const receiptInputRef = useRef(null)
   const [loading, setLoading] = useState(false)
   const [paymentMethod, setPaymentMethod] = useState('GCash')
   const [showGcash, setShowGcash] = useState(false)
-  const [gcashLoading, setGcashLoading] = useState(false)
+  const [gcashReceipt, setGcashReceipt] = useState(null)
+  const [gcashReceiptPreview, setGcashReceiptPreview] = useState(null)
+  const [gcashSubmitting, setGcashSubmitting] = useState(false)
   const [gcashError, setGcashError] = useState('')
   const [paidOrder, setPaidOrder] = useState(null)
   const [form, setForm] = useState({
@@ -43,7 +49,7 @@ export default function Checkout() {
       return
     }
 
-  if (cart.length === 0 && !paidOrder) {
+    if (cart.length === 0 && !paidOrder) {
       toast.error('Your cart is empty')
       return
     }
@@ -57,14 +63,14 @@ export default function Checkout() {
       }
 
       const orderData = {
-        items: cart.map((item) => ({
+        items: checkoutItems.map((item) => ({
           product: item._id,
           name: item.name,
           quantity: item.quantity,
           price: item.price,
           selectedSize: item.selectedSize,
         })),
-        totalAmount: getCartTotal(),
+        totalAmount: checkoutTotal,
         paymentMethod,
         customerInfo: {
           fullName: form.fullName,
@@ -76,7 +82,7 @@ export default function Checkout() {
       const response = await api.post('/customer/orders', orderData)
       const orderId = response.data.order?._id || response.data._id || response.data.orderId
 
-      clearCart()
+      removeSelectedFromCart()
       toast.success('Order placed successfully!')
       navigate(`/upload-payment/${orderId}`)
     } catch (err) {
@@ -87,49 +93,85 @@ export default function Checkout() {
     }
   }
 
+  const handleGcashReceiptChange = (e) => {
+    const file = e.target.files[0]
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error('File size must be less than 5MB')
+        return
+      }
+      if (!file.type.startsWith('image/')) {
+        toast.error('Please upload an image file')
+        return
+      }
+      setGcashReceipt(file)
+      const reader = new FileReader()
+      reader.onloadend = () => setGcashReceiptPreview(reader.result)
+      reader.readAsDataURL(file)
+    }
+  }
+
+  const removeGcashReceipt = () => {
+    setGcashReceipt(null)
+    setGcashReceiptPreview(null)
+    if (receiptInputRef.current) receiptInputRef.current.value = ''
+  }
+
   const handleGcashPay = async (e) => {
     e.preventDefault()
     setGcashError('')
 
-    setGcashLoading(true)
+    if (!gcashReceipt) {
+      setGcashError('Please upload your GCash payment receipt')
+      return
+    }
+
+    setGcashSubmitting(true)
     try {
       const orderData = {
-        items: cart.map((item) => ({
+        items: checkoutItems.map((item) => ({
           product: item._id,
           name: item.name,
           quantity: item.quantity,
           price: item.price,
           selectedSize: item.selectedSize,
         })),
-        totalAmount: getCartTotal(),
-        paymentMethod,
+        totalAmount: checkoutTotal,
+        paymentMethod: 'GCash',
         customerInfo: {
           fullName: form.fullName,
           email: form.email,
           contactNumber: form.contactNumber,
         },
       }
-      const response = await api.post('/customer/orders', orderData)
-      const orderId = response.data.order?._id || response.data._id || response.data.orderId
+      const orderResponse = await api.post('/customer/orders', orderData)
+      const orderId = orderResponse.data.order?._id || orderResponse.data._id || orderResponse.data.orderId
 
-      const payRes = await api.post(`/customer/orders/${orderId}/gcash-pay`)
-      const paidAmount = getCartTotal()
-      clearCart()
-      setPaidOrder({ orderId, pickupCode: payRes.data.pickupCode, amount: paidAmount })
+      const formData = new FormData()
+      formData.append('receipt', gcashReceipt)
+      formData.append('paymentMethod', 'GCash')
+
+      await api.post(`/customer/orders/${orderId}/payment`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+
+      const paidAmount = checkoutTotal
+      removeSelectedFromCart()
+      setPaidOrder({ orderId, amount: paidAmount })
     } catch (err) {
       console.error('GCash payment failed:', err)
       setGcashError(err.response?.data?.message || 'Payment failed. Please try again.')
     } finally {
-      setGcashLoading(false)
+      setGcashSubmitting(false)
     }
   }
 
-  if (cart.length === 0) {
+  if (checkoutItems.length === 0 && !paidOrder) {
     return (
       <div className="page-container animate-fade-in">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-16 text-center">
           <h2 className="text-2xl font-bold text-gray-900 mb-2">No items to checkout</h2>
-          <p className="text-gray-500 mb-4">Add some products to your cart first.</p>
+          <p className="text-gray-500 mb-4">Select items from your cart to checkout.</p>
           <button onClick={() => navigate('/products')} className="btn-primary">
             Browse Products
           </button>
@@ -189,7 +231,7 @@ export default function Checkout() {
               <div className="card">
                 <h2 className="text-lg font-semibold text-gray-900 mb-4">Order Items</h2>
                 <div className="space-y-3">
-                  {cart.map((item) => (
+                  {checkoutItems.map((item) => (
                     <div key={`${item._id}-${item.selectedSize}`} className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
                       <div className="w-12 h-12 bg-white rounded-lg overflow-hidden shrink-0">
                         <img
@@ -254,41 +296,7 @@ export default function Checkout() {
                   </button>
                 </div>
 
-                {paymentMethod === 'GCash' ? (
-                  <div className="mt-6 p-4 bg-blue-50 rounded-xl border border-blue-200">
-                    <h4 className="font-medium text-blue-800 mb-2">GCash Payment</h4>
-                    <p className="text-sm text-blue-700 mb-4">
-                      Scan the QR code or send the exact amount to <b>0916-413-8090</b> (LCCB Bookstore) using the
-                      GCash app. After paying, upload your receipt to complete the order.
-                    </p>
-                    <img
-                      src={gcashQr}
-                      alt="GCash QR Code"
-                      className="w-48 h-48 mx-auto rounded-lg border border-blue-200 bg-white object-contain shadow-sm"
-                    />
-                  </div>
-                ) : (
-                  <div className="mt-6 p-4 bg-amber-50 rounded-xl border border-amber-200">
-                    <h4 className="font-medium text-amber-800 mb-2">Payment Instructions</h4>
-                    <ol className="text-sm text-amber-700 space-y-1 list-decimal list-inside">
-                      <li>Transfer the exact amount to the RCBC account below</li>
-                      <li>Take a screenshot or photo of your payment confirmation</li>
-                      <li>You will be redirected to upload your receipt after placing the order</li>
-                      <li>Wait for our administrator to verify your payment</li>
-                    </ol>
-                  </div>
-                )}
-
-                <div className="mt-4 p-4 bg-gray-50 rounded-xl">
-                  <h4 className="font-medium text-gray-800 mb-2">GCash Details</h4>
-                  <p className="text-sm text-gray-600">Account Name: LCCB Bookstore</p>
-                  <p className="text-sm text-gray-600">Mobile Number: 0916-413-8090</p>
-                  <h4 className="font-medium text-gray-800 mt-3 mb-2">RCBC Bank Account</h4>
-                  <p className="text-sm text-gray-600">Account Name: La Consolacion College Bacolod</p>
-                  <p className="text-sm text-gray-600">Account Number: XXXX-XXXX-XXXX</p>
-                  <p className="text-sm text-gray-600">Bank: RCBC (Rizal Commercial Banking Corp)</p>
                 </div>
-              </div>
             </div>
 
             <div className="lg:col-span-1">
@@ -297,7 +305,7 @@ export default function Checkout() {
                 <div className="space-y-3 mb-4">
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-500">Subtotal</span>
-                    <span className="font-medium">₱{getCartTotal().toLocaleString()}</span>
+                    <span className="font-medium">₱{checkoutTotal.toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-500">Shipping</span>
@@ -307,7 +315,7 @@ export default function Checkout() {
                 <div className="border-t border-gray-100 pt-4 mb-6">
                   <div className="flex justify-between">
                     <span className="font-semibold text-gray-900">Total</span>
-                    <span className="font-bold text-xl text-primary-600">₱{getCartTotal().toLocaleString()}</span>
+                    <span className="font-bold text-xl text-primary-600">₱{checkoutTotal.toLocaleString()}</span>
                   </div>
                 </div>
 
@@ -318,7 +326,7 @@ export default function Checkout() {
                     </svg>
                     <p className="text-xs text-blue-700">
                       {paymentMethod === 'GCash'
-                        ? 'After placing your order, you will complete payment in the GCash window. Your order is verified instantly and a pickup code is issued.'
+                        ? 'After placing your order, you will upload your GCash receipt. Your order will be prepared after payment verification.'
                         : "After placing your order, you'll be directed to upload your payment receipt. Your order will be prepared only after payment verification."}
                     </p>
                   </div>
@@ -336,7 +344,7 @@ export default function Checkout() {
                     </>
                   ) : (
                     <>
-                      {paymentMethod === 'GCash' ? 'Pay with GCash — ₱' : 'Place Order — ₱'}{getCartTotal().toLocaleString()}
+                      {paymentMethod === 'GCash' ? 'Pay with GCash — ₱' : 'Place Order — ₱'}{checkoutTotal.toLocaleString()}
                     </>
                   )}
                 </button>
@@ -362,17 +370,68 @@ export default function Checkout() {
             <form onSubmit={handleGcashPay} className="p-6 space-y-4">
               <div className="bg-gray-50 rounded-xl p-4 flex items-center justify-between">
                 <span className="text-sm text-gray-600">Amount to pay</span>
-                <span className="text-2xl font-bold text-gray-900">₱{getCartTotal().toLocaleString()}</span>
+                <span className="text-2xl font-bold text-gray-900">₱{checkoutTotal.toLocaleString()}</span>
               </div>
 
               <div className="rounded-xl border border-blue-100 bg-blue-50 p-4 text-center">
-                <img
-                  src={gcashQr}
-                  alt="GCash QR Code"
-                  className="w-40 h-40 mx-auto rounded-lg bg-white object-contain border border-blue-100"
+                <p className="text-xs text-blue-700 mb-2 font-medium">Scan this QR code with GCash to pay</p>
+                <div className="w-48 h-48 mx-auto bg-white rounded-lg border border-blue-200 flex items-center justify-center overflow-hidden">
+                  <img
+                    src={gcashQr}
+                    alt="GCash QR Code"
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+                <p className="text-xs text-blue-700 mt-2">Account: 0916-413-8090 (LCCB Bookstore)</p>
+              </div>
+
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-gray-700">Payment Receipt</label>
+                <div
+                  onClick={() => receiptInputRef.current?.click()}
+                  className={`border-2 border-dashed rounded-xl p-4 text-center cursor-pointer transition-all ${
+                    gcashReceiptPreview
+                      ? 'border-primary-300 bg-primary-50'
+                      : 'border-gray-200 hover:border-primary-300 hover:bg-gray-50'
+                  }`}
+                >
+                  {gcashReceiptPreview ? (
+                    <div className="space-y-2">
+                      <img
+                        src={gcashReceiptPreview}
+                        alt="Payment receipt"
+                        className="max-h-32 mx-auto rounded-lg"
+                      />
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          removeGcashReceipt()
+                        }}
+                        className="text-sm text-red-500 hover:text-red-600 font-medium"
+                      >
+                        Remove image
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-1">
+                      <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center mx-auto">
+                        <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                      </div>
+                      <p className="text-sm font-medium text-gray-700">Tap to upload receipt</p>
+                      <p className="text-xs text-gray-400">PNG, JPG up to 5MB</p>
+                    </div>
+                  )}
+                </div>
+                <input
+                  ref={receiptInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleGcashReceiptChange}
+                  className="hidden"
                 />
-                <p className="text-xs text-blue-700 mt-2">Scan this QR code with GCash to pay</p>
-                <p className="text-xs text-blue-700">Account: 0916-413-8090 (LCCB Bookstore)</p>
               </div>
 
               {gcashError && (
@@ -383,24 +442,28 @@ export default function Checkout() {
 
               <button
                 type="submit"
-                disabled={gcashLoading}
+                disabled={gcashSubmitting}
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl flex items-center justify-center gap-2 transition-colors disabled:opacity-60"
               >
-                {gcashLoading ? (
+                {gcashSubmitting ? (
                   <>
                     <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
                     Processing Payment...
                   </>
                 ) : (
                   <>
-                    Pay ₱{getCartTotal().toLocaleString()}
+                    Submit Payment — ₱{checkoutTotal.toLocaleString()}
                   </>
                 )}
               </button>
 
               <button
                 type="button"
-                onClick={() => setShowGcash(false)}
+                onClick={() => {
+                  setShowGcash(false)
+                  removeGcashReceipt()
+                  setGcashError('')
+                }}
                 className="w-full text-sm text-gray-500 hover:text-gray-700 py-2"
               >
                 Cancel
@@ -418,11 +481,15 @@ export default function Checkout() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
             </div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Payment Successful!</h2>
-            <p className="text-gray-500 mb-4">Your GCash payment of ₱{paidOrder.amount.toLocaleString()} was received.</p>
-            <div className="bg-blue-50 rounded-xl p-4 mb-6">
-              <p className="text-sm text-gray-600 mb-1">Your Pickup Code</p>
-              <p className="text-3xl font-bold text-blue-700 tracking-widest">{paidOrder.pickupCode}</p>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Payment Submitted!</h2>
+            <p className="text-gray-500 mb-4">
+              Your GCash payment receipt for ₱{paidOrder.amount.toLocaleString()} has been submitted.
+              Our administrator will verify your payment before your order is prepared for pickup.
+            </p>
+            <div className="bg-primary-50 rounded-xl p-4 mb-6">
+              <p className="text-sm text-primary-800 leading-relaxed">
+                You will receive a pickup code once your payment is verified. You can track your order status in the meantime.
+              </p>
             </div>
             <div className="space-y-3">
               <button

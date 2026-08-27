@@ -11,7 +11,20 @@ const resolveImageSrc = (image) => {
 }
 
 export default function Cart() {
-  const { cart, removeFromCart, updateQuantity, getCartTotal, clearCart } = useCart()
+  const {
+    cart,
+    selectedIds,
+    selectedItems,
+    selectedTotal,
+    selectedCount,
+    allSelected,
+    toggleItem,
+    toggleAll,
+    removeFromCart,
+    updateQuantity,
+    changeSize,
+    clearCart,
+  } = useCart()
   const { user } = useAuth()
   const navigate = useNavigate()
 
@@ -19,6 +32,10 @@ export default function Cart() {
     if (!user) {
       toast.error('Please login to proceed to checkout')
       navigate('/login', { state: { from: '/checkout' } })
+      return
+    }
+    if (selectedItems.length === 0) {
+      toast.error('Please select at least one item')
       return
     }
     navigate('/checkout')
@@ -56,79 +73,129 @@ export default function Cart() {
             <h1 className="text-3xl font-bold text-gray-900">Shopping Cart</h1>
             <p className="text-gray-500">{cart.length} item{cart.length !== 1 ? 's' : ''} in cart</p>
           </div>
-          <button
-            onClick={() => {
-              clearCart()
-              toast.success('Cart cleared')
-            }}
-            className="text-sm text-red-500 hover:text-red-600 font-medium transition-colors"
-          >
-            Clear Cart
-          </button>
+          <div className="flex items-center gap-3">
+            <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={allSelected}
+                onChange={toggleAll}
+                className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+              />
+              Select All
+            </label>
+            <button
+              onClick={() => {
+                clearCart()
+                toast.success('Cart cleared')
+              }}
+              className="text-sm text-red-500 hover:text-red-600 font-medium transition-colors"
+            >
+              Clear Cart
+            </button>
+          </div>
         </div>
 
         <div className="grid lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-4">
-            {cart.map((item) => (
-              <div key={`${item._id}-${item.selectedSize}`} className="card flex flex-col sm:flex-row gap-4 animate-slide-up">
-                <div className="w-full sm:w-28 h-28 bg-gray-50 rounded-xl overflow-hidden shrink-0">
-                  <img
-                    src={resolveImageSrc(item.image)}
-                    alt={item.name}
-                    className="w-full h-full object-contain p-2"
-                    onError={(e) => {
-                      e.target.src = '/placeholder-book.svg'
-                    }}
-                  />
-                </div>
-                <div className="flex-1 flex flex-col">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <Link to={`/products/${item._id}`} className="font-semibold text-gray-900 hover:text-primary-600 transition-colors">
-                        {item.name}
-                      </Link>
-                      {item.selectedSize && (
-                        <p className="text-sm text-gray-500 mt-0.5">Size: {item.selectedSize}</p>
-                      )}
-                      {item.category && (
-                        <p className="text-xs text-gray-400 mt-0.5">{item.category}</p>
-                      )}
+            {cart.map((item) => {
+              const itemKey = `${item._id}_${item.selectedSize || ''}`
+              const isSelected = selectedIds.has(itemKey)
+              return (
+                <div
+                  key={itemKey}
+                  className={`card flex flex-col sm:flex-row gap-4 animate-slide-up transition-colors ${
+                    isSelected ? 'border-primary-300 bg-primary-50/30' : 'border-gray-200 bg-white'
+                  }`}
+                >
+                  <div className="flex items-start gap-3 sm:gap-4">
+                    <div className="pt-4 pl-4">
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => toggleItem(itemKey)}
+                        className="w-5 h-5 rounded border-gray-300 text-primary-600 focus:ring-primary-500 cursor-pointer"
+                      />
                     </div>
-                    <button
-                      onClick={() => {
-                        removeFromCart(item._id, item.selectedSize)
-                        toast.success('Item removed')
-                      }}
-                      className="p-1 text-gray-400 hover:text-red-500 transition-colors"
-                    >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                      </svg>
-                    </button>
+                    <div className="w-full sm:w-28 h-28 bg-gray-50 rounded-xl overflow-hidden shrink-0">
+                      <img
+                        src={resolveImageSrc(item.image)}
+                        alt={item.name}
+                        className="w-full h-full object-contain p-2"
+                        onError={(e) => {
+                          e.target.src = '/placeholder-book.svg'
+                        }}
+                      />
+                    </div>
                   </div>
-                  <div className="flex items-center justify-between mt-auto pt-3">
-                    <div className="flex items-center space-x-2">
+                  <div className="flex-1 flex flex-col">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <Link to={`/products/${item._id}`} className="font-semibold text-gray-900 hover:text-primary-600 transition-colors">
+                          {item.name}
+                        </Link>
+                        {item.selectedSize && (
+                          <p className="text-sm text-gray-500 mt-0.5">Size: {item.selectedSize}</p>
+                        )}
+                        {item.variants && item.variants.length > 1 && (
+                          <div className="mt-1.5">
+                            <select
+                              value={item._id}
+                              onChange={(e) => {
+                                const variant = item.variants.find((v) => v._id === Number(e.target.value))
+                                if (variant) changeSize(item._id, variant.size)
+                              }}
+                              className="px-2 py-1 rounded-md text-xs font-medium border border-gray-200 bg-white text-gray-700 focus:border-primary-500 focus:ring-1 focus:ring-primary-200 transition-colors"
+                            >
+                              {item.variants
+                                .filter((v) => v.size)
+                                .map((variant) => (
+                                  <option key={variant._id} value={variant._id}>
+                                    {variant.size}
+                                  </option>
+                                ))}
+                            </select>
+                          </div>
+                        )}
+                        {item.category && (
+                          <p className="text-xs text-gray-400 mt-0.5">{item.category}</p>
+                        )}
+                      </div>
                       <button
-                        onClick={() => updateQuantity(item._id, item.quantity - 1, item.selectedSize)}
-                        className="w-8 h-8 rounded-lg border border-gray-200 flex items-center justify-center text-gray-600 hover:bg-gray-50 transition-colors text-sm"
+                        onClick={() => {
+                          removeFromCart(item._id, item.selectedSize)
+                          toast.success('Item removed')
+                        }}
+                        className="p-1 text-gray-400 hover:text-red-500 transition-colors"
                       >
-                        -
-                      </button>
-                      <span className="w-10 text-center font-medium">{item.quantity}</span>
-                      <button
-                        onClick={() => updateQuantity(item._id, item.quantity + 1, item.selectedSize)}
-                        className="w-8 h-8 rounded-lg border border-gray-200 flex items-center justify-center text-gray-600 hover:bg-gray-50 transition-colors text-sm"
-                      >
-                        +
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
                       </button>
                     </div>
-                    <span className="font-bold text-primary-600">
-                      ₱{(item.price * item.quantity).toLocaleString()}
-                    </span>
+                    <div className="flex items-center justify-between mt-auto pt-3">
+                      <div className="flex items-center space-x-2">
+                        <button
+                          onClick={() => item.quantity > 1 && updateQuantity(item._id, item.quantity - 1, item.selectedSize)}
+                          className="w-8 h-8 rounded-lg border border-gray-200 flex items-center justify-center text-gray-600 hover:bg-gray-50 transition-colors text-sm"
+                        >
+                          -
+                        </button>
+                        <span className="w-10 text-center font-medium">{item.quantity}</span>
+                        <button
+                          onClick={() => updateQuantity(item._id, item.quantity + 1, item.selectedSize)}
+                          className="w-8 h-8 rounded-lg border border-gray-200 flex items-center justify-center text-gray-600 hover:bg-gray-50 transition-colors text-sm"
+                        >
+                          +
+                        </button>
+                      </div>
+                      <span className="font-bold text-primary-600">
+                        ₱{(item.price * item.quantity).toLocaleString()}
+                      </span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
 
           <div className="lg:col-span-1">
@@ -136,8 +203,8 @@ export default function Cart() {
               <h3 className="font-semibold text-gray-900 mb-4 pb-4 border-b border-gray-100">Order Summary</h3>
               <div className="space-y-3 mb-4">
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">Subtotal ({cart.reduce((a, i) => a + i.quantity, 0)} items)</span>
-                  <span className="font-medium">₱{getCartTotal().toLocaleString()}</span>
+                  <span className="text-gray-500">Selected ({selectedCount} items)</span>
+                  <span className="font-medium">₱{selectedTotal.toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-500">Shipping</span>
@@ -147,10 +214,14 @@ export default function Cart() {
               <div className="border-t border-gray-100 pt-4 mb-6">
                 <div className="flex justify-between">
                   <span className="font-semibold text-gray-900">Total</span>
-                  <span className="font-bold text-xl text-primary-600">₱{getCartTotal().toLocaleString()}</span>
+                  <span className="font-bold text-xl text-primary-600">₱{selectedTotal.toLocaleString()}</span>
                 </div>
               </div>
-              <button onClick={handleCheckout} className="btn-primary w-full flex items-center justify-center gap-2 mb-3">
+              <button
+                onClick={handleCheckout}
+                disabled={selectedItems.length === 0}
+                className="btn-primary w-full flex items-center justify-center gap-2 mb-3 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>

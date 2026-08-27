@@ -3,6 +3,25 @@ const { promisePool } = require('../db');
 
 const router = Router();
 
+function formatVariant(row) {
+  return {
+    _id: row.id,
+    id: row.id,
+    name: row.name,
+    description: row.description || '',
+    price: parseFloat(row.price),
+    category: row.category,
+    department: row.department || null,
+    image: row.image,
+    stock: row.stock,
+    barcode: row.barcode || null,
+    size: row.size || null,
+    selectedSize: row.size || null,
+    createdAt: row.created_at || row.id,
+    updatedAt: row.updated_at || row.id,
+  };
+}
+
 router.get('/', async (req, res) => {
   try {
     const { search, category, size, sort, limit = 50, page = 1 } = req.query;
@@ -14,18 +33,9 @@ router.get('/', async (req, res) => {
       query += ' AND (name LIKE ? OR barcode LIKE ?)';
       params.push(`%${search}%`, `%${search}%`);
     }
-
     if (category) {
       query += ' AND category = ?';
       params.push(category);
-    }
-
-    if (size) {
-      query += ` AND (
-        CASE WHEN JSON_VALID(sizes) THEN JSON_CONTAINS(sizes, JSON_QUOTE(?)) ELSE 0 END = 1
-        OR FIND_IN_SET(?, COALESCE(size, '')) > 0
-      )`;
-      params.push(size, size);
     }
 
     const [columnRows] = await promisePool.query("SHOW COLUMNS FROM products LIKE 'created_at'");
@@ -43,21 +53,49 @@ router.get('/', async (req, res) => {
 
     query += ` ORDER BY ${sortMap[sort] || (hasCreatedAt ? 'created_at DESC' : 'id DESC')}`;
 
-    const offset = (parseInt(page) - 1) * parseInt(limit);
-    query += ' LIMIT ? OFFSET ?';
-    params.push(parseInt(limit), offset);
-
     const [rows] = await promisePool.query(query, params);
 
-    const products = rows.map(formatProduct);
+    const nameGroups = {};
+    for (const row of rows) {
+      if (!nameGroups[row.name]) nameGroups[row.name] = [];
+      nameGroups[row.name].push(row);
+    }
 
-    const [countResult] = await promisePool.query(
-      'SELECT COUNT(*) as total FROM products WHERE stock > 0'
-    );
+    const products = [];
+    for (const row of rows) {
+      const siblings = nameGroups[row.name] || [];
+      const hasVariants = siblings.length > 1;
+      products.push({
+        _id: row.id,
+        id: row.id,
+        name: row.name,
+        description: row.description || '',
+        price: parseFloat(row.price),
+        category: row.category,
+        department: row.department || null,
+        image: row.image,
+        stock: row.stock,
+        barcode: row.barcode || null,
+        size: row.size || null,
+        selectedSize: row.size || null,
+        variants: hasVariants ? siblings.map(formatVariant) : [],
+        hasVariants,
+        createdAt: row.created_at || row.id,
+        updatedAt: row.updated_at || row.id,
+      });
+    }
+
+    let filtered = products;
+    if (size) {
+      filtered = products.filter((p) => p.size === size);
+    }
+
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+    const paginated = filtered.slice(offset, offset + parseInt(limit));
 
     res.json({
-      products,
-      total: countResult[0].total,
+      products: paginated,
+      total: filtered.length,
       page: parseInt(page),
       limit: parseInt(limit),
     });
@@ -75,7 +113,11 @@ router.get('/categories/list', async (req, res) => {
     if (tables.length > 0) {
       const [cols] = await promisePool.query('SHOW COLUMNS FROM categories');
       const colNames = cols.map((c) => c.Field);
-      const nameCol = colNames.includes('name') ? 'name' : colNames.includes('category_name') ? 'category_name' : colNames[1] || 'id';
+      const nameCol = colNames.includes('name')
+        ? 'name'
+        : colNames.includes('category_name')
+          ? 'category_name'
+          : colNames[1] || 'id';
 
       const [rows] = await promisePool.query(`SELECT * FROM categories ORDER BY ${nameCol} ASC`);
       categories = rows.map((r) => ({
@@ -98,23 +140,22 @@ router.get('/categories/list', async (req, res) => {
 
 router.get('/sizes/list', async (req, res) => {
   try {
-    const [rows] = await promisePool.query('SELECT sizes, size FROM products');
+    const [rows] = await promisePool.query('SELECT size, sizes FROM products');
     const set = new Set();
     rows.forEach((r) => {
-      let arr = [];
+      if (r.size) {
+        r.size.split(',').map((s) => s.trim()).filter(Boolean).forEach((s) => {
+          if (s.toLowerCase() !== 'n/a') set.add(s);
+        });
+      }
       if (r.sizes) {
         try {
-          arr = typeof r.sizes === 'string' ? JSON.parse(r.sizes) : r.sizes;
-        } catch {
-          arr = [];
-        }
+          const arr = typeof r.sizes === 'string' ? JSON.parse(r.sizes) : r.sizes;
+          arr.forEach((s) => {
+            if (s && s.trim().toLowerCase() !== 'n/a') set.add(s.trim());
+          });
+        } catch {}
       }
-      if (arr.length === 0 && r.size) {
-        arr = r.size.split(',').map((s) => s.trim()).filter(Boolean);
-      }
-      arr.forEach((s) => {
-        if (s && s.trim().toLowerCase() !== 'n/a') set.add(s.trim());
-      });
     });
     res.json({ sizes: [...set].sort() });
   } catch (error) {
@@ -132,41 +173,39 @@ router.get('/:id', async (req, res) => {
       return res.status(404).json({ message: 'Product not found' });
     }
 
-    res.json({ product: formatProduct(rows[0]) });
+    const product = rows[0];
+    const [variantRows] = await promisePool.query(
+      'SELECT * FROM products WHERE name = ?',
+      [product.name]
+    );
+
+    const hasVariants = variantRows.length > 1;
+    const variants = variantRows.map(formatVariant);
+
+    res.json({
+      product: {
+        _id: product.id,
+        id: product.id,
+        name: product.name,
+        description: product.description || '',
+        price: parseFloat(product.price),
+        category: product.category,
+        department: product.department || null,
+        image: product.image,
+        stock: product.stock,
+        barcode: product.barcode || null,
+        size: product.size || null,
+        selectedSize: product.size || null,
+        variants,
+        hasVariants,
+        createdAt: product.created_at || product.id,
+        updatedAt: product.updated_at || product.id,
+      },
+    });
   } catch (error) {
     console.error('Get product error:', error);
     res.status(500).json({ message: 'Failed to fetch product' });
   }
 });
-
-function formatProduct(row) {
-  let sizes = [];
-  if (row.sizes) {
-    try {
-      sizes = typeof row.sizes === 'string' ? JSON.parse(row.sizes) : row.sizes;
-    } catch {
-      sizes = [];
-    }
-  }
-  if (sizes.length === 0 && row.size) {
-    sizes = row.size.split(',').map((s) => s.trim()).filter(Boolean);
-  }
-
-  return {
-    _id: row.id,
-    id: row.id,
-    name: row.name,
-    description: row.description || '',
-    price: parseFloat(row.price),
-    category: row.category,
-    department: row.department || null,
-    image: row.image,
-    stock: row.stock,
-    barcode: row.barcode || null,
-    sizes,
-    createdAt: row.created_at || row.id,
-    updatedAt: row.updated_at || row.id,
-  };
-}
 
 module.exports = router;

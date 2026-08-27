@@ -297,7 +297,7 @@ export default function Orders() {
                       </td>
                       <td className="px-4 py-3 text-center">
                         <div className="flex items-center justify-center gap-1">
-                          <button onClick={() => viewOrderDetail(order)} className="relative top-[-8px] px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 rounded transition">
+                          <button onClick={() => viewOrderDetail(order)} className="px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 rounded transition">
                             View
                           </button>
                           {order.receipt_image && (
@@ -470,7 +470,7 @@ export default function Orders() {
               <button onClick={() => setShowReceipt(null)} className="text-gray-400 hover:text-gray-600 text-2xl">×</button>
             </div>
             <p className="text-sm text-gray-500 mb-3">Order: {showReceipt.order_number}</p>
-            <img src={`http://localhost:5000${showReceipt.receipt_image}`} alt="Payment Receipt" className="w-full rounded-lg border" />
+            <img src={`http://localhost:5000${showReceipt.receipt_image}`} alt="Payment Receipt" className="w-full max-h-[70vh] object-contain rounded-lg border" />
           </div>
         </div>
       )}

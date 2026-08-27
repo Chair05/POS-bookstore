@@ -82,6 +82,12 @@ router.post('/payments/:paymentId/verify', async (req, res) => {
         'UPDATE products SET stock = stock - ? WHERE id = ? AND stock >= ?',
         [item.quantity, item.product_id, item.quantity]
       );
+      await connection.query(
+        `INSERT INTO inventory_logs (product_id, product_name, type, quantity, reason, staff)
+         SELECT ?, product_name, 'OUT', ?, 'Ecommerce Order (Receipt Verified)', 'System'
+         FROM order_items WHERE product_id = ? AND order_id = ? LIMIT 1`,
+        [item.product_id, item.quantity, item.product_id, payment.order_id]
+      );
     }
 
     await connection.commit();

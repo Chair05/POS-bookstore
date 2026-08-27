@@ -3,9 +3,28 @@ import pool from '../config/database.js';
 
 const router = Router();
 
+function formatVariant(row) {
+  return {
+    _id: row.id,
+    id: row.id,
+    name: row.name,
+    description: row.description || '',
+    price: parseFloat(row.price),
+    category: row.category,
+    department: row.department || null,
+    image: row.image,
+    stock: row.stock,
+    barcode: row.barcode || null,
+    size: row.size || null,
+    selectedSize: row.size || null,
+    createdAt: row.created_at || row.id,
+    updatedAt: row.updated_at || row.id,
+  };
+}
+
 router.get('/', async (req, res) => {
   try {
-    const { search, category, sort, limit = 50, page = 1 } = req.query;
+    const { search, category, size, sort, limit = 50, page = 1 } = req.query;
 
     let query = 'SELECT * FROM products WHERE stock > 0';
     const params = [];
@@ -14,7 +33,6 @@ router.get('/', async (req, res) => {
       query += ' AND (name LIKE ? OR barcode LIKE ?)';
       params.push(`%${search}%`, `%${search}%`);
     }
-
     if (category) {
       query += ' AND category = ?';
       params.push(category);
@@ -35,21 +53,49 @@ router.get('/', async (req, res) => {
 
     query += ` ORDER BY ${sortMap[sort] || (hasCreatedAt ? 'created_at DESC' : 'id DESC')}`;
 
-    const offset = (parseInt(page) - 1) * parseInt(limit);
-    query += ` LIMIT ? OFFSET ?`;
-    params.push(parseInt(limit), offset);
-
     const [rows] = await pool.query(query, params);
 
-    const products = rows.map(formatProduct);
+    const nameGroups = {};
+    for (const row of rows) {
+      if (!nameGroups[row.name]) nameGroups[row.name] = [];
+      nameGroups[row.name].push(row);
+    }
 
-    const [countResult] = await pool.query(
-      'SELECT COUNT(*) as total FROM products WHERE stock > 0'
-    );
+    const products = [];
+    for (const row of rows) {
+      const siblings = nameGroups[row.name] || [];
+      const hasVariants = siblings.length > 1;
+      products.push({
+        _id: row.id,
+        id: row.id,
+        name: row.name,
+        description: row.description || '',
+        price: parseFloat(row.price),
+        category: row.category,
+        department: row.department || null,
+        image: row.image,
+        stock: row.stock,
+        barcode: row.barcode || null,
+        size: row.size || null,
+        selectedSize: row.size || null,
+        variants: hasVariants ? siblings.map(formatVariant) : [],
+        hasVariants,
+        createdAt: row.created_at || row.id,
+        updatedAt: row.updated_at || row.id,
+      });
+    }
+
+    let filtered = products;
+    if (size) {
+      filtered = products.filter((p) => p.size === size);
+    }
+
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+    const paginated = filtered.slice(offset, offset + parseInt(limit));
 
     res.json({
-      products,
-      total: countResult[0].total,
+      products: paginated,
+      total: filtered.length,
       page: parseInt(page),
       limit: parseInt(limit),
     });
@@ -88,6 +134,32 @@ router.get('/categories/list', async (req, res) => {
   }
 });
 
+router.get('/sizes/list', async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT size, sizes FROM products');
+    const set = new Set();
+    rows.forEach((r) => {
+      if (r.size) {
+        r.size.split(',').map((s) => s.trim()).filter(Boolean).forEach((s) => {
+          if (s.toLowerCase() !== 'n/a') set.add(s);
+        });
+      }
+      if (r.sizes) {
+        try {
+          const arr = typeof r.sizes === 'string' ? JSON.parse(r.sizes) : r.sizes;
+          arr.forEach((s) => {
+            if (s && s.trim().toLowerCase() !== 'n/a') set.add(s.trim());
+          });
+        } catch {}
+      }
+    });
+    res.json({ sizes: [...set].sort() });
+  } catch (error) {
+    console.error('Get sizes error:', error);
+    res.status(500).json({ message: 'Failed to fetch sizes' });
+  }
+});
+
 router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
@@ -97,41 +169,39 @@ router.get('/:id', async (req, res) => {
       return res.status(404).json({ message: 'Product not found' });
     }
 
-    res.json({ product: formatProduct(rows[0]) });
+    const product = rows[0];
+    const [variantRows] = await pool.query(
+      'SELECT * FROM products WHERE name = ?',
+      [product.name]
+    );
+
+    const hasVariants = variantRows.length > 1;
+    const variants = variantRows.map(formatVariant);
+
+    res.json({
+      product: {
+        _id: product.id,
+        id: product.id,
+        name: product.name,
+        description: product.description || '',
+        price: parseFloat(product.price),
+        category: product.category,
+        department: product.department || null,
+        image: product.image,
+        stock: product.stock,
+        barcode: product.barcode || null,
+        size: product.size || null,
+        selectedSize: product.size || null,
+        variants,
+        hasVariants,
+        createdAt: product.created_at || product.id,
+        updatedAt: product.updated_at || product.id,
+      },
+    });
   } catch (error) {
     console.error('Get product error:', error);
     res.status(500).json({ message: 'Failed to fetch product' });
   }
 });
-
-function formatProduct(row) {
-  let sizes = [];
-  if (row.sizes) {
-    try {
-      sizes = typeof row.sizes === 'string' ? JSON.parse(row.sizes) : row.sizes;
-    } catch {
-      sizes = [];
-    }
-  }
-  if (sizes.length === 0 && row.size) {
-    sizes = row.size.split(',').map((s) => s.trim()).filter(Boolean);
-  }
-
-  return {
-    _id: row.id,
-    id: row.id,
-    name: row.name,
-    description: row.description || '',
-    price: parseFloat(row.price),
-    category: row.category,
-    department: row.department || null,
-    image: row.image,
-    stock: row.stock,
-    barcode: row.barcode || null,
-    sizes,
-    createdAt: row.created_at || row.id,
-    updatedAt: row.updated_at || row.id,
-  };
-}
 
 export default router;

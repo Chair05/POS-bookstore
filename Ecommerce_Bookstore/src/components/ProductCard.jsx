@@ -1,9 +1,10 @@
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useCart } from '../context/CartContext'
 import toast from 'react-hot-toast'
 
 export default function ProductCard({ product }) {
   const { addToCart } = useCart()
+  const navigate = useNavigate()
 
   const imageSrc = (() => {
     if (!product.image) return '/placeholder-book.svg'
@@ -19,8 +20,8 @@ export default function ProductCard({ product }) {
       toast.error('This product is out of stock')
       return
     }
-    addToCart(product, 1)
-    toast.success('Added to cart!')
+    addToCart(product, 1, product.size || null, product.variants || [])
+    toast.success(`Added to cart${product.size ? ` (${product.size})` : ''}!`)
   }
 
   const stockStatus = () => {
@@ -64,13 +65,20 @@ export default function ProductCard({ product }) {
           )}
           <div className="mt-auto">
             <div className="flex items-center justify-between">
-              <span className="text-xl font-bold text-primary-600">
-                ₱{product.price?.toLocaleString()}
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-xl font-bold text-primary-600">
+                  ₱{product.price?.toLocaleString()}
+                </span>
+                {product.size && product.size.toUpperCase() !== 'N/A' && (
+                  <span className="text-xs px-2 py-0.5 rounded bg-primary-100 text-primary-700 font-medium">
+                    {product.size}
+                  </span>
+                )}
+              </div>
               <button
                 onClick={handleAddToCart}
                 disabled={product.stock === 0}
-                className="p-2 rounded-lg bg-primary-600 text-white hover:bg-primary-700 
+                className="p-2 rounded-lg bg-primary-600 text-white hover:bg-primary-700
                            disabled:bg-gray-300 disabled:cursor-not-allowed
                            transition-colors"
               >
@@ -79,17 +87,6 @@ export default function ProductCard({ product }) {
                 </svg>
               </button>
             </div>
-            {product.sizes && product.sizes.filter((s) => s && s.trim().toLowerCase() !== 'n/a').length > 0 && (
-              <div className="mt-2 flex flex-wrap gap-1">
-                {product.sizes
-                  .filter((s) => s && s.trim().toLowerCase() !== 'n/a')
-                  .map((size) => (
-                    <span key={size} className="text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded">
-                      {size}
-                    </span>
-                  ))}
-              </div>
-            )}
           </div>
         </div>
       </div>

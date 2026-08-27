@@ -5,24 +5,25 @@ import ProductCard from '../components/ProductCard'
 import Loading from '../components/Loading'
 
 const iconPaths = {
-  'Shirt': 'M20.38 3.46L16 2a4 4 0 01-8 0L3.62 3.46a2 2 0 00-1.34 2.23l.58 3.47a1 1 0 00.99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 002-2V10h2.15a1 1 0 00.99-.84l.58-3.47a2 2 0 00-1.34-2.23z',
-  'School Supplies': 'M12 2a10 10 0 100 20 10 10 0 000-20zm0 18a8 8 0 110-16 8 8 0 010 16zm-1-13h2v6h-2zm0 8h2v2h-2z',
-  'School Clothes': 'M9 3L4 6v12h5v-3a3 3 0 016 0v3h5V6l-5-3a4 4 0 01-6 0zM14.5 9l1 2-3.5 2-3.5-2 1-2 2.5 1.5L14.5 9z',
-  'foot wear': 'M8 5h8a4 4 0 014 4v2a3 3 0 01-3 3H9l-3 2H3v-5H1V9h2l1.5-3a2 2 0 011.7-1H8z',
-  'Textbooks': 'M12 4a5 5 0 015-5h3v20h-3a5 5 0 00-5 5 5 5 0 00-5-5H4V4h3a5 5 0 015 5V4zM8 6h8m-8 4h8m-8 4h8',
-  'Stationery': 'M12 2a10 10 0 100 20 10 10 0 000-20zm3.8 4.2L13.5 14l-1.5-1.5L10 14 9.2 12l3.8-1.8 1-4h1.8zM7 17l2-2 2 2-2 2-2-2zm8 0l2 2 2-2-2-2-2 2z',
-  'Accessories': 'M20 7l-8-4-8 4v10l8 4 8-4V7zM12 8a3 3 0 100 6 3 3 0 000-6z',
+  'Shirt': 'M9 3l-1 4h2v13h4V7h2l-1-4c-1-1-4-1-4 0zM8 7h8M10 7v2M14 7v2M10 12h4',
+  'School Supplies': 'M4 19V5a2 2 0 012-2h12a2 2 0 012 2v14M9 3v18M15 3v18M4 12h16M4 19h16',
+  'School Clothes': 'M12 2L4 6v5a8 8 0 0016 0V6l-8-4zM8 21h8M10 17v4M14 17v4',
+  'Foot Wear': 'M4 17h16M4 17v-3a2 2 0 012-2h1l2-4h6l2 4h1a2 2 0 012 2v3M7 12V8M17 12V8',
+  'Textbooks': 'M4 4h16v16H4zM4 4c0 0 4-2 8 0s8 0 8 0M12 4v16',
+  'Stationery': 'M17 3l4 4L8 20H4v-4L17 3zM12 10l4 4M7 17l-3 3',
+  'Accessories': 'M12 2a8 8 0 100 16 8 8 0 000-16zM8 12h8M12 8v8',
 }
 const defaultIcon = 'M4 6h16v12H4V6zm2 2v8h12V8H6z'
 
 const categoryMeta = {
-  'Shirt': { icon: iconPaths['Shirt'] },
-  'School Supplies': { icon: iconPaths['School Supplies'] },
+  'Shirt': { image: '/icons/polo-shirt.svg' },
+  'School Supplies': { image: '/icons/school-supplies.svg' },
   'School Clothes': { icon: iconPaths['School Clothes'] },
-  'foot wear': { icon: iconPaths['foot wear'] },
+  'Foot Wear': { icon: iconPaths['Foot Wear'] },
   'Textbooks': { icon: iconPaths['Textbooks'] },
   'Stationery': { icon: iconPaths['Stationery'] },
   'Accessories': { icon: iconPaths['Accessories'] },
+  'Merchandise': { image: '/icons/merchandise.svg' },
 }
 const defaultMeta = { icon: defaultIcon }
 
@@ -127,9 +128,13 @@ export default function Home() {
                   className="group flex flex-col items-center p-6 rounded-2xl border border-gray-100 bg-white shadow-soft hover:shadow-card-hover transition-all duration-300 hover:-translate-y-1 hover:border-primary-100"
                 >
                   <div className="w-14 h-14 rounded-xl bg-primary-50 flex items-center justify-center mb-3 group-hover:bg-primary-100 group-hover:scale-110 transition-all duration-300 ring-1 ring-primary-100">
-                    <svg className="w-7 h-7 text-primary-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
-                      <path d={meta.icon} />
-                    </svg>
+                    {meta.image ? (
+                      <img src={meta.image} alt={catName} className="w-8 h-8 object-contain" />
+                    ) : (
+                      <svg className="w-7 h-7 text-primary-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+                        <path d={meta.icon} />
+                      </svg>
+                    )}
                   </div>
                   <span className="text-sm font-medium text-gray-700 group-hover:text-primary-600 transition-colors text-center">
                     {catName}
