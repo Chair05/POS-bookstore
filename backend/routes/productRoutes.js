@@ -86,6 +86,13 @@ router.post("/restock", (req, res) => {
     });
   }
 
+  if (!supplier || !String(supplier).trim()) {
+    return res.status(400).json({
+      success: false,
+      message: "Supplier is required",
+    });
+  }
+
   db.getConnection((err, connection) => {
     if (err) {
       console.error("Restock connection error:", err);

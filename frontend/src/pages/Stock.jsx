@@ -16,7 +16,7 @@ import {
   PencilIcon,
 } from "../components/Icons";
 
-const LOW_STOCK_THRESHOLD = 5;
+const LOW_STOCK_THRESHOLD = 30;
 
 export default function Stock() {
   const [stock, setStock] = useState([]);
@@ -611,16 +611,7 @@ export default function Stock() {
                   <td className="p-3">{stockBadge(item.stock)}</td>
 
                   <td className="p-3 relative">
-                    <div className="flex items-center justify-end gap-1">
-                      <button
-                        onClick={() => openEdit(item)}
-                        title="View / Edit product"
-                        className="h-8 px-2.5 flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white text-xs font-medium text-gray-600 hover:bg-blue-600 hover:text-white hover:border-blue-600 transition relative top-[-5px]"
-                      >
-                        <PencilIcon className="w-3.5 h-3.5" />
-                        Edit
-                      </button>
-
+                    <div className="flex items-center justify-end">
                       <button
                         onClick={(e) => {
                           e.stopPropagation();

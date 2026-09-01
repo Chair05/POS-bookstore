@@ -698,4 +698,92 @@ router.get("/dashboard-stats", (req, res) => {
   });
 });
 
+// ==================== STOCK TRENDS / ANALYSIS ====================
+
+router.get("/reports/stock-trends", async (req, res) => {
+  const days = parseInt(req.query.days) || 30;
+
+  try {
+    const [products] = await promisePool.query(
+      "SELECT id, name, stock, cost_price FROM products"
+    );
+
+    const [sales] = await promisePool.query(
+      `SELECT product_id, SUM(quantity) AS units FROM (
+         SELECT oi.product_id, oi.quantity
+         FROM order_items oi
+         JOIN online_orders o ON oi.order_id = o.id
+         WHERE o.order_status != 'rejected'
+           AND o.created_at >= DATE_SUB(NOW(), INTERVAL ? DAY)
+         UNION ALL
+         SELECT oi.product_id, oi.quantity
+         FROM ecom_order_items oi
+         JOIN ecom_orders o ON oi.order_id = o.id
+         WHERE REPLACE(LOWER(o.status), ' ', '_') NOT IN ('rejected','cancelled')
+           AND o.created_at >= DATE_SUB(NOW(), INTERVAL ? DAY)
+       ) t
+       GROUP BY product_id`,
+      [days, days]
+    );
+
+    const salesMap = {};
+    sales.forEach((s) => { salesMap[s.product_id] = Number(s.units) || 0; });
+
+    const LEAD_TIME_DAYS = 7;
+    const SAFETY_STOCK = 10;
+    const LOW_STOCK_THRESHOLD = 30;
+
+    const trends = products
+      .map((p) => {
+        const unitsSold = salesMap[p.id] || 0;
+        const dailyVelocity = unitsSold / days;
+        const daysUntilEmpty = dailyVelocity > 0 ? Math.floor(p.stock / dailyVelocity) : Infinity;
+        const reorderPoint = Math.ceil(dailyVelocity * LEAD_TIME_DAYS) + SAFETY_STOCK;
+        const stockBelowThreshold = p.stock <= LOW_STOCK_THRESHOLD;
+        const needsReorder = stockBelowThreshold || p.stock <= reorderPoint;
+        const stockValue = Number(p.cost_price || 0) * p.stock;
+
+        let status = "healthy";
+        if (p.stock <= 0) status = "out_of_stock";
+        else if (needsReorder || stockBelowThreshold) status = "low";
+        else if (dailyVelocity > 0 && daysUntilEmpty < 14) status = "watch";
+
+        return {
+          id: p.id,
+          name: p.name,
+          stock: p.stock,
+          cost_price: Number(p.cost_price || 0),
+          stock_value: stockValue,
+          units_sold: unitsSold,
+          daily_velocity: Number(dailyVelocity.toFixed(2)),
+          days_until_empty: isFinite(daysUntilEmpty) ? daysUntilEmpty : null,
+          reorder_point: reorderPoint,
+          needs_reorder: needsReorder,
+          status,
+        };
+      })
+      .sort((a, b) => b.daily_velocity - a.daily_velocity);
+
+    const summary = {
+      total_products: trends.length,
+      out_of_stock: trends.filter((t) => t.status === "out_of_stock").length,
+      low_stock: trends.filter((t) => t.status === "low").length,
+      needs_reorder: trends.filter((t) => t.needs_reorder).length,
+      healthy: trends.filter((t) => t.status === "healthy").length,
+      total_stock_value: trends.reduce((s, t) => s + t.stock_value, 0),
+    };
+
+    res.json({
+      success: true,
+      days,
+      summary,
+      trends: trends.slice(0, 20),
+      reorderList: trends.filter((t) => t.needs_reorder).slice(0, 20),
+    });
+  } catch (err) {
+    console.error("Stock trends error:", err);
+    res.status(500).json({ success: false, message: "Database error" });
+  }
+});
+
 module.exports = router;

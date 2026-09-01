@@ -255,3 +255,41 @@ export const LockIcon = (p) => (
     <path d="M7 11V7a5 5 0 0 1 10 0v4" />
   </Icon>
 );
+
+export const BanIcon = (p) => (
+  <Icon {...p}>
+    <circle cx="12" cy="12" r="10" />
+    <path d="m4.9 4.9 14.2 14.2" />
+  </Icon>
+);
+
+export const TrendingUpIcon = (p) => (
+  <Icon {...p}>
+    <path d="M22 7 13.5 15.5 8.5 10.5 2 17" />
+    <path d="M16 7h6v6" />
+  </Icon>
+);
+
+export const DollarIcon = (p) => (
+  <Icon {...p}>
+    <line x1="12" x2="12" y1="2" y2="22" />
+    <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+  </Icon>
+);
+
+export const PackageSearchIcon = (p) => (
+  <Icon {...p}>
+    <path d="M21 10V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l2-1.14" />
+    <path d="m3.3 7 8.7 5 8.7-5" />
+    <path d="M12 22V12" />
+    <circle cx="18.5" cy="15.5" r="2.5" />
+    <path d="M20.27 17.27 22 19" />
+  </Icon>
+);
+
+export const ClipboardIcon = (p) => (
+  <Icon {...p}>
+    <rect width="8" height="4" x="8" y="2" rx="1" ry="1" />
+    <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+  </Icon>
+);

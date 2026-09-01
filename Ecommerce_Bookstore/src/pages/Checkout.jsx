@@ -196,10 +196,10 @@ export default function Checkout() {
                     <input
                       type="text"
                       name="fullName"
-                      value={form.fullName}
-                      onChange={handleChange}
-                      className="input-field"
-                      required
+                      value={user?.fullName || form.fullName}
+                      readOnly
+                      disabled
+                      className="input-field bg-gray-100 text-gray-500 cursor-not-allowed"
                     />
                   </div>
                   <div>
@@ -207,10 +207,10 @@ export default function Checkout() {
                     <input
                       type="email"
                       name="email"
-                      value={form.email}
-                      onChange={handleChange}
-                      className="input-field"
-                      required
+                      value={user?.email || form.email}
+                      readOnly
+                      disabled
+                      className="input-field bg-gray-100 text-gray-500 cursor-not-allowed"
                     />
                   </div>
                   <div>
@@ -218,11 +218,11 @@ export default function Checkout() {
                     <input
                       type="tel"
                       name="contactNumber"
-                      value={form.contactNumber}
-                      onChange={handleChange}
-                      className="input-field"
+                      value={user?.contactNumber || form.contactNumber}
+                      readOnly
+                      disabled
+                      className="input-field bg-gray-100 text-gray-500 cursor-not-allowed"
                       placeholder="09XX-XXX-XXXX"
-                      required
                     />
                   </div>
                 </div>
@@ -307,10 +307,6 @@ export default function Checkout() {
                     <span className="text-gray-500">Subtotal</span>
                     <span className="font-medium">₱{checkoutTotal.toLocaleString()}</span>
                   </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-500">Shipping</span>
-                    <span className="font-medium text-green-600">Free (Pickup)</span>
-                  </div>
                 </div>
                 <div className="border-t border-gray-100 pt-4 mb-6">
                   <div className="flex justify-between">
@@ -355,8 +351,8 @@ export default function Checkout() {
       </div>
 
       {showGcash && !paidOrder && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
+        <div className="fixed inset-0 z-50 flex items-start justify-center p-4 overflow-y-auto bg-black/50" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md my-auto overflow-hidden" onClick={(e) => e.stopPropagation()}>
             <div className="bg-blue-600 px-6 py-5 flex items-center gap-4">
               <div className="w-12 h-12 bg-white rounded-lg p-1.5">
                 <img src={gcashLogo} alt="GCash" className="w-full h-full object-contain" />
@@ -365,6 +361,20 @@ export default function Checkout() {
                 <h2 className="text-white font-bold text-lg">GCash Secure Checkout</h2>
                 <p className="text-blue-100 text-xs">LCCB Bookstore</p>
               </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowGcash(false)
+                  removeGcashReceipt()
+                  setGcashError('')
+                }}
+                aria-label="Back to checkout"
+                className="ml-auto w-9 h-9 flex items-center justify-center rounded-lg bg-white/15 hover:bg-white/25 text-white transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
             </div>
 
             <form onSubmit={handleGcashPay} className="p-6 space-y-4">
@@ -486,6 +496,17 @@ export default function Checkout() {
               Your GCash payment receipt for ₱{paidOrder.amount.toLocaleString()} has been submitted.
               Our administrator will verify your payment before your order is prepared for pickup.
             </p>
+            <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 mb-4">
+              <div className="flex items-center justify-center gap-2 mb-1">
+                <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                <p className="text-sm font-bold text-blue-800">Pickup Location</p>
+              </div>
+              <p className="text-sm font-semibold text-blue-900">LCCB Bookstore</p>
+              <p className="text-xs text-blue-600 mt-0.5">Bring your pickup code when you claim your order</p>
+            </div>
             <div className="bg-primary-50 rounded-xl p-4 mb-6">
               <p className="text-sm text-primary-800 leading-relaxed">
                 You will receive a pickup code once your payment is verified. You can track your order status in the meantime.
