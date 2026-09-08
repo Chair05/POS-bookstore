@@ -36,17 +36,24 @@ try {
 
   if (process.env.SMTP_USER && process.env.SMTP_PASS && process.env.SMTP_HOST) {
     console.log(`Using SMTP: ${process.env.SMTP_HOST}`);
-    transporterPromise = Promise.resolve(
-      nodemailer.createTransport({
-        host: process.env.SMTP_HOST,
-        port: parseInt(process.env.SMTP_PORT) || 587,
-        secure: false,
-        auth: {
-          user: process.env.SMTP_USER,
-          pass: process.env.SMTP_PASS,
-        },
-      })
-    );
+    const transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port: parseInt(process.env.SMTP_PORT) || 587,
+      secure: false,
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
+      },
+    });
+    transporter.verify((err, ok) => {
+      if (err) {
+        console.error(`❌ SMTP connection failed (${process.env.SMTP_HOST}):`, err.message);
+        console.error('   Check SMTP_USER / SMTP_PASS. The OTP will be shown in the console instead.');
+      } else {
+        console.log('✅ SMTP connection verified — emails will be sent.');
+      }
+    });
+    transporterPromise = Promise.resolve(transporter);
   } else {
     console.log('No SMTP configured — using Ethereal test account');
     transporterPromise = nodemailer.createTestAccount().then((testAccount) => {
@@ -73,7 +80,7 @@ async function sendOtpEmail(email, otp, purpose) {
     console.log('\n==============================');
     console.log(`${purpose.toUpperCase()} OTP for ${email}: ${otp}`);
     console.log('==============================\n');
-    return;
+    return false;
   }
   try {
     const transporter = await transporterPromise;
@@ -93,12 +100,15 @@ async function sendOtpEmail(email, otp, purpose) {
         </div>
       `,
     });
-    console.log('OTP email preview:', nodemailer.getTestMessageUrl(info));
+    console.log('OTP email sent:', info.messageId, '→', email);
+    return true;
   } catch (err) {
     console.log('\n==============================');
-    console.log(`${purpose.toUpperCase()} OTP for ${email}: ${otp}`);
+    console.log(`⚠️ EMAIL SEND FAILED — use this ${purpose.toUpperCase()} OTP for ${email}: ${otp}`);
+    console.log('Check the SMTP error above.');
     console.log('==============================\n');
     console.error('Email send error:', err.message);
+    return false;
   }
 }
 
@@ -138,12 +148,13 @@ router.post('/register', async (req, res) => {
       [email, otp, 'register', expiresAt, 0]
     );
 
-    await sendOtpEmail(email, otp, 'register');
+    const sent = await sendOtpEmail(email, otp, 'register');
 
     res.status(201).json({
       requiresOtp: true,
       email: email,
-      message: 'OTP sent to your email',
+      message: sent ? 'OTP sent to your email' : 'Email delivery failed — OTP provided below',
+      otp: sent ? undefined : otp,
     });
   } catch (error) {
     console.error('Register error:', error);
@@ -192,12 +203,13 @@ router.post('/login', async (req, res) => {
       [email, otp, 'login', expiresAt, 0]
     );
 
-    await sendOtpEmail(email, otp, 'login');
+    const sent = await sendOtpEmail(email, otp, 'login');
 
     res.json({
       requiresOtp: true,
       email: email,
-      message: 'OTP sent to your email',
+      message: sent ? 'OTP sent to your email' : 'Email delivery failed — OTP provided below',
+      otp: sent ? undefined : otp,
     });
   } catch (error) {
     console.error('Login error:', error);
@@ -319,9 +331,12 @@ router.post('/resend-otp', async (req, res) => {
       [email, otp, purpose, expiresAt, 0]
     );
 
-    await sendOtpEmail(email, otp, purpose);
+    const sent = await sendOtpEmail(email, otp, purpose);
 
-    res.json({ message: 'New OTP sent to your email' });
+    res.json({
+      message: sent ? 'New OTP sent to your email' : 'Email delivery failed — OTP provided below',
+      otp: sent ? undefined : otp,
+    });
   } catch (error) {
     console.error('Resend OTP error:', error);
     res.status(500).json({ message: 'Failed to resend OTP' });

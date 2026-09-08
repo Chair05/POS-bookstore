@@ -9,15 +9,37 @@ let nodemailer = null;
 
 try {
   nodemailer = require('nodemailer');
-  transporterPromise = nodemailer.createTestAccount().then((testAccount) => {
-    console.log('Ethereal test account ready:', testAccount.user);
-    return nodemailer.createTransport({
-      host: 'smtp.ethereal.email',
-      port: 587,
+
+  if (process.env.SMTP_USER && process.env.SMTP_PASS && process.env.SMTP_HOST) {
+    const transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port: parseInt(process.env.SMTP_PORT) || 587,
       secure: false,
-      auth: { user: testAccount.user, pass: testAccount.pass },
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
+      },
     });
-  });
+    transporter.verify((err, ok) => {
+      if (err) {
+        console.error(`❌ SMTP connection failed (${process.env.SMTP_HOST}):`, err.message);
+        console.error('   Check SMTP_USER / SMTP_PASS. The OTP will be shown in the console instead.');
+      } else {
+        console.log('✅ SMTP connection verified — emails will be sent.');
+      }
+    });
+    transporterPromise = Promise.resolve(transporter);
+  } else {
+    transporterPromise = nodemailer.createTestAccount().then((testAccount) => {
+      console.log('Ethereal test account ready:', testAccount.user);
+      return nodemailer.createTransport({
+        host: 'smtp.ethereal.email',
+        port: 587,
+        secure: false,
+        auth: { user: testAccount.user, pass: testAccount.pass },
+      });
+    });
+  }
 } catch {
   console.log('nodemailer not installed — OTP will be logged to console only');
 }
@@ -31,12 +53,12 @@ async function sendOtpEmail(email, otp) {
     console.log(`\n==============================`);
     console.log(`OTP for ${email}: ${otp}`);
     console.log(`==============================\n`);
-    return;
+    return false;
   }
   try {
     const transporter = await transporterPromise;
     const info = await transporter.sendMail({
-      from: 'LCCB Bookstore <noreply@ethereal.email>',
+      from: `LCCB Bookstore <${process.env.SMTP_USER || 'noreply@ethereal.email'}>`,
       to: email,
       subject: 'LCCB Bookstore — Your OTP Code',
       html: `
@@ -50,12 +72,15 @@ async function sendOtpEmail(email, otp) {
         </div>
       `,
     });
-    console.log('OTP email preview:', nodemailer.getTestMessageUrl(info));
+    console.log('OTP email sent:', info.messageId, '→', email);
+    return true;
   } catch (err) {
     console.log(`\n==============================`);
-    console.log(`OTP for ${email}: ${otp}`);
+    console.log(`⚠️ EMAIL SEND FAILED — use this OTP for ${email}: ${otp}`);
+    console.log('Check the SMTP error above.');
     console.log(`==============================\n`);
     console.error('Email send error:', err.message);
+    return false;
   }
 }
 
@@ -79,7 +104,7 @@ router.post('/send', async (req, res) => {
       [email, otp, purpose, expiresAt]
     );
 
-    await sendOtpEmail(email, otp);
+    const sent = await sendOtpEmail(email, otp, purpose);
 
     const [rows] = await promisePool.query(
       'SELECT id FROM otp_codes WHERE email = ? AND purpose = ? AND used = 0 ORDER BY id DESC LIMIT 1',
@@ -87,8 +112,9 @@ router.post('/send', async (req, res) => {
     );
 
     res.json({
-      message: 'OTP sent to your email',
+      message: sent ? 'OTP sent to your email' : 'Email delivery failed — OTP provided below',
       otpId: rows.length > 0 ? rows[0].id : null,
+      otp: sent ? undefined : otp,
     });
   } catch (error) {
     console.error('Send OTP error:', error);

@@ -512,7 +512,7 @@ router.get("/notifications", (req, res) => {
     promisePool.query("SELECT COUNT(*) AS count FROM ecom_orders WHERE status = 'Pending Payment Verification'"),
     promisePool.query("SELECT COUNT(*) AS count FROM online_orders WHERE order_status = 'verified' AND payment_status = 'verified'"),
     promisePool.query("SELECT COUNT(*) AS count FROM ecom_orders WHERE status = 'Payment Verified'"),
-    promisePool.query("SELECT COUNT(*) AS count FROM products WHERE stock <= 30 AND stock > 0"),
+    promisePool.query("SELECT COUNT(*) AS count FROM products WHERE deleted = 0 AND stock <= 30 AND stock > 0"),
     promisePool.query("SELECT COUNT(*) AS count FROM online_orders WHERE order_status = 'ready_for_pickup'"),
     promisePool.query("SELECT COUNT(*) AS count FROM ecom_orders WHERE status = 'Ready for Pickup'"),
   ])
@@ -667,7 +667,7 @@ router.get("/dashboard-stats", (req, res) => {
     if (pending === 0) res.json({ success: true, stats });
   };
 
-  db.query("SELECT COUNT(*) AS count FROM products", (e, r) => {
+  db.query("SELECT COUNT(*) AS count FROM products WHERE deleted = 0", (e, r) => {
     stats.total_products = e ? 0 : r[0].count;
     pending--; done();
   });
@@ -675,7 +675,7 @@ router.get("/dashboard-stats", (req, res) => {
     stats.total_categories = e ? 0 : r[0].count;
     pending--; done();
   });
-  db.query("SELECT COUNT(*) AS count FROM products WHERE stock <= 30", (e, r) => {
+  db.query("SELECT COUNT(*) AS count FROM products WHERE deleted = 0 AND stock <= 30", (e, r) => {
     stats.low_stock = e ? 0 : r[0].count;
     pending--; done();
   });
@@ -705,7 +705,7 @@ router.get("/reports/stock-trends", async (req, res) => {
 
   try {
     const [products] = await promisePool.query(
-      "SELECT id, name, stock, cost_price FROM products"
+      "SELECT id, name, stock, cost_price FROM products WHERE deleted = 0"
     );
 
     const [sales] = await promisePool.query(

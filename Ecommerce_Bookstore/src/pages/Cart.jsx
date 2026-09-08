@@ -10,6 +10,29 @@ const resolveImageSrc = (image) => {
   return image
 }
 
+const sizeRank = (size) => {
+  const s = String(size || '').trim().toUpperCase()
+  const letterMap = {
+    XS: 1,
+    S: 2,
+    SMALL: 2,
+    M: 3,
+    MEDIUM: 3,
+    L: 4,
+    LARGE: 4,
+    XL: 5,
+    XXL: 6,
+    '2XL': 6,
+    XXXL: 7,
+    '3XL': 7,
+    '4XL': 8,
+  }
+  if (letterMap[s]) return 10000 + letterMap[s]
+  const num = s.match(/(\d+(?:\.\d+)?)/)
+  if (num) return Number(num[1])
+  return 20000
+}
+
 export default function Cart() {
   const {
     cart,
@@ -148,6 +171,7 @@ export default function Cart() {
                             >
                               {item.variants
                                 .filter((v) => v.size)
+                                .sort((a, b) => sizeRank(a.size) - sizeRank(b.size))
                                 .map((variant) => (
                                   <option key={variant._id} value={variant._id}>
                                     {variant.size}

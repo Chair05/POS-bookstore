@@ -4,7 +4,6 @@ import Layout from "./Layout";
 import {
   ShoppingBagIcon, WalletIcon, PackageIcon, TagsIcon,
   AlertTriangleIcon, UsersIcon, ReceiptIcon, ClockIcon,
-  BanIcon, TrendingUpIcon, DollarIcon, PackageSearchIcon,
 } from "../components/Icons";
 import {
   BarChart, Bar, PieChart, Pie, Cell,
@@ -20,7 +19,6 @@ export default function AdminDashboard() {
   const [bestSellers, setBestSellers] = useState([]);
   const [orderSummary, setOrderSummary] = useState(null);
   const [recentOrders, setRecentOrders] = useState([]);
-  const [stockTrends, setStockTrends] = useState(null);
   const navigate = useNavigate();
 
   const user = (() => {
@@ -38,16 +36,7 @@ export default function AdminDashboard() {
     fetchBestSellers();
     fetchOrderSummary();
     fetchRecentOrders();
-    fetchStockTrends();
   }, []);
-
-  const fetchStockTrends = async () => {
-    try {
-      const res = await fetch("http://localhost:5000/api/orders/reports/stock-trends?days=30");
-      const data = await res.json();
-      if (data.success) setStockTrends(data);
-    } catch (err) { console.error(err); }
-  };
 
   const fetchStats = async () => {
     try {
@@ -115,16 +104,6 @@ export default function AdminDashboard() {
       completed: { label: "Completed", color: "bg-gray-100 text-gray-700" },
       rejected: { label: "Rejected", color: "bg-red-100 text-red-800" },
       cancelled: { label: "Cancelled", color: "bg-gray-100 text-gray-400" },
-    };
-    return map[status] || { label: status, color: "bg-gray-100 text-gray-600" };
-  };
-
-  const getStockStatusConfig = (status) => {
-    const map = {
-      out_of_stock: { label: "Out of Stock", color: "bg-red-100 text-red-700" },
-      low: { label: "Low Stock", color: "bg-amber-100 text-amber-700" },
-      watch: { label: "Watch", color: "bg-orange-100 text-orange-700" },
-      healthy: { label: "Healthy", color: "bg-green-100 text-green-700" },
     };
     return map[status] || { label: status, color: "bg-gray-100 text-gray-600" };
   };
@@ -312,176 +291,6 @@ export default function AdminDashboard() {
               Open POS
             </Link>
           </div>
-        </div>
-
-        {/* STOCK TRENDS & ANALYSIS */}
-        <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-          <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-5 border-b border-gray-100">
-            <div>
-              <h3 className="text-base font-bold text-gray-800">Stock Trends & Analysis</h3>
-              <p className="text-xs text-gray-400 mt-0.5">Sales velocity, reorder recommendations & inventory value over the last 30 days</p>
-            </div>
-            <button
-              onClick={fetchStockTrends}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition"
-            >
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-              Refresh
-            </button>
-          </div>
-
-          {!stockTrends ? (
-            <div className="flex items-center justify-center py-16">
-              <div className="flex items-center gap-3 text-sm text-gray-400">
-                <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-                Loading stock analysis...
-              </div>
-            </div>
-          ) : (
-            <div className="p-6 space-y-6">
-              {/* Summary tiles */}
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-                {[
-                  { label: "Products Tracked", value: stockTrends.summary?.total_products ?? 0, icon: PackageIcon, tile: "from-blue-500 to-indigo-600" },
-                  { label: "Out of Stock", value: stockTrends.summary?.out_of_stock ?? 0, icon: BanIcon, tile: "from-red-500 to-rose-600" },
-                  { label: "Low Stock", value: stockTrends.summary?.low_stock ?? 0, icon: AlertTriangleIcon, tile: "from-amber-500 to-orange-600" },
-                  { label: "Needs Reorder", value: stockTrends.summary?.needs_reorder ?? 0, icon: PackageSearchIcon, tile: "from-fuchsia-500 to-purple-600" },
-                  { label: "Inventory Value", value: `₱${Number(stockTrends.summary?.total_stock_value ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, icon: DollarIcon, tile: "from-emerald-500 to-teal-600" },
-                ].map((s, i) => {
-                  const IconCmp = s.icon;
-                  return (
-                    <div key={i} className={`rounded-xl bg-gradient-to-br ${s.tile} text-white p-4 shadow-sm`}>
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="w-9 h-9 rounded-lg bg-white/15 flex items-center justify-center">
-                          <IconCmp className="w-5 h-5" />
-                        </div>
-                        <span className="text-[9px] font-medium uppercase tracking-wider text-white/70">Inventory</span>
-                      </div>
-                      <p className="text-xl font-bold leading-tight">{s.value}</p>
-                      <p className="text-xs text-white/80 mt-1">{s.label}</p>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Fast movers */}
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <h4 className="text-sm font-semibold text-gray-700">Fast Movers</h4>
-                  <span className="text-xs text-gray-400">Top selling items by velocity</span>
-                </div>
-                <div className="rounded-xl border border-gray-100 overflow-hidden">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="text-left text-xs text-gray-400 bg-gray-50 border-b border-gray-100 uppercase tracking-wider">
-                        <th className="px-4 py-3 font-medium">Product</th>
-                        <th className="px-4 py-3 font-medium text-right">Units Sold</th>
-                        <th className="px-4 py-3 font-medium text-right">Daily Velocity</th>
-                        <th className="px-4 py-3 font-medium text-right">Stock Left</th>
-                        <th className="px-4 py-3 font-medium text-right">Runway</th>
-                        <th className="px-4 py-3 font-medium text-right">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {stockTrends.trends?.filter((t) => t.units_sold > 0).slice(0, 5).map((t, idx) => {
-                        const sc = getStockStatusConfig(t.status);
-                        return (
-                          <tr key={t.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/60 transition">
-                            <td className="px-4 py-3">
-                              <div className="flex items-center gap-3">
-                                <span className="w-6 h-6 flex items-center justify-center rounded-md bg-blue-50 text-blue-600 text-xs font-bold">
-                                  {idx + 1}
-                                </span>
-                                <span className="font-medium text-gray-800">{t.name}</span>
-                              </div>
-                            </td>
-                            <td className="px-4 py-3 text-right font-semibold text-gray-700">{t.units_sold}</td>
-                            <td className="px-4 py-3 text-right">
-                              <span className="inline-flex items-center justify-end gap-1 text-gray-600">
-                                <span className="text-emerald-500 text-xs">▲</span>
-                                {t.daily_velocity}/day
-                              </span>
-                            </td>
-                            <td className="px-4 py-3 text-right">
-                              <div className="flex items-center justify-end gap-2">
-                                <span className="font-semibold text-gray-700">{t.stock}</span>
-                                <div className="w-16 bg-gray-100 rounded-full h-1.5 overflow-hidden">
-                                  <div
-                                    className={`h-full rounded-full ${t.status === "low" || t.status === "out_of_stock" ? "bg-red-500" : t.status === "watch" ? "bg-amber-500" : "bg-emerald-500"}`}
-                                    style={{ width: `${Math.min(100, (t.stock / (t.reorder_point || 1)) * 100)}%` }}
-                                  />
-                                </div>
-                              </div>
-                            </td>
-                            <td className="px-4 py-3 text-right text-gray-500">
-                              {t.days_until_empty === null ? "—" : `${t.days_until_empty}d`}
-                            </td>
-                            <td className="px-4 py-3 text-right">
-                              <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${sc.color}`}>
-                                {sc.label}
-                              </span>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              {/* Reorder list */}
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <h4 className="text-sm font-semibold text-gray-700">Reorder Recommendations</h4>
-                  <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${stockTrends.reorderList?.length > 0 ? "bg-red-50 text-red-600" : "bg-emerald-50 text-emerald-600"}`}>
-                    {stockTrends.reorderList?.length || 0} items need restocking
-                  </span>
-                </div>
-                {stockTrends.reorderList?.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-80 overflow-y-auto pr-1">
-                    {stockTrends.reorderList.map((t) => {
-                      const sc = getStockStatusConfig(t.status);
-                      const urgency = t.status === "out_of_stock" ? 100 : t.daily_velocity > 0 ? Math.min(100, Math.round((t.stock / (t.reorder_point || 1)) * 100)) : 100;
-                      return (
-                        <div key={t.id} className="rounded-xl border border-gray-100 p-4 hover:shadow-sm transition">
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0">
-                              <p className="text-sm font-semibold text-gray-800 truncate">{t.name}</p>
-                              <p className="text-xs text-gray-400 mt-0.5">Reorder point: {t.reorder_point} units</p>
-                            </div>
-                            <span className={`shrink-0 inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${sc.color}`}>
-                              {sc.label}
-                            </span>
-                          </div>
-                          <div className="mt-3 flex items-center justify-between text-xs">
-                            <div>
-                              <span className="text-gray-400">Stock left: </span>
-                              <span className={`font-bold ${t.stock <= 0 ? "text-red-600" : "text-gray-800"}`}>{t.stock}</span>
-                            </div>
-                            <div className="text-gray-500">
-                              {t.daily_velocity > 0 ? `Sells ${t.daily_velocity}/day` : "No recent sales"}
-                            </div>
-                          </div>
-                          <div className="mt-2 w-full bg-gray-100 rounded-full h-2 overflow-hidden">
-                            <div
-                              className={`h-full rounded-full ${t.stock <= 0 ? "bg-red-500" : t.status === "low" ? "bg-amber-500" : "bg-orange-400"}`}
-                              style={{ width: `${Math.max(4, Math.min(100, 100 - urgency))}%` }}
-                            />
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="rounded-xl border border-emerald-100 bg-emerald-50/50 p-6 text-center text-sm text-emerald-600 font-medium">
-                    ✓ All products are above their reorder points. No restock needed right now.
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </Layout>

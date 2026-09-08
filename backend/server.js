@@ -172,6 +172,7 @@ ensureColumn("products", "department", "department VARCHAR(100) DEFAULT ''");
 ensureColumn("products", "barcode", "barcode VARCHAR(100) NULL");
 ensureColumn("products", "size", "size VARCHAR(50) NULL");
 ensureColumn("products", "cost_price", "cost_price DECIMAL(10,2) DEFAULT 0");
+ensureColumn("products", "deleted", "deleted TINYINT(1) DEFAULT 0");
 
 // Ensure customers table has all columns needed by both POS and e-commerce
 ensureColumn("customers", "name", "name VARCHAR(255) NOT NULL");

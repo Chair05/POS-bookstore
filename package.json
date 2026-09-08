@@ -1,6 +1,5 @@
 {
   "dependencies": {
-    "multer": "^2.0.2",
-    "nodemailer": "^9.0.5"
+    "multer": "^2.0.2"
   }
 }

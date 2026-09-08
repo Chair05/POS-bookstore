@@ -12,6 +12,34 @@ const resolveImageSrc = (image) => {
   return image
 }
 
+const sizeRank = (size) => {
+  const s = String(size || '').trim().toUpperCase()
+  const letterMap = {
+    XS: 1,
+    'X-SMALL': 1,
+    S: 2,
+    SMALL: 2,
+    M: 3,
+    MEDIUM: 3,
+    L: 4,
+    LARGE: 4,
+    XL: 5,
+    'EXTRA LARGE': 5,
+    XXL: 6,
+    '2XL': 6,
+    XXXL: 7,
+    '3XL': 7,
+    '4XL': 8,
+  }
+  if (letterMap[s]) return 10000 + letterMap[s]
+  const num = s.match(/(\d+(?:\.\d+)?)/)
+  if (num) return Number(num[1])
+  return 20000
+}
+
+const sortSizes = (variants) =>
+  [...variants].sort((a, b) => sizeRank(a.size) - sizeRank(b.size))
+
 export default function ProductDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -29,7 +57,7 @@ export default function ProductDetail() {
         const p = response.data.product || response.data
         setProduct(p)
         if (p.variants && p.variants.length > 0) {
-          setSelectedVariant(p.variants[0])
+          setSelectedVariant(sortSizes(p.variants)[0])
         } else {
           setSelectedVariant({
             _id: p._id,
@@ -151,7 +179,7 @@ export default function ProductDetail() {
                   }}
                   className="px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm font-medium text-gray-900 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 transition-colors cursor-pointer"
                 >
-                  {product.variants.map((variant) => (
+                  {sortSizes(product.variants).map((variant) => (
                     <option
                       key={variant.id}
                       value={variant.id}

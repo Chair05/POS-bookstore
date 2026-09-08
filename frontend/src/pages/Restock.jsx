@@ -23,15 +23,7 @@ export default function Restock() {
     const saved = localStorage.getItem('recentRestocks');
     if (saved) {
       try {
-        const parsed = JSON.parse(saved);
-        // Migrate: drop old entries that only stored a time (no date information)
-        const migrated = parsed.map((log) => {
-          if (log.time && !/\d{4}|[A-Z][a-z]{2}\s\d{1,2}/.test(log.time)) {
-            return { ...log, time: "—" };
-          }
-          return log;
-        });
-        setRecentRestocks(migrated);
+        setRecentRestocks(JSON.parse(saved));
       } catch (e) {
         console.error('Failed to load recent restocks', e);
       }
@@ -72,7 +64,6 @@ export default function Restock() {
     if (!receiptWindow) return alert("Please allow pop-ups for receipt printing.");
 
     const today = new Date().toLocaleString();
-    const orNumber = String(Date.now()).slice(-6) + "-" + String(Math.floor(Math.random() * 90) + 10);
     const escapeHtml = (value) =>
       String(value ?? "")
         .replace(/&/g, "&amp;")
@@ -152,10 +143,7 @@ export default function Restock() {
         <body>
           <div class="receipt">
             <h2 class="title">Restock Receipt</h2>
-            <p class="subtitle">Official Receipt</p>
-            <div class="divider"></div>
-            <div class="row" style="font-size: 15px; margin: 10px 0;"><span class="label" style="font-weight:600; color:#111827;">OR Number</span><span class="value" style="color:#1d4ed8;">${escapeHtml(orNumber)}</span></div>
-            <div class="divider"></div>
+            <p class="subtitle">Stock update record</p>
             <div class="row"><span class="label">Product</span><span class="value">${escapeHtml(product.name)}</span></div>
             <div class="row"><span class="label">Barcode</span><span class="value">${escapeHtml(product.barcode)}</span></div>
             <div class="row"><span class="label">Qty Added</span><span class="value">${escapeHtml(quantity)}</span></div>
@@ -179,8 +167,6 @@ export default function Restock() {
     if (!product) return alert("Scan a product first");
     if (!quantity || Number(quantity) <= 0)
       return alert("Enter valid quantity");
-    if (!supplier)
-      return alert("Supplier is required");
 
     try {
 const res = await fetch("http://localhost:5000/api/products/restock", {
@@ -211,10 +197,7 @@ const res = await fetch("http://localhost:5000/api/products/restock", {
         quantity: Number(quantity),
         costPrice: costPrice ? Number(costPrice) : null,
         staff: "Admin",
-        time: new Date().toLocaleString([], {
-          month: "short",
-          day: "numeric",
-          year: "numeric",
+        time: new Date().toLocaleTimeString([], {
           hour: "2-digit",
           minute: "2-digit",
         }),
@@ -329,7 +312,7 @@ const res = await fetch("http://localhost:5000/api/products/restock", {
                 />
 
                 <input
-                  placeholder="Supplier"
+                  placeholder="Supplier (optional)"
                   className="border px-4 py-3 rounded-xl focus:ring-2 focus:ring-blue-500"
                   value={supplier}
                   onChange={(e) => setSupplier(e.target.value)}
@@ -370,43 +353,34 @@ const res = await fetch("http://localhost:5000/api/products/restock", {
 
           {/* RIGHT */}
           <div className="bg-white rounded-2xl shadow-md border border-gray-200 p-5">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold">Recent Restocks</h2>
-              {recentRestocks.length > 0 && (
-                <span className="text-xs text-gray-400">{recentRestocks.length} entries</span>
-              )}
-            </div>
+            <h2 className="text-lg font-semibold mb-4">Recent Restocks</h2>
 
-            {recentRestocks.length === 0 ? (
-              <div className="text-center py-8 text-gray-400">
-                <svg className="w-10 h-10 mx-auto mb-2 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-                </svg>
-                <p className="text-sm">No recent restocks</p>
-              </div>
-            ) : (
-              <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
-                {recentRestocks.map((log) => (
+            <div className="space-y-3">
+              {recentRestocks.length === 0 ? (
+                <p className="text-gray-400 text-sm">No recent restocks</p>
+              ) : (
+                recentRestocks.map((log) => (
                   <div
                     key={log.id}
-                    className="border border-gray-200 rounded-xl p-3.5 hover:shadow-sm hover:border-blue-200 transition"
+                    className="border rounded-xl p-3 flex justify-between items-center"
                   >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="font-semibold text-gray-900 truncate">{log.productName}</p>
-                        <p className="text-sm text-gray-500 mt-0.5">
-                          Added <span className="font-medium text-green-600">+{log.quantity}</span> units
-                          {log.costPrice != null && (
-                            <span className="ml-2 text-gray-500">• ₱{log.costPrice.toFixed(2)}</span>
-                          )}
-                        </p>
-                      </div>
-                      <span className="text-xs text-gray-400 whitespace-nowrap pt-0.5">{log.time}</span>
+                    <div>
+                      <p className="font-medium">{log.productName}</p>
+                      <p className="text-sm text-gray-500">
+                        +{log.quantity} • {log.staff}
+                        {log.costPrice != null && (
+                          <span className="ml-2 text-sm text-gray-500">
+                            • ${log.costPrice.toFixed(2)}
+                          </span>
+                        )}
+                      </p>
                     </div>
+
+                    <span className="text-sm text-gray-400">{log.time}</span>
                   </div>
-                ))}
-              </div>
-            )}
+                ))
+              )}
+            </div>
           </div>
         </div>
       </div>

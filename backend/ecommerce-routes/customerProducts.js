@@ -26,7 +26,7 @@ router.get('/', async (req, res) => {
   try {
     const { search, category, size, sort, limit = 50, page = 1 } = req.query;
 
-    let query = 'SELECT * FROM products WHERE stock > 0';
+    let query = 'SELECT * FROM products WHERE stock > 0 AND deleted = 0';
     const params = [];
 
     if (search) {
@@ -126,7 +126,7 @@ router.get('/categories/list', async (req, res) => {
       }));
     } else {
       const [rows] = await promisePool.query(
-        "SELECT DISTINCT category FROM products WHERE category IS NOT NULL AND category != '' ORDER BY category ASC"
+        "SELECT DISTINCT category FROM products WHERE deleted = 0 AND category IS NOT NULL AND category != '' ORDER BY category ASC"
       );
       categories = rows.map((r, i) => ({ id: i + 1, name: r.category }));
     }
@@ -140,7 +140,7 @@ router.get('/categories/list', async (req, res) => {
 
 router.get('/sizes/list', async (req, res) => {
   try {
-    const [rows] = await promisePool.query('SELECT size, sizes FROM products');
+    const [rows] = await promisePool.query('SELECT size, sizes FROM products WHERE deleted = 0');
     const set = new Set();
     rows.forEach((r) => {
       if (r.size) {
@@ -167,7 +167,7 @@ router.get('/sizes/list', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const [rows] = await promisePool.query('SELECT * FROM products WHERE id = ?', [id]);
+    const [rows] = await promisePool.query('SELECT * FROM products WHERE id = ? AND deleted = 0', [id]);
 
     if (rows.length === 0) {
       return res.status(404).json({ message: 'Product not found' });
@@ -175,7 +175,7 @@ router.get('/:id', async (req, res) => {
 
     const product = rows[0];
     const [variantRows] = await promisePool.query(
-      'SELECT * FROM products WHERE name = ?',
+      'SELECT * FROM products WHERE name = ? AND deleted = 0',
       [product.name]
     );
 

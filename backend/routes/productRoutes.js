@@ -19,7 +19,7 @@ const upload = multer({ storage });
 // GET all products
 // -------------------------
 router.get("/", (req, res) => {
-  const sql = "SELECT * FROM products ORDER BY id DESC";
+  const sql = "SELECT * FROM products WHERE deleted = 0 ORDER BY name ASC";
 
   console.log("📤 GET /api/products - Fetching all products...");
 
@@ -427,7 +427,7 @@ router.put("/:id/remove-image", (req, res) => {
 });
 
 // -------------------------
-// DELETE product
+// DELETE product (soft delete - keeps history)
 // -------------------------
 router.delete("/:id", (req, res) => {
   const { id } = req.params;
@@ -445,9 +445,9 @@ router.delete("/:id", (req, res) => {
       ? path.join(__dirname, "..", results[0].image)
       : null;
 
-    db.query("DELETE FROM products WHERE id = ?", [id], (err) => {
-      if (err)
-        return res.status(500).json({ success: false, message: err.message });
+    db.query("UPDATE products SET deleted = 1 WHERE id = ?", [id], (updErr) => {
+      if (updErr)
+        return res.status(500).json({ success: false, message: updErr.message });
 
       if (imagePath) fs.unlink(imagePath, () => {});
 

@@ -470,7 +470,7 @@ export default function Orders() {
               <button onClick={() => setShowReceipt(null)} className="text-gray-400 hover:text-gray-600 text-2xl">×</button>
             </div>
             <p className="text-sm text-gray-500 mb-3">Order: {showReceipt.order_number}</p>
-            <img src={`http://localhost:5000${showReceipt.receipt_image}`} alt="Payment Receipt" className="w-full max-h-[70vh] object-contain rounded-lg border" />
+            <img src={`http://localhost:5000${showReceipt.receipt_image}`} alt="Payment Receipt" className="w-full rounded-lg border" />
           </div>
         </div>
       )}
