@@ -16,30 +16,7 @@ import {
   PencilIcon,
 } from "../components/Icons";
 
-const LOW_STOCK_THRESHOLD = 30;
-
-const sizeRank = (size) => {
-  const s = String(size || "").trim().toUpperCase();
-  const letterMap = {
-    XS: 1,
-    S: 2,
-    SMALL: 2,
-    M: 3,
-    MEDIUM: 3,
-    L: 4,
-    LARGE: 4,
-    XL: 5,
-    XXL: 6,
-    "2XL": 6,
-    XXXL: 7,
-    "3XL": 7,
-    "4XL": 8,
-  };
-  if (letterMap[s]) return 10000 + letterMap[s];
-  const num = s.match(/(\d+(?:\.\d+)?)/);
-  if (num) return Number(num[1]);
-  return 20000;
-};
+const LOW_STOCK_THRESHOLD = 5;
 
 export default function Stock() {
   const [stock, setStock] = useState([]);
@@ -81,8 +58,6 @@ export default function Stock() {
   });
 
   const [openActionMenuId, setOpenActionMenuId] = useState(null);
-  const [deleteTarget, setDeleteTarget] = useState(null);
-  const [deleting, setDeleting] = useState(false);
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
   const [departmentFilter, setDepartmentFilter] = useState("all");
@@ -244,19 +219,14 @@ export default function Stock() {
   };
 
   const deleteProduct = async (id) => {
-    setDeleting(true);
-    try {
-      await fetch(`http://localhost:5000/api/products/${id}`, {
-        method: "DELETE",
-      });
-      setDeleteTarget(null);
-      setOpenActionMenuId(null);
-      loadStock();
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setDeleting(false);
-    }
+    if (!window.confirm("Delete this product?")) return;
+
+    await fetch(`http://localhost:5000/api/products/${id}`, {
+      method: "DELETE",
+    });
+
+    setOpenActionMenuId(null);
+    loadStock();
   };
 
   const openEdit = (product) => {
@@ -358,33 +328,22 @@ export default function Stock() {
               return size && !["n/a", "na", "none", "null", "undefined", "-"].includes(normalized);
             })
         )
-      ).sort((a, b) => sizeRank(a) - sizeRank(b)),
+      ).sort(),
     [stock]
   );
 
-  const filteredStock = stock
-    .filter((item) => {
-      const query = search.toLowerCase();
-      const itemSize = normalizeSizeValue(item.size);
+  const filteredStock = stock.filter((item) => {
+    const query = search.toLowerCase();
+    const itemSize = normalizeSizeValue(item.size);
 
-      if (departmentFilter !== "all" && item.department !== departmentFilter) return false;
-      if (sizeFilter !== "all" && itemSize.toLowerCase() !== String(sizeFilter).toLowerCase()) return false;
-      if (categoryFilter && item.category !== categoryFilter) {
-        return false;
-      }
+    if (departmentFilter !== "all" && item.department !== departmentFilter) return false;
+    if (sizeFilter !== "all" && itemSize.toLowerCase() !== String(sizeFilter).toLowerCase()) return false;
+    if (categoryFilter && item.category !== categoryFilter) {
+      return false;
+    }
 
-      return item.name?.toLowerCase().includes(query);
-    })
-    .sort(
-      (a, b) => {
-        const normalizeName = (name) =>
-          String(name || "").toLowerCase().replace(/[\s_-]+/g, " ").trim();
-        return (
-          normalizeName(a.name).localeCompare(normalizeName(b.name)) ||
-          sizeRank(a.size) - sizeRank(b.size)
-        );
-      }
-    );
+    return item.name?.toLowerCase().includes(query);
+  });
 
   const stats = useMemo(() => {
     const total = stock.length;
@@ -524,7 +483,7 @@ export default function Stock() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <div ref={categoryDropdownRef} className="relative">
+            <div ref={categoryDropdownRef} className="relative top-[-8px]">
               <button
                 type="button"
                 onClick={() => setCategoryDropdownOpen((prev) => !prev)}
@@ -595,7 +554,7 @@ export default function Stock() {
 
           <button
             onClick={() => setShowAddModal(true)}
-            className="h-11 px-5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition flex items-center justify-center gap-2 whitespace-nowrap shadow-sm text-sm font-medium"
+            className="h-11 px-5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition flex items-center justify-center gap-2 whitespace-nowrap shadow-sm text-sm font-medium relative top-[-8px]"
           >
             <PlusIcon className="w-4 h-4" />
             Add Product
@@ -603,14 +562,14 @@ export default function Stock() {
         </div>
 
         {/* TABLE */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
           <table className="min-w-full">
             <thead>
-              <tr className="bg-gray-50 border-b border-gray-200 rounded-t-2xl">
+              <tr className="bg-gray-50 border-b border-gray-200">
                 <th className="p-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Image</th>
                 <th className="p-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Product</th>
                 <th className="p-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Category</th>
-                <th className="p-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Size</th>
+                <th className="p-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Department</th>
                 <th className="p-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Barcode</th>
                 <th className="p-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Price</th>
                 <th className="p-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Stock</th>
@@ -619,7 +578,7 @@ export default function Stock() {
             </thead>
 
             <tbody>
-              {filteredStock.map((item, idx) => (
+              {filteredStock.map((item) => (
                 <tr key={item.id} className="border-t border-gray-100 hover:bg-gray-50 transition-colors">
                   <td className="p-3">
                     {item.image ? (
@@ -637,21 +596,31 @@ export default function Stock() {
 
                   <td className="p-3">
                     <div className="font-medium text-gray-900">{item.name}</div>
+                    {item.size ? (
+                      <div className="text-xs text-gray-500 mt-0.5">Size: {item.size}</div>
+                    ) : null}
                   </td>
                   <td className="p-3">
                     <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
                       {item.category || "-"}
                     </span>
                   </td>
-                  <td className="p-3 text-sm text-gray-500">
-                    {item.size && !["n/a", "na", "none", "null", "undefined", "-", "—"].includes(item.size.toLowerCase()) ? item.size : ""}
-                  </td>
+                  <td className="p-3 text-sm text-gray-500">{item.department || "-"}</td>
                   <td className="p-3 text-sm font-mono text-gray-500">{item.barcode}</td>
                   <td className="p-3 font-semibold text-blue-600">₱{item.price}</td>
                   <td className="p-3">{stockBadge(item.stock)}</td>
 
                   <td className="p-3 relative">
                     <div className="flex items-center justify-end gap-1">
+                      <button
+                        onClick={() => openEdit(item)}
+                        title="View / Edit product"
+                        className="h-8 px-2.5 flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white text-xs font-medium text-gray-600 hover:bg-blue-600 hover:text-white hover:border-blue-600 transition relative top-[-5px]"
+                      >
+                        <PencilIcon className="w-3.5 h-3.5" />
+                        Edit
+                      </button>
+
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
@@ -667,7 +636,7 @@ export default function Stock() {
                     </div>
 
                     {openActionMenuId === item.id && (
-                      <div className="action-menu absolute right-full mr-1 top-3 bg-white shadow-xl rounded-xl overflow-hidden w-52 border border-gray-100 z-50 py-1">
+                      <div className="action-menu absolute right-0 mt-1 bg-white shadow-xl rounded-xl overflow-hidden w-52 border border-gray-100 z-50 py-1">
                         <div
                           onClick={() => openEdit(item)}
                           className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer"
@@ -676,11 +645,57 @@ export default function Stock() {
                           View / Edit
                         </div>
 
+                        <label className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer">
+                          <ImageIcon className="w-4 h-4 text-gray-400" />
+                          Upload Image
+                          <input
+                            type="file"
+                            className="hidden"
+                            onChange={async (e) => {
+                              const file = e.target.files[0];
+                              if (!file) return;
+
+                              const fd = new FormData();
+                              fd.append("image", file);
+
+                              await fetch(
+                                `http://localhost:5000/api/products/${item.id}/update-image`,
+                                {
+                                  method: "PUT",
+                                  body: fd,
+                                }
+                              );
+
+                              setOpenActionMenuId(null);
+                              loadStock();
+                            }}
+                          />
+                        </label>
+
+                        {item.image && (
+                          <div
+                            onClick={async () => {
+                              if (!window.confirm("Remove image for this product?")) return;
+
+                              await fetch(
+                                `http://localhost:5000/api/products/${item.id}/remove-image`,
+                                {
+                                  method: "PUT",
+                                }
+                              );
+
+                              setOpenActionMenuId(null);
+                              loadStock();
+                            }}
+                            className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer"
+                          >
+                            <TrashIcon className="w-4 h-4 text-gray-400" />
+                            Remove Image
+                          </div>
+                        )}
+
                         <div
-                          onClick={() => {
-                            setOpenActionMenuId(null);
-                            setDeleteTarget(item);
-                          }}
+                          onClick={() => deleteProduct(item.id)}
                           className="flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 cursor-pointer border-t border-gray-100 mt-1"
                         >
                           <TrashIcon className="w-4 h-4" />
@@ -702,41 +717,6 @@ export default function Stock() {
           )}
         </div>
       </div>
-
-      {/* DELETE CONFIRMATION MODAL */}
-      {deleteTarget && (
-        <div className="fixed inset-0 bg-black/40 flex justify-center items-center z-50 px-4">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl">
-            <div className="flex flex-col items-center text-center">
-              <div className="h-14 w-14 rounded-full bg-red-50 text-red-600 flex items-center justify-center mb-4">
-                <TrashIcon className="w-6 h-6" />
-              </div>
-              <h2 className="text-lg font-semibold text-gray-900">Delete Product</h2>
-              <p className="text-sm text-gray-500 mt-1.5">
-                Are you sure you want to delete{" "}
-                <span className="font-medium text-gray-700">{deleteTarget.name}</span>? This
-                action cannot be undone.
-              </p>
-            </div>
-            <div className="flex gap-3 mt-6">
-              <button
-                onClick={() => setDeleteTarget(null)}
-                disabled={deleting}
-                className="flex-1 h-11 px-4 rounded-xl border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 transition disabled:opacity-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => deleteProduct(deleteTarget.id)}
-                disabled={deleting}
-                className="flex-1 h-11 px-4 rounded-xl bg-red-600 text-white text-sm font-medium hover:bg-red-700 transition disabled:opacity-50"
-              >
-                {deleting ? "Deleting..." : "Delete"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* ADD PRODUCT MODAL */}
       {showAddModal && (

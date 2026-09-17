@@ -445,9 +445,18 @@ router.delete("/:id", (req, res) => {
       ? path.join(__dirname, "..", results[0].image)
       : null;
 
-    db.query("UPDATE products SET deleted = 1 WHERE id = ?", [id], (updErr) => {
-      if (updErr)
-        return res.status(500).json({ success: false, message: updErr.message });
+    db.query("DELETE FROM products WHERE id = ?", [id], (delErr) => {
+      if (delErr) {
+        db.query("UPDATE products SET deleted = 1 WHERE id = ?", [id], (updErr) => {
+          if (updErr)
+            return res.status(500).json({ success: false, message: updErr.message });
+
+          if (imagePath) fs.unlink(imagePath, () => {});
+
+          res.json({ success: true, message: "Product deleted successfully (soft delete)" });
+        });
+        return;
+      }
 
       if (imagePath) fs.unlink(imagePath, () => {});
 

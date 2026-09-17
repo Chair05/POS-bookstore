@@ -3,29 +3,18 @@ import { Link } from 'react-router-dom'
 import api from '../config/api'
 import ProductCard from '../components/ProductCard'
 import Loading from '../components/Loading'
+import HeroCarousel from '../components/HeroCarousel'
 
 const iconPaths = {
-  'Shirt': 'M9 3l-1 4h2v13h4V7h2l-1-4c-1-1-4-1-4 0zM8 7h8M10 7v2M14 7v2M10 12h4',
-  'School Supplies': 'M4 19V5a2 2 0 012-2h12a2 2 0 012 2v14M9 3v18M15 3v18M4 12h16M4 19h16',
-  'School Clothes': 'M12 2L4 6v5a8 8 0 0016 0V6l-8-4zM8 21h8M10 17v4M14 17v4',
-  'Foot Wear': 'M4 17h16M4 17v-3a2 2 0 012-2h1l2-4h6l2 4h1a2 2 0 012 2v3M7 12V8M17 12V8',
-  'Textbooks': 'M4 4h16v16H4zM4 4c0 0 4-2 8 0s8 0 8 0M12 4v16',
-  'Stationery': 'M17 3l4 4L8 20H4v-4L17 3zM12 10l4 4M7 17l-3 3',
-  'Accessories': 'M12 2a8 8 0 100 16 8 8 0 000-16zM8 12h8M12 8v8',
+  'shirt': 'M20.38 3.46L16 2a4 4 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.47a1 1 0 0 0 .99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.47a2 2 0 0 0-1.34-2.23z',
+  'school clothes': 'M12 10.5l8.5 5.3a2.2 2.2 0 0 1-1.2 4H4.7a2.2 2.2 0 0 1-1.2-4L12 10.5zM12 10.5V6m0 0a2.5 2.5 0 0 0-5 0m5 0a2.5 2.5 0 0 1 5 0',
+  'foot wear': 'M4 17h16M4 17v-3a2 2 0 0 0 2-2h1l2-4h6l2 4h1a2 2 0 0 1 2 2v3M7 12V8M17 12V8',
+  'school supplies': 'M17 3l4 4L8 20H4v-4L17 3zM12 10l4 4M7 17l-3 3',
+  'merchandise': 'M6 7V6a6 6 0 1 1 12 0v1M5 7h14l1 14H4L5 7z',
+  'supplies': 'M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8zM3.3 7L12 12l8.7-5M12 22V12',
+  'test': 'M10 2v6L5 17a3 3 0 0 0 2.6 5h8.8a3 3 0 0 0 2.6-5L14 8V2M8.5 2h7M7 15h10',
 }
 const defaultIcon = 'M4 6h16v12H4V6zm2 2v8h12V8H6z'
-
-const categoryMeta = {
-  'Shirt': { image: '/icons/polo-shirt.svg' },
-  'School Supplies': { image: '/icons/school-supplies.svg' },
-  'School Clothes': { icon: iconPaths['School Clothes'] },
-  'Foot Wear': { icon: iconPaths['Foot Wear'] },
-  'Textbooks': { icon: iconPaths['Textbooks'] },
-  'Stationery': { icon: iconPaths['Stationery'] },
-  'Accessories': { icon: iconPaths['Accessories'] },
-  'Merchandise': { image: '/icons/merchandise.svg' },
-}
-const defaultMeta = { icon: defaultIcon }
 
 export default function Home() {
   const [featuredProducts, setFeaturedProducts] = useState([])
@@ -53,63 +42,16 @@ export default function Home() {
 
   return (
     <div className="animate-fade-in">
-      <section className="relative bg-gradient-to-br from-lccb-blue via-primary-700 to-primary-900 overflow-hidden">
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute top-10 left-10 w-72 h-72 bg-white rounded-full blur-3xl"></div>
-          <div className="absolute bottom-10 right-10 w-96 h-96 bg-primary-300 rounded-full blur-3xl"></div>
-        </div>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 md:py-28 relative">
-          <div className="max-w-2xl">
-            <span className="inline-block px-3 py-1 bg-white/20 text-white text-sm font-medium rounded-full mb-4 backdrop-blur-sm">
-              La Consolacion College Bacolod
-            </span>
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-4 leading-tight">
-              LCCB <span className="text-primary-200">Bookstore</span>
-            </h1>
-            <p className="text-lg text-primary-100 mb-8 leading-relaxed">
-              Pre-order your textbooks, uniforms, and school supplies online. 
-              Pay via GCash or bank transfer, then pick up at the bookstore.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-3">
-              <Link
-                to="/products"
-                className="inline-flex items-center justify-center px-8 py-3.5 bg-white text-primary-700 font-semibold rounded-xl hover:bg-primary-50 transition-all duration-200 shadow-lg hover:shadow-xl"
-              >
-                Browse Products
-                <svg className="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-                </svg>
-              </Link>
-              <div className="relative flex-1 max-w-md">
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && searchQuery.trim()) {
-                      window.location.href = `/products?search=${encodeURIComponent(searchQuery)}`
-                    }
-                  }}
-                  placeholder="Search for books, supplies..."
-                  className="w-full px-5 py-3.5 bg-white/10 backdrop-blur-sm border border-white/20 text-white placeholder-primary-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-white/50 transition-all"
-                />
-                <button
-                  onClick={() => {
-                    if (searchQuery.trim()) {
-                      window.location.href = `/products?search=${encodeURIComponent(searchQuery)}`
-                    }
-                  }}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-white/70 hover:text-white transition-colors"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
+      <HeroCarousel
+        products={featuredProducts}
+        searchValue={searchQuery}
+        onSearchChange={setSearchQuery}
+        onSearchSubmit={(q) => {
+          if (q.trim()) {
+            window.location.href = `/products?search=${encodeURIComponent(q)}`
+          }
+        }}
+      />
 
       {categories.length > 0 && (
         <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -120,7 +62,7 @@ export default function Home() {
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
             {categories.map((cat) => {
               const catName = typeof cat === 'string' ? cat : cat.name
-              const meta = categoryMeta[catName] || defaultMeta
+              const iconPath = iconPaths[catName.toLowerCase()] || defaultIcon
               return (
                 <Link
                   key={typeof cat === 'string' ? cat : cat.id}
@@ -128,13 +70,9 @@ export default function Home() {
                   className="group flex flex-col items-center p-6 rounded-2xl border border-gray-100 bg-white shadow-soft hover:shadow-card-hover transition-all duration-300 hover:-translate-y-1 hover:border-primary-100"
                 >
                   <div className="w-14 h-14 rounded-xl bg-primary-50 flex items-center justify-center mb-3 group-hover:bg-primary-100 group-hover:scale-110 transition-all duration-300 ring-1 ring-primary-100">
-                    {meta.image ? (
-                      <img src={meta.image} alt={catName} className="w-8 h-8 object-contain" />
-                    ) : (
-                      <svg className="w-7 h-7 text-primary-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
-                        <path d={meta.icon} />
-                      </svg>
-                    )}
+                    <svg className="w-7 h-7 text-primary-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+                      <path d={iconPath} />
+                    </svg>
                   </div>
                   <span className="text-sm font-medium text-gray-700 group-hover:text-primary-600 transition-colors text-center">
                     {catName}

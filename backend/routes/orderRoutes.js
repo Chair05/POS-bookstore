@@ -640,12 +640,14 @@ router.get("/reports/best-sellers", (req, res) => {
       SELECT oi.product_id, oi.product_name, oi.quantity, oi.total
       FROM order_items oi
       JOIN online_orders o ON oi.order_id = o.id
-      WHERE o.order_status != 'rejected' ${dateFilter}
+      LEFT JOIN products p ON p.id = oi.product_id
+      WHERE o.order_status != 'rejected' AND p.deleted = 0 ${dateFilter}
       UNION ALL
       SELECT oi.product_id, oi.product_name, oi.quantity, (oi.quantity * oi.price) AS total
       FROM ecom_order_items oi
       JOIN ecom_orders o ON oi.order_id = o.id
-      WHERE REPLACE(LOWER(o.status), ' ', '_') != 'rejected'
+      LEFT JOIN products p ON p.id = oi.product_id
+      WHERE REPLACE(LOWER(o.status), ' ', '_') != 'rejected' AND p.deleted = 0
       ${dateFilter ? dateFilter.replaceAll("oi.created_at", "o.created_at") : ""}
     ) t
     GROUP BY product_id, product_name
