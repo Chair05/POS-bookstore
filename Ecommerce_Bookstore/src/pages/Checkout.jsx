@@ -8,6 +8,7 @@ import gcashLogo from '../assets/gcash.png'
 import rcbcLogo from '../assets/rcbc.png'
 import gcashQr from '../assets/qr.jpg'
 
+const gcashPaymentLink = import.meta.env.VITE_GCASH_PAYMENT_LINK?.trim()
 
 const resolveImageSrc = (image) => {
   if (!image) return '/placeholder-book.svg'
@@ -393,6 +394,20 @@ export default function Checkout() {
                   />
                 </div>
                 <p className="text-xs text-blue-700 mt-2">Account: 0916-413-8090 (LCCB Bookstore)</p>
+                {gcashPaymentLink && (
+                  <a
+                    href={gcashPaymentLink}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-3 inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700"
+                  >
+                    Open GCash payment link
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" aria-hidden="true">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M14 5h5v5m-1-4L10 14" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 14v3a2 2 0 01-2 2H7a2 2 0 01-2-2V7a2 2 0 012-2h3" />
+                    </svg>
+                  </a>
+                )}
               </div>
 
               <div className="space-y-2">

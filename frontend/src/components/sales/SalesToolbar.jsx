@@ -78,7 +78,7 @@ export default function SalesToolbar({
       <div className="relative">
         <button
           onClick={() => setOpen((v) => !v)}
-          className={`relative top-[-8px] inline-flex items-center justify-center gap-2 px-3.5 ${controlClass} ${
+          className={`inline-flex items-center justify-center gap-2 px-3.5 ${controlClass} ${
             filter !== "all" ? "border-blue-500 text-blue-700 bg-blue-50" : ""
           }`}
         >
@@ -128,7 +128,7 @@ export default function SalesToolbar({
       {/* Reset */}
       <button
         onClick={onReset}
-        className={`relative top-[-8px] inline-flex items-center justify-center gap-1.5 px-3.5 ${buttonClass}`}
+        className={`inline-flex items-center justify-center gap-1.5 px-3.5 ${buttonClass}`}
       >
         <ResetIcon className="w-4 h-4" />
         Reset

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import OtpInput from '../components/OtpInput'
@@ -10,12 +10,25 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false)
   const [otpPending, setOtpPending] = useState(false)
   const [otpEmail, setOtpEmail] = useState('')
+  const [fallbackOtp, setFallbackOtp] = useState('')
   const [otpLoading, setOtpLoading] = useState(false)
   const [resendCooldown, setResendCooldown] = useState(0)
   const { login, verifyOtpLogin, resendOtp } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const from = location.state?.from || '/'
+
+  useEffect(() => {
+    const pendingOtp = JSON.parse(localStorage.getItem('pendingLoginOtp') || 'null')
+    if (!pendingOtp || Date.now() - pendingOtp.createdAt >= 5 * 60 * 1000) {
+      localStorage.removeItem('pendingLoginOtp')
+      return
+    }
+
+    setOtpEmail(pendingOtp.email)
+    setOtpPending(true)
+    setResendCooldown(Math.max(0, 60 - Math.floor((Date.now() - pendingOtp.createdAt) / 1000)))
+  }, [])
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value })
@@ -32,9 +45,16 @@ export default function Login() {
       const result = await login(form.email, form.password)
       if (result.requiresOtp) {
         setOtpEmail(result.email)
+        setFallbackOtp(result.otp || '')
         setOtpPending(true)
         setResendCooldown(60)
-        toast.success('OTP sent to your email')
+        localStorage.setItem('pendingLoginOtp', JSON.stringify({
+          email: result.email,
+          createdAt: Date.now(),
+        }))
+        toast(result.otp ? 'Email delivery failed. Use the development OTP shown below.' : 'OTP sent to your email', {
+          icon: result.otp ? '⚠️' : '✉️',
+        })
       }
     } catch (err) {
       toast.error(err.response?.data?.message || 'Invalid email or password')
@@ -47,6 +67,7 @@ export default function Login() {
     setOtpLoading(true)
     try {
       await verifyOtpLogin(otpEmail, otp)
+      localStorage.removeItem('pendingLoginOtp')
       toast.success('Welcome back!')
       navigate(from, { replace: true })
     } catch (err) {
@@ -58,9 +79,16 @@ export default function Login() {
 
   const handleResend = async () => {
     try {
-      await resendOtp(otpEmail)
+      const result = await resendOtp(otpEmail)
+      setFallbackOtp(result.otp || '')
       setResendCooldown(60)
-      toast.success('New OTP sent to your email')
+      localStorage.setItem('pendingLoginOtp', JSON.stringify({
+        email: otpEmail,
+        createdAt: Date.now(),
+      }))
+      toast(result.otp ? 'Email delivery failed. Use the development OTP shown below.' : 'New OTP sent to your email', {
+        icon: result.otp ? '⚠️' : '✉️',
+      })
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to resend OTP')
     }
@@ -69,6 +97,8 @@ export default function Login() {
   const handleBackToLogin = () => {
     setOtpPending(false)
     setOtpEmail('')
+    setFallbackOtp('')
+    localStorage.removeItem('pendingLoginOtp')
     setForm({ email: form.email, password: '' })
   }
 
@@ -184,6 +214,14 @@ export default function Login() {
                   onResend={handleResend}
                   resendTimer={resendCooldown}
                 />
+              )}
+
+              {fallbackOtp && (
+                <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-center">
+                  <p className="text-xs font-medium text-amber-800">Development OTP fallback</p>
+                  <p className="mt-1 text-xl font-bold tracking-[0.35em] text-amber-900">{fallbackOtp}</p>
+                  <p className="mt-1 text-xs text-amber-700">Configure working SMTP credentials to send codes by email.</p>
+                </div>
               )}
 
               <div className="mt-6 text-center">

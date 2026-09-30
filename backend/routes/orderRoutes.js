@@ -82,6 +82,7 @@ const formatEcomOrder = (o) => {
 router.get("/customers", (req, res) => {
   const sql = `
     SELECT c.*,
+      COALESCE(NULLIF(c.contact, ''), c.contact_number) AS contact,
       (SELECT COUNT(*) FROM online_orders WHERE customer_id = c.id AND order_status != 'rejected') +
       (SELECT COUNT(*) FROM ecom_orders WHERE customer_id = c.id AND status != 'Rejected') AS total_orders,
       COALESCE((SELECT SUM(total_amount) FROM online_orders WHERE customer_id = c.id AND order_status != 'rejected'), 0) +
@@ -98,6 +99,7 @@ router.get("/customers", (req, res) => {
 router.get("/customers/:id", (req, res) => {
   const sql = `
     SELECT c.*,
+      COALESCE(NULLIF(c.contact, ''), c.contact_number) AS contact,
       (SELECT COUNT(*) FROM online_orders WHERE customer_id = c.id AND order_status != 'rejected') +
       (SELECT COUNT(*) FROM ecom_orders WHERE customer_id = c.id AND status != 'Rejected') AS total_orders,
       COALESCE((SELECT SUM(total_amount) FROM online_orders WHERE customer_id = c.id AND order_status != 'rejected'), 0) +
@@ -603,7 +605,7 @@ router.get("/reports/customer-summary", (req, res) => {
   const sql = `
     SELECT c.id,
       COALESCE(NULLIF(c.name, ''), NULLIF(c.full_name, ''), c.email) AS name,
-      c.email, c.contact,
+      c.email, COALESCE(NULLIF(c.contact, ''), c.contact_number) AS contact,
       COUNT(*) AS total_orders,
       COALESCE(SUM(o.total_amount), 0) AS total_spent,
       MIN(o.created_at) AS first_order,

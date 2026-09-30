@@ -297,7 +297,7 @@ export default function Orders() {
                       </td>
                       <td className="px-4 py-3 text-center">
                         <div className="flex items-center justify-center gap-1">
-                          <button onClick={() => viewOrderDetail(order)} className="relative top-[-8px] px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 rounded transition">
+                          <button onClick={() => viewOrderDetail(order)} className="px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 rounded transition">
                             View
                           </button>
                           {order.receipt_image && (

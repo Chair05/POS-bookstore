@@ -57,11 +57,10 @@ export default function Restock() {
     }
   };
 
-  const handlePrintReceipt = () => {
-    if (!product) return alert("Scan a product first");
+  const printReceipt = (receiptData, receiptWindow) => {
+    if (!receiptWindow) return false;
 
-    const receiptWindow = window.open("", "_blank");
-    if (!receiptWindow) return alert("Please allow pop-ups for receipt printing.");
+    const { product, quantity, supplier, costPrice, notes } = receiptData;
 
     const today = new Date().toLocaleString();
     const escapeHtml = (value) =>
@@ -161,12 +160,26 @@ export default function Restock() {
     receiptWindow.document.close();
     receiptWindow.focus();
     receiptWindow.print();
+    return true;
   };
 
   const handleRestock = async () => {
     if (!product) return alert("Scan a product first");
     if (!quantity || Number(quantity) <= 0)
       return alert("Enter valid quantity");
+
+    const receiptData = {
+      product,
+      quantity: Number(quantity),
+      supplier,
+      costPrice,
+      notes,
+    };
+    const receiptWindow = window.open("", "_blank");
+    if (receiptWindow) {
+      receiptWindow.document.write("<title>Preparing restock receipt...</title>");
+      receiptWindow.document.close();
+    }
 
     try {
 const res = await fetch("http://localhost:5000/api/products/restock", {
@@ -189,6 +202,10 @@ const res = await fetch("http://localhost:5000/api/products/restock", {
 
       if (!data.success) {
         throw new Error(data.message || "Failed to update stock");
+      }
+
+      if (!printReceipt(receiptData, receiptWindow)) {
+        alert("Restock completed, but the receipt popup was blocked. Allow pop-ups for this site to print receipts automatically.");
       }
 
       const newLog = {
@@ -225,6 +242,7 @@ const res = await fetch("http://localhost:5000/api/products/restock", {
         barcodeRef.current?.focus();
       }, 100);
     } catch (err) {
+      receiptWindow?.close();
       console.error(err);
       alert("Failed to restock: " + err.message);
     }
@@ -253,7 +271,7 @@ const res = await fetch("http://localhost:5000/api/products/restock", {
 
                 <button
                   onClick={handleBarcodeSearch}
-                  className="px-5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition shadow-md relative -top-[8px]"
+                  className="px-5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition shadow-md"
                 >
                   Search
                 </button>
@@ -340,12 +358,6 @@ const res = await fetch("http://localhost:5000/api/products/restock", {
                   className="w-full bg-blue-600 text-white py-3 rounded-xl font-semibold hover:bg-blue-700 transition shadow-md"
                 >
                   Confirm Restock
-                </button>
-                <button
-                  onClick={handlePrintReceipt}
-                  className="w-full bg-slate-800 text-white py-3 rounded-xl font-semibold hover:bg-slate-900 transition shadow-md"
-                >
-                  Print Receipt
                 </button>
               </div>
             </div>

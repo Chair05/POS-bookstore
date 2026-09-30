@@ -496,10 +496,10 @@ const filtered = products.filter((p) => {
 </div>
 
       {/* MAIN */}
-      <div className="flex flex-1 p-4 gap-4 overflow-hidden">
+      <div className="flex flex-1 h-full min-h-0 p-4 gap-4 overflow-hidden">
 
           {/* PRODUCTS */}
-          <div className="flex-1 bg-white shadow-sm border border-gray-100 p-4 overflow-auto rounded-2xl">
+          <div className="flex-1 min-h-0 bg-white shadow-sm border border-gray-100 p-4 overflow-auto rounded-2xl">
 
             {/* SEARCH & FILTER */}
             <div className="flex items-center gap-3 mb-5">
@@ -579,11 +579,11 @@ const filtered = products.filter((p) => {
           </div>
 
           {/* CHECKOUT */}
-          <div className="w-96 bg-white shadow-sm border border-gray-100 p-5 flex flex-col rounded-2xl h-full">
+          <div className="w-96 min-h-0 bg-white shadow-sm border border-gray-100 p-5 flex flex-col rounded-2xl h-full overflow-y-auto">
 
             <h2 className="font-bold text-lg mb-4 text-gray-900">Checkout</h2>
 
-            <div className="flex-1 overflow-auto rounded-xl bg-gray-50 border border-gray-100 p-3 mb-4">
+            <div className="flex-1 min-h-[180px] max-h-[32vh] overflow-auto rounded-xl bg-gray-50 border border-gray-100 p-3 mb-4">
 {Object.values(checkoutItems).map((item) => (
   <div
     key={item.id}
@@ -607,7 +607,7 @@ const filtered = products.filter((p) => {
       <div className="flex items-center gap-1 shrink-0">
         <button
           onClick={() => decreaseQuantity(item.id)}
-          className="w-5 h-5 flex items-center justify-center rounded bg-gray-200 hover:bg-gray-300 text-blue-600 text-xs font-bold transition relative -top-[8px]"
+          className="w-5 h-5 flex items-center justify-center rounded bg-gray-200 hover:bg-gray-300 text-blue-600 text-xs font-bold transition"
           title="Decrease"
           type="button"
         >
@@ -625,7 +625,7 @@ const filtered = products.filter((p) => {
 />
         <button
           onClick={() => increaseQuantity(item.id)}
-          className="w-5 h-5 flex items-center justify-center rounded bg-gray-200 hover:bg-gray-300 text-blue-600 text-xs font-bold transition relative -top-[8px]"
+          className="w-5 h-5 flex items-center justify-center rounded bg-gray-200 hover:bg-gray-300 text-blue-600 text-xs font-bold transition"
           title="Increase"
           type="button"
         >
@@ -641,7 +641,7 @@ const filtered = products.filter((p) => {
 
         <button
           onClick={() => removeFromCheckout(item.id)}
-          className="text-red-500 font-bold text-lg hover:text-red-700 hover:bg-red-50 px-1.5 py-0.5 rounded transition relative -top-[8px]"
+          className="text-red-500 font-bold text-lg hover:text-red-700 hover:bg-red-50 px-1.5 py-0.5 rounded transition"
           title="Remove item"
           type="button"
         >

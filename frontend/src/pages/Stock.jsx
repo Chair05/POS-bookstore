@@ -483,7 +483,7 @@ export default function Stock() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <div ref={categoryDropdownRef} className="relative top-[-8px]">
+            <div ref={categoryDropdownRef} className="relative">
               <button
                 type="button"
                 onClick={() => setCategoryDropdownOpen((prev) => !prev)}
@@ -554,7 +554,7 @@ export default function Stock() {
 
           <button
             onClick={() => setShowAddModal(true)}
-            className="h-11 px-5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition flex items-center justify-center gap-2 whitespace-nowrap shadow-sm text-sm font-medium relative top-[-8px]"
+            className="h-11 px-5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition flex items-center justify-center gap-2 whitespace-nowrap shadow-sm text-sm font-medium"
           >
             <PlusIcon className="w-4 h-4" />
             Add Product
@@ -615,7 +615,7 @@ export default function Stock() {
                       <button
                         onClick={() => openEdit(item)}
                         title="View / Edit product"
-                        className="h-8 px-2.5 flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white text-xs font-medium text-gray-600 hover:bg-blue-600 hover:text-white hover:border-blue-600 transition relative top-[-5px]"
+                        className="h-8 px-2.5 flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white text-xs font-medium text-gray-600 hover:bg-blue-600 hover:text-white hover:border-blue-600 transition"
                       >
                         <PencilIcon className="w-3.5 h-3.5" />
                         Edit

@@ -17,6 +17,7 @@ export default function AdminDashboard() {
   const [notifications, setNotifications] = useState([]);
   const [dailySales, setDailySales] = useState([]);
   const [bestSellers, setBestSellers] = useState([]);
+  const [sales, setSales] = useState([]);
   const [orderSummary, setOrderSummary] = useState(null);
   const [recentOrders, setRecentOrders] = useState([]);
   const navigate = useNavigate();
@@ -34,6 +35,7 @@ export default function AdminDashboard() {
     fetchNotifications();
     fetchDailySales();
     fetchBestSellers();
+    fetchSales();
     fetchOrderSummary();
     fetchRecentOrders();
   }, []);
@@ -75,6 +77,14 @@ export default function AdminDashboard() {
     } catch (err) { console.error(err); }
   };
 
+  const fetchSales = async () => {
+    try {
+      const res = await fetch("http://localhost:5000/api/products/sales");
+      const data = await res.json();
+      if (data.success) setSales(data.sales || []);
+    } catch (err) { console.error(err); }
+  };
+
   const fetchOrderSummary = async () => {
     try {
       const res = await fetch("http://localhost:5000/api/orders/reports/summary");
@@ -94,6 +104,37 @@ export default function AdminDashboard() {
   const totalNotifications = useMemo(() => {
     return notifications.reduce((sum, n) => sum + (n.count || 0), 0);
   }, [notifications]);
+
+  const monthlyBuyingPatterns = useMemo(() => {
+    const months = {};
+
+    sales.forEach((sale) => {
+      const date = new Date(sale.created_at);
+      if (Number.isNaN(date.getTime())) return;
+
+      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+      const productName = sale.product_name || "Unknown item";
+      const quantity = Number(sale.quantity) || 0;
+
+      if (!months[monthKey]) months[monthKey] = { monthKey, items: {} };
+      months[monthKey].items[productName] = (months[monthKey].items[productName] || 0) + quantity;
+    });
+
+    return Object.values(months)
+      .map((month) => ({
+        ...month,
+        topItems: Object.entries(month.items)
+          .map(([name, quantity]) => ({ name, quantity }))
+          .sort((a, b) => b.quantity - a.quantity)
+          .slice(0, 5),
+      }))
+      .sort((a, b) => b.monthKey.localeCompare(a.monthKey));
+  }, [sales]);
+
+  const formatPatternMonth = (monthKey) => {
+    const [year, month] = monthKey.split("-").map(Number);
+    return new Date(year, month - 1, 1).toLocaleDateString("en-US", { month: "long", year: "numeric" });
+  };
 
   const getStatusConfig = (status) => {
     const map = {
@@ -198,6 +239,47 @@ export default function AdminDashboard() {
               <div className="flex items-center justify-center h-[250px] text-gray-400 text-sm">No product data</div>
             )}
           </div>
+        </div>
+
+        {/* TRENDS AND PATTERNS */}
+        <div className="bg-white p-5 rounded-2xl shadow-sm border border-blue-100">
+          <div className="mb-4">
+            <h3 className="text-lg font-semibold text-gray-800">Trends &amp; Patterns</h3>
+            <p className="text-sm text-gray-500 mt-1">Items bought most often by month</p>
+          </div>
+
+          {monthlyBuyingPatterns.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-200 text-gray-500">
+                    <th className="text-left py-3 pr-4 font-semibold">Month</th>
+                    <th className="text-left py-3 px-4 font-semibold">Most bought items</th>
+                    <th className="text-right py-3 pl-4 font-semibold">Total units</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {monthlyBuyingPatterns.map((month) => (
+                    <tr key={month.monthKey} className="border-b border-gray-100 last:border-0">
+                      <td className="py-4 pr-4 font-semibold text-gray-800 whitespace-nowrap">{formatPatternMonth(month.monthKey)}</td>
+                      <td className="py-4 px-4 text-gray-600">
+                        <div className="flex flex-wrap gap-2">
+                          {month.topItems.map((item, index) => (
+                            <span key={item.name} className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs ${index === 0 ? "bg-blue-100 text-blue-800 font-semibold" : "bg-gray-100 text-gray-600"}`}>
+                              {index + 1}. {item.name} <strong>{item.quantity}</strong>
+                            </span>
+                          ))}
+                        </div>
+                      </td>
+                      <td className="py-4 pl-4 text-right font-bold text-blue-700">{month.topItems.reduce((sum, item) => sum + item.quantity, 0)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="py-8 text-center text-sm text-gray-400">No item sales available yet.</p>
+          )}
         </div>
 
         {/* BOTTOM ROW: ALERTS + RECENT ORDERS */}
