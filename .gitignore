@@ -3,7 +3,6 @@
 # variables by default.
 .env
 .env.*
-!.env.example
 
 # Build output and dependencies
 node_modules/

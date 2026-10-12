@@ -19,8 +19,8 @@ private and are only served through the authenticated backend route.
      these images).
    - `payment-receipts` and keep it **Private** (receipt access stays behind
      the backend's staff authorization).
-5. In the Supabase dashboard, copy the server-side `service_role` secret key.
-   Do not use the publishable/anon key for backend uploads.
+5. In the Supabase dashboard, create and copy a server-side **Secret key**
+   (`sb_secret_...`). Do not use the publishable key for backend uploads.
 6. Configure the server-side variables in your hosting provider's private
    environment-variable settings. Do not put the service-role key or database
    connection string in either frontend or commit them:
@@ -30,7 +30,7 @@ private and are only served through the authenticated backend route.
    DB_SSL=true
    DB_SSL_CA_CERT=<full PEM certificate, when required by the host>
    SUPABASE_URL=https://your-project.supabase.co
-   SUPABASE_SERVICE_ROLE_KEY=your-private-service-role-key
+   SUPABASE_SECRET_KEY=your-private-secret-key
    UPLOAD_STORAGE=supabase
    SUPABASE_PRODUCT_BUCKET=product-images
    SUPABASE_RECEIPT_BUCKET=payment-receipts
@@ -58,7 +58,7 @@ private and are only served through the authenticated backend route.
    Render. In Render, choose **New → Blueprint** and select that repository.
 2. Render reads `render.yaml` and creates the `pos-bookstore-api` web service.
    Enter the requested private values for `DATABASE_URL`, `SUPABASE_URL`,
-   `SUPABASE_SERVICE_ROLE_KEY`, `JWT_SECRET`, `CORS_ORIGINS`, and, if needed,
+   `SUPABASE_SECRET_KEY`, `JWT_SECRET`, `CORS_ORIGINS`, and, if needed,
    `DB_SSL_CA_CERT`. Set `CORS_ORIGINS` to the exact deployed POS and storefront
    origins, comma-separated, with no trailing slash.
 3. Keep the MySQL source credentials available only to the one-time transfer

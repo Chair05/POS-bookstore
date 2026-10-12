@@ -22,7 +22,7 @@ const missing = ["host", "user", "database"].filter((key) => !config[key]);
 if (missing.length > 0) {
   throw new Error(
     `Missing database configuration: ${missing.map((k) => `DB_${k.toUpperCase()}`).join(", ")}. ` +
-      "Set these in the environment (see .env.example)."
+      "Set these in the environment or backend/.env."
   );
 }
 

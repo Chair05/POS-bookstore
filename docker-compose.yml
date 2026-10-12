@@ -1,6 +1,6 @@
 # Local/production stack: MySQL + API + nginx serving both frontends.
 #
-#   cp backend/.env.example backend/.env    # then fill it in
+#   create backend/.env and set the required environment variables
 #   docker compose --env-file backend/.env up -d --build
 #   docker compose --env-file backend/.env exec api node scripts/migrate.js
 #

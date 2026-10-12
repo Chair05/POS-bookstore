@@ -3,6 +3,7 @@
 const fs = require("node:fs/promises");
 const path = require("node:path");
 const crypto = require("node:crypto");
+const { createClient } = require("@supabase/supabase-js");
 const { UPLOADS_DIR, RECEIPTS_DIR, safeJoin } = require("./paths");
 
 const IMAGE_EXTENSIONS = {
@@ -24,34 +25,22 @@ function createFilename(file, prefix = "") {
 
 function getConfig() {
   const baseUrl = process.env.SUPABASE_URL;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!baseUrl || !serviceKey) {
-    throw new Error("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required when UPLOAD_STORAGE=supabase.");
+  const apiKey = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!baseUrl || !apiKey) {
+    throw new Error("SUPABASE_URL and SUPABASE_SECRET_KEY are required when UPLOAD_STORAGE=supabase.");
   }
-  return { baseUrl: baseUrl.replace(/\/+$/, ""), serviceKey };
+  return { baseUrl: baseUrl.replace(/\/+$/, ""), apiKey };
 }
 
-function objectUrl(baseUrl, bucket, key, mode = "object") {
-  const encodedBucket = encodeURIComponent(bucket);
-  const encodedKey = key.split("/").map(encodeURIComponent).join("/");
-  return `${baseUrl}/storage/v1/${mode}/${encodedBucket}/${encodedKey}`;
-}
-
-async function storageRequest(url, options) {
-  const { serviceKey } = getConfig();
-  const response = await fetch(url, {
-    ...options,
-    headers: {
-      apikey: serviceKey,
-      Authorization: `Bearer ${serviceKey}`,
-      ...options.headers,
+function getStorageClient() {
+  const { baseUrl, apiKey } = getConfig();
+  return createClient(baseUrl, apiKey, {
+    auth: {
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+      persistSession: false,
     },
   });
-  if (!response.ok) {
-    const detail = await response.text();
-    throw new Error(`Supabase Storage request failed (${response.status}): ${detail.slice(0, 300)}`);
-  }
-  return response;
 }
 
 async function saveUpload(file, { kind, filename }) {
@@ -65,15 +54,11 @@ async function saveUpload(file, { kind, filename }) {
       ? process.env.SUPABASE_PRODUCT_BUCKET || "product-images"
       : process.env.SUPABASE_RECEIPT_BUCKET || "payment-receipts";
     const key = kind === "product" ? `products/${storedName}` : storedName;
-    const { baseUrl } = getConfig();
-    await storageRequest(objectUrl(baseUrl, bucket, key), {
-      method: "POST",
-      headers: {
-        "Content-Type": file.mimetype,
-        "x-upsert": "true",
-      },
-      body: file.buffer,
+    const { error } = await getStorageClient().storage.from(bucket).upload(key, file.buffer, {
+      contentType: file.mimetype,
+      upsert: true,
     });
+    if (error) throw error;
     return {
       filename: storedName,
       relativePath: kind === "product"
@@ -96,9 +81,9 @@ async function discardTemporaryUpload(file) {
 }
 
 function getProductPublicUrl(filename) {
-  const { baseUrl } = getConfig();
   const bucket = process.env.SUPABASE_PRODUCT_BUCKET || "product-images";
-  return objectUrl(baseUrl, bucket, `products/${filename}`, "object/public");
+  const { data } = getStorageClient().storage.from(bucket).getPublicUrl(`products/${filename}`);
+  return data.publicUrl;
 }
 
 async function removeUpload(relativePath, kind) {
@@ -123,12 +108,8 @@ async function removeUpload(relativePath, kind) {
       ? process.env.SUPABASE_PRODUCT_BUCKET || "product-images"
       : process.env.SUPABASE_RECEIPT_BUCKET || "payment-receipts";
     const key = kind === "product" ? `products/${filename}` : filename;
-    const { baseUrl } = getConfig();
-    await storageRequest(`${baseUrl}/storage/v1/object/${encodeURIComponent(bucket)}`, {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prefixes: [key] }),
-    });
+    const { error } = await getStorageClient().storage.from(bucket).remove([key]);
+    if (error) throw error;
     return;
   }
 
@@ -150,11 +131,12 @@ async function readReceipt(filename) {
 
   if (isSupabaseStorageEnabled()) {
     const bucket = process.env.SUPABASE_RECEIPT_BUCKET || "payment-receipts";
-    const { baseUrl } = getConfig();
-    const response = await storageRequest(objectUrl(baseUrl, bucket, filename, "object/authenticated"), {
-      method: "GET",
-    });
-    return { buffer: Buffer.from(await response.arrayBuffer()), contentType: response.headers.get("content-type") || "application/octet-stream" };
+    const { data, error } = await getStorageClient().storage.from(bucket).download(filename);
+    if (error) throw error;
+    return {
+      buffer: Buffer.from(await data.arrayBuffer()),
+      contentType: data.type || "application/octet-stream",
+    };
   }
 
   const target = safeJoin(RECEIPTS_DIR, filename);
