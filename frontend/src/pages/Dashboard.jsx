@@ -1,12 +1,11 @@
-import React, { useState, useEffect, useRef } from "react";
-import { Link, useNavigate, useLocation } from "react-router-dom";
+import React, { useCallback, useState, useEffect, useRef } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import Layout from "./Layout";
 import { getDepartmentInfo } from "../utils/departmentUtils";
+import { api, assetUrl, getToken } from "../lib/api";
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const location = useLocation();
-  const [user, setUser] = useState(null);
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [checkoutItems, setCheckoutItems] = useState({});
@@ -31,9 +30,7 @@ export default function Dashboard() {
 
   /* AUTH */
   useEffect(() => {
-    const storedUser = JSON.parse(localStorage.getItem("user"));
-    if (!storedUser) navigate("/");
-    else setUser(storedUser);
+    if (!getToken()) navigate("/");
   }, [navigate]);
 
   useEffect(() => {
@@ -55,19 +52,15 @@ export default function Dashboard() {
     setTotal(newTotal);
   }, [checkoutItems]);
 
-  const isAdmin = user?.role === "admin";
-
   /* LOAD DATA */
-  const loadProducts = async () => {
-    const res = await fetch("http://localhost:5000/api/products");
-    const data = await res.json();
+  const loadProducts = useCallback(async () => {
+    const data = await api.get("/products");
     if (data.success) setProducts(data.products);
-  };
+  }, []);
 
-  const loadCategories = async () => {
+  const loadCategories = useCallback(async () => {
     try {
-      const res = await fetch("http://localhost:5000/api/categories");
-      const data = await res.json();
+      const data = await api.get("/categories");
 
       if (data.success && Array.isArray(data.categories)) {
         const cats = Array.from(
@@ -100,11 +93,24 @@ export default function Dashboard() {
       )
     );
     setCategories(derived);
-  };
+  }, [products]);
 
   useEffect(() => {
     loadProducts();
     loadCategories();
+  }, [loadProducts, loadCategories]);
+
+  /* NOTIFICATIONS */
+  // Declared before the low-stock effect below, whose dependency array reads it
+  // during render.
+  const addNotification = useCallback((message) => {
+    const id = crypto.randomUUID();
+
+    setNotifications((prev) => [...prev, { id, message }]);
+
+    setTimeout(() => {
+      setNotifications((prev) => prev.filter((n) => n.id !== id));
+    }, 5000);
   }, []);
 
   useEffect(() => {
@@ -119,7 +125,7 @@ export default function Dashboard() {
       lowStockAlertedRef.current.add(key);
       addNotification(`${product.name} is low stock (${product.stock} left)`);
     });
-  }, [products]);
+  }, [products, addNotification]);
 
   useEffect(() => {
     if (categories.length === 0 && products.length > 0) {
@@ -134,46 +140,13 @@ export default function Dashboard() {
     }
   }, [categories.length, products]);
 
-  /* NOTIFICATIONS */
-const addNotification = (message) => {
-  const id = crypto.randomUUID(); // BEST FIX
-
-  setNotifications((prev) => [...prev, { id, message }]);
-
-  setTimeout(() => {
-    setNotifications((prev) => prev.filter((n) => n.id !== id));
-  }, 5000);
-};
-  /* BARCODE */
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (e.target.tagName === "INPUT") return;
-
-      if (e.key === "Enter") {
-        const code = barcodeRef.current.trim();
-        if (code) handleBarcodeScan(code);
-        barcodeRef.current = "";
-      } else if (/\d/.test(e.key)) {
-        barcodeRef.current += e.key;
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [products, checkoutItems]);
-
-  /* AUTO-PRINT RECEIPT */
-  useEffect(() => {
-    if (showReceipt) {
-      const timer = setTimeout(() => {
-        handlePrintReceipt();
-      }, 500);
-      return () => clearTimeout(timer);
-    }
-  }, [showReceipt]);
+  /* The barcode listener and the auto-print effect are registered at the end of
+     the component, after handleBarcodeScan and handlePrintReceipt are declared.
+     Their dependency arrays are evaluated during render, so referencing them
+     from here would throw "Cannot access ... before initialization". */
 
   /*barcode scan*/
-const handleBarcodeScan = (code) => {
+const handleBarcodeScan = useCallback((code) => {
   if (scanLock.current) return;
   scanLock.current = true;
 
@@ -215,7 +188,7 @@ const handleBarcodeScan = (code) => {
           },
     };
   });
-};
+}, [products, addNotification]);
 
   /* REMOVE ITEM */
 const removeFromCheckout = (id) => {
@@ -314,20 +287,11 @@ const handlePay = async () => {
       quantity: item.qty,
     }));
 
-    const res = await fetch(
-      "http://localhost:5000/api/products/checkout",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          items,
-          customerName: customerName.trim() || null,
-          checkoutDepartment,
-        }),
-      }
-    );
-
-    const data = await res.json();
+    const data = await api.post("/products/checkout", {
+      items,
+      customerName: customerName.trim() || null,
+      checkoutDepartment,
+    });
 
     if (!data.success)
       return addNotification(data.message || "Payment failed");
@@ -358,7 +322,7 @@ const handlePay = async () => {
     addNotification("Successfully purchased ✔");
   } catch (err) {
     console.error(err);
-    addNotification("Error processing payment");
+    addNotification(err?.message || "Error processing payment");
   }
 };
 
@@ -369,7 +333,7 @@ const formatReceiptItemLabel = (item) => {
   return `${item.name}${sizeLabel}${department && department !== "General" ? ` (${department})` : ""}`;
 };
 
-const handlePrintReceipt = () => {
+const handlePrintReceipt = useCallback(() => {
   const date = new Date().toLocaleString();
   
   const itemsHtml = receiptItems
@@ -448,7 +412,35 @@ const handlePrintReceipt = () => {
       setShowReceipt(false);
     }, 100);
   }, 250);
-};
+}, [receiptItems, receiptTotal, receiptCustomerName, receiptCash, receiptChange, receiptId, addNotification]);
+
+  /* BARCODE */
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.target.tagName === "INPUT") return;
+
+      if (e.key === "Enter") {
+        const code = barcodeRef.current.trim();
+        if (code) handleBarcodeScan(code);
+        barcodeRef.current = "";
+      } else if (/\d/.test(e.key)) {
+        barcodeRef.current += e.key;
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [handleBarcodeScan]);
+
+  /* AUTO-PRINT RECEIPT */
+  useEffect(() => {
+    if (showReceipt) {
+      const timer = setTimeout(() => {
+        handlePrintReceipt();
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [showReceipt, handlePrintReceipt]);
 
 const filtered = products.filter((p) => {
     const matchSearch = p.name
@@ -536,7 +528,7 @@ const filtered = products.filter((p) => {
                   {/* Image */}
                   <div className="relative bg-gradient-to-b from-blue-50 to-white flex h-28 items-center justify-center overflow-hidden">
                     <img
-                      src={`http://localhost:5000${p.image}`}
+                      src={assetUrl(p.image)}
                       alt={p.name}
                       className="max-h-20 max-w-[75%] object-contain group-hover:scale-105 transition-transform duration-300 ease-out"
                     />

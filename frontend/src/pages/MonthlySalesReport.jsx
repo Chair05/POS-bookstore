@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, PieChart, Pie, Cell, Legend } from "recharts";
 import Layout from "./Layout";
+import { api } from "../lib/api";
 import { getDepartmentInfo } from "../utils/departmentUtils";
 import SalesKpiCard from "../components/sales/SalesKpiCard";
 import { ShoppingBagIcon, WalletIcon, ReceiptIcon, CalendarIcon, ChartIcon } from "../components/Icons";
@@ -43,15 +44,8 @@ export default function MonthlySalesReport() {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch("http://localhost:5000/api/products/sales", {
-        headers: { "x-user-role": user?.role || "" },
-      });
-      const data = await res.json();
+      const data = await api.get("/products/sales");
       if (!data.success) throw new Error("Failed to load sales data");
-      if (data.sales && data.sales.length > 0) {
-        console.log("Sales API first row:", data.sales[0]);
-        console.log("Sales API first row customer_type:", data.sales[0].customer_type);
-      }
       setSales(data.sales || []);
     } catch (err) {
       setError(err.message);
@@ -681,7 +675,7 @@ export default function MonthlySalesReport() {
                       ))}
                     </Pie>
                     <Legend />
-                    <Tooltip formatter={(value, name, props) => [`${Number(value).toFixed(2)}%`, name]} contentStyle={TOOLTIP_STYLE} />
+                    <Tooltip formatter={(value, name) => [`${Number(value).toFixed(2)}%`, name]} contentStyle={TOOLTIP_STYLE} />
                   </PieChart>
                 </ResponsiveContainer>
               ) : (

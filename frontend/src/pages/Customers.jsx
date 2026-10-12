@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import Layout from "./Layout";
+import { api } from "../lib/api";
 
 const STATUS_CONFIG = {
   pending_payment: { label: "Pending Payment", color: "bg-yellow-100 text-yellow-800 border-yellow-300" },
@@ -27,8 +28,7 @@ export default function Customers() {
 
   const loadCustomers = async () => {
     try {
-      const res = await fetch("http://localhost:5000/api/orders/customers");
-      const data = await res.json();
+      const data = await api.get("/orders/customers");
       if (data.success) setCustomers(data.customers);
     } catch (err) { console.error(err); }
   };
@@ -64,12 +64,10 @@ export default function Customers() {
 
   const viewCustomerProfile = async (customerId) => {
     try {
-      const [profileRes, ordersRes] = await Promise.all([
-        fetch(`http://localhost:5000/api/orders/customers/${customerId}`),
-        fetch(`http://localhost:5000/api/orders/customers/${customerId}/orders`),
+      const [profileData, ordersData] = await Promise.all([
+        api.get(`/orders/customers/${customerId}`),
+        api.get(`/orders/customers/${customerId}/orders`),
       ]);
-      const profileData = await profileRes.json();
-      const ordersData = await ordersRes.json();
       if (profileData.success) setSelectedCustomer(profileData.customer);
       if (ordersData.success) setCustomerOrders(ordersData.orders);
       setShowProfile(true);

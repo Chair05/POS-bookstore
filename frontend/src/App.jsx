@@ -15,15 +15,25 @@ import Orders from "./pages/Orders";
 import Customers from "./pages/Customers";
 import OnlineReports from "./pages/OnlineReports";
 import ErrorBoundary from "./components/ErrorBoundary";
+import { getToken, setUnauthorizedHandler } from "./lib/api";
 import "./index.css";
 
+// The guards below only decide what to render. Every page's data comes from
+// endpoints that re-check the bearer token server-side, so these checks are a
+// UX convenience and not the security boundary.
+setUnauthorizedHandler(() => {
+  if (!window.location.pathname.endsWith("/login")) {
+    window.location.replace("/login");
+  }
+});
+
 function ProtectedRoute({ children }) {
-  const user = localStorage.getItem("user");
-  if (!user) return <Navigate to="/login" replace />;
+  if (!getToken()) return <Navigate to="/login" replace />;
   return children;
 }
 
 function AdminRoute({ children }) {
+  if (!getToken()) return <Navigate to="/login" replace />;
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   if (!user?.role) return <Navigate to="/login" replace />;
   if (user.role !== "admin") return <Navigate to="/dashboard" replace />;
@@ -31,6 +41,7 @@ function AdminRoute({ children }) {
 }
 
 function InventoryRoute({ children }) {
+  if (!getToken()) return <Navigate to="/login" replace />;
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   if (!user?.role) return <Navigate to="/login" replace />;
   if (user.role === "admin" || user.canViewInventoryLogs) return children;

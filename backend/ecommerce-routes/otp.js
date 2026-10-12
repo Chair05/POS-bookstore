@@ -1,6 +1,7 @@
 const { Router } = require('express');
 const crypto = require('crypto');
 const { promisePool } = require('../db');
+const { otpLimiter, otpVerifyLimiter } = require('../middleware/rateLimiters');
 
 const router = Router();
 
@@ -84,7 +85,7 @@ async function sendOtpEmail(email, otp) {
   }
 }
 
-router.post('/send', async (req, res) => {
+router.post('/send', otpLimiter, async (req, res) => {
   try {
     const { email, purpose } = req.body;
 
@@ -122,7 +123,7 @@ router.post('/send', async (req, res) => {
   }
 });
 
-router.post('/verify', async (req, res) => {
+router.post('/verify', otpVerifyLimiter, async (req, res) => {
   try {
     const { email, otp, purpose } = req.body;
 

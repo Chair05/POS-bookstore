@@ -1,28 +1,25 @@
 import React, { useEffect, useState } from "react";
 import Layout from "./Layout";
+import { api } from "../lib/api";
 
 export default function ManageStaff() {
   const [staff, setStaff] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [role] = useState("sub");
+  const [canViewInventoryLogs, setCanViewInventoryLogs] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [formError, setFormError] = useState("");
+  const [formSuccess, setFormSuccess] = useState("");
+
   const loadStaff = async () => {
     setLoading(true);
     setError("");
 
-    const user = JSON.parse(localStorage.getItem("user") || "{}");
-
     try {
-      const res = await fetch("http://localhost:5000/api/admin/staff", {
-        headers: {
-          "x-user-role": user?.role || "",
-        },
-      });
-      const data = await res.json();
-
-      if (!res.ok || !data.success) {
-        throw new Error(data.message || "Failed to load staff members");
-      }
-
+      const data = await api.get("/admin/staff");
       setStaff(data.staff || []);
     } catch (err) {
       setError(err.message);
@@ -35,28 +32,39 @@ export default function ManageStaff() {
     loadStaff();
   }, []);
 
-  const toggleAccess = async (id, allow) => {
-    const user = JSON.parse(localStorage.getItem("user") || "{}");
+  const createStaff = async (event) => {
+    event.preventDefault();
+    setFormError("");
+    setFormSuccess("");
+    setCreating(true);
 
     try {
-      const res = await fetch(`http://localhost:5000/api/admin/staff/${id}/access`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          "x-user-role": user?.role || "",
-        },
-        body: JSON.stringify({ allow }),
+      const data = await api.post("/admin/staff", {
+        username: username.trim(),
+        password,
+        role: "sub",
+        canViewInventoryLogs,
       });
-      const data = await res.json();
+      setStaff((current) => [...current, data.staff].sort((a, b) => a.username.localeCompare(b.username)));
+      setUsername("");
+      setPassword("");
+      setCanViewInventoryLogs(false);
+      setFormSuccess(data.message || "Account created");
+    } catch (err) {
+      setFormError(err.message);
+    } finally {
+      setCreating(false);
+    }
+  };
 
-      if (!res.ok || !data.success) {
-        throw new Error(data.message || "Unable to update access");
-      }
+  const toggleAccess = async (id, allow) => {
+    try {
+      await api.put(`/admin/staff/${id}/access`, { allow });
 
       setStaff((prev) =>
         prev.map((member) =>
           member.id === id
-            ? { ...member, can_view_inventory_logs: allow ? 1 : 0 }
+            ? { ...member, canViewInventoryLogs: allow }
             : member
         )
       );
@@ -97,10 +105,67 @@ export default function ManageStaff() {
             <div>
               <h2 className="text-xl font-semibold">Staff Members</h2>
               <p className="text-sm text-gray-500">
-                Grant or remove Inventory Log access for staff accounts.
+                Only sub-admin accounts can be created here.
               </p>
             </div>
           </div>
+
+          <form onSubmit={createStaff} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 border-b border-gray-200 pb-6 mb-6">
+            <div>
+              <label htmlFor="staff-username" className="block mb-1.5 text-sm font-medium text-gray-700">Username</label>
+              <input
+                id="staff-username"
+                value={username}
+                onChange={(event) => setUsername(event.target.value)}
+                autoComplete="off"
+                required
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500"
+                placeholder="Enter username"
+              />
+            </div>
+            <div>
+              <label htmlFor="staff-password" className="block mb-1.5 text-sm font-medium text-gray-700">Password</label>
+              <input
+                id="staff-password"
+                type="password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                autoComplete="new-password"
+                minLength={8}
+                required
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500"
+                placeholder="At least 8 characters"
+              />
+            </div>
+            <div className="flex items-end">
+              <div className="w-full rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700">
+                Sub-admin account
+              </div>
+            </div>
+            <div className="flex items-end">
+              <button
+                type="submit"
+                disabled={creating}
+                className="w-full rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {creating ? "Creating..." : "Create Account"}
+              </button>
+            </div>
+            <label className="sm:col-span-2 lg:col-span-4 flex items-center gap-2 text-sm text-gray-700">
+              <input
+                type="checkbox"
+                checked={canViewInventoryLogs}
+                onChange={(event) => setCanViewInventoryLogs(event.target.checked)}
+                className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              />
+              Allow this sub-admin to view Inventory Logs
+            </label>
+            {(formError || formSuccess) && (
+              <p role="status" className={`sm:col-span-2 lg:col-span-4 text-sm ${formError ? "text-red-600" : "text-emerald-700"}`}>
+                {formError || formSuccess}
+              </p>
+            )}
+          </form>
 
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
@@ -127,10 +192,10 @@ export default function ManageStaff() {
                       {member.username}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {member.role}
+                      {member.role === "sub" ? "Sub-admin" : "Admin"}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      {member.can_view_inventory_logs ? (
+                      {member.canViewInventoryLogs ? (
                         <span className="inline-flex rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-800">
                           Allowed
                         </span>
@@ -142,10 +207,10 @@ export default function ManageStaff() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <button
-                        onClick={() => toggleAccess(member.id, !member.can_view_inventory_logs)}
+                        onClick={() => toggleAccess(member.id, !member.canViewInventoryLogs)}
                         className="inline-flex items-center rounded-full bg-blue-600 px-4 py-2 text-xs font-semibold text-white hover:bg-blue-700"
                       >
-                        {member.can_view_inventory_logs ? "Revoke" : "Grant"}
+                        {member.canViewInventoryLogs ? "Revoke" : "Grant"}
                       </button>
                     </td>
                   </tr>

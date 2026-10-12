@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import Layout from "./Layout";
+import { api, getToken } from "../lib/api";
 import {
   ShoppingBagIcon, WalletIcon, PackageIcon, TagsIcon,
   AlertTriangleIcon, UsersIcon, ReceiptIcon, ClockIcon,
@@ -20,95 +21,63 @@ export default function AdminDashboard() {
   const [sales, setSales] = useState([]);
   const [orderSummary, setOrderSummary] = useState(null);
   const [recentOrders, setRecentOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const navigate = useNavigate();
 
-  const user = (() => {
-    try { return JSON.parse(localStorage.getItem("user") || "{}"); } catch { return {}; }
-  })();
-
   useEffect(() => {
-    if (!localStorage.getItem("user")) navigate("/");
+    if (!getToken()) navigate("/");
   }, [navigate]);
 
+  const formatCurrency = (value) => `₱${Number(value || 0).toFixed(2)}`;
+
+  const loadDashboardData = async () => {
+    setLoading(true);
+    setError("");
+
+    const [statsRes, notificationsRes, dailySalesRes, bestSellersRes, salesRes, summaryRes, recentOrdersRes] = await Promise.allSettled([
+      api.get("/orders/dashboard-stats"),
+      api.get("/orders/notifications"),
+      (async () => {
+        const today = new Date();
+        const thirtyDaysAgo = new Date(today);
+        thirtyDaysAgo.setDate(today.getDate() - 30);
+        const start = thirtyDaysAgo.toISOString().slice(0, 10);
+        const end = today.toISOString().slice(0, 10);
+        return api.get(`/orders/reports/pos-daily-sales?start_date=${start}&end_date=${end}`);
+      })(),
+      api.get("/orders/reports/best-sellers"),
+      api.get("/products/sales"),
+      api.get("/orders/reports/summary"),
+      api.get("/orders/orders"),
+    ]);
+
+    const failed = [statsRes, notificationsRes, dailySalesRes, bestSellersRes, salesRes, summaryRes, recentOrdersRes].filter((res) => res.status === "rejected");
+    if (failed.length > 0) {
+      setError("Some dashboard data could not be loaded. Please refresh the page.");
+    }
+
+    if (statsRes.status === "fulfilled" && statsRes.value?.success) setStats(statsRes.value.stats);
+    if (notificationsRes.status === "fulfilled" && notificationsRes.value?.success) setNotifications(notificationsRes.value.notifications || []);
+    if (dailySalesRes.status === "fulfilled" && dailySalesRes.value?.success) setDailySales(dailySalesRes.value.data || []);
+    if (bestSellersRes.status === "fulfilled" && bestSellersRes.value?.success) setBestSellers(bestSellersRes.value.data || []);
+    if (salesRes.status === "fulfilled" && salesRes.value?.success) setSales(salesRes.value.sales || []);
+    if (summaryRes.status === "fulfilled" && summaryRes.value?.success) setOrderSummary(summaryRes.value.summary);
+    if (recentOrdersRes.status === "fulfilled" && recentOrdersRes.value?.success) setRecentOrders((recentOrdersRes.value.orders || []).slice(0, 5));
+
+    setLoading(false);
+  };
+
   useEffect(() => {
-    fetchStats();
-    fetchNotifications();
-    fetchDailySales();
-    fetchBestSellers();
-    fetchSales();
-    fetchOrderSummary();
-    fetchRecentOrders();
+    loadDashboardData();
   }, []);
-
-  const fetchStats = async () => {
-    try {
-      const res = await fetch("http://localhost:5000/api/orders/dashboard-stats");
-      const data = await res.json();
-      if (data.success) setStats(data.stats);
-    } catch (err) { console.error(err); }
-  };
-
-  const fetchNotifications = async () => {
-    try {
-      const res = await fetch("http://localhost:5000/api/orders/notifications");
-      const data = await res.json();
-      if (data.success) setNotifications(data.notifications);
-    } catch (err) { console.error(err); }
-  };
-
-  const fetchDailySales = async () => {
-    try {
-      const today = new Date();
-      const thirtyDaysAgo = new Date(today);
-      thirtyDaysAgo.setDate(today.getDate() - 30);
-      const start = thirtyDaysAgo.toISOString().slice(0, 10);
-      const end = today.toISOString().slice(0, 10);
-      const res = await fetch(`http://localhost:5000/api/orders/reports/daily-sales?start_date=${start}&end_date=${end}`);
-      const data = await res.json();
-      if (data.success) setDailySales(data.data || []);
-    } catch (err) { console.error(err); }
-  };
-
-  const fetchBestSellers = async () => {
-    try {
-      const res = await fetch("http://localhost:5000/api/orders/reports/best-sellers");
-      const data = await res.json();
-      if (data.success) setBestSellers(data.data || []);
-    } catch (err) { console.error(err); }
-  };
-
-  const fetchSales = async () => {
-    try {
-      const res = await fetch("http://localhost:5000/api/products/sales");
-      const data = await res.json();
-      if (data.success) setSales(data.sales || []);
-    } catch (err) { console.error(err); }
-  };
-
-  const fetchOrderSummary = async () => {
-    try {
-      const res = await fetch("http://localhost:5000/api/orders/reports/summary");
-      const data = await res.json();
-      if (data.success) setOrderSummary(data.summary);
-    } catch (err) { console.error(err); }
-  };
-
-  const fetchRecentOrders = async () => {
-    try {
-      const res = await fetch("http://localhost:5000/api/orders/orders");
-      const data = await res.json();
-      if (data.success) setRecentOrders((data.orders || []).slice(0, 5));
-    } catch (err) { console.error(err); }
-  };
-
-  const totalNotifications = useMemo(() => {
-    return notifications.reduce((sum, n) => sum + (n.count || 0), 0);
-  }, [notifications]);
 
   const monthlyBuyingPatterns = useMemo(() => {
     const months = {};
 
-    sales.forEach((sale) => {
+    sales
+      .filter((sale) => sale.product_id != null && Number(sale.product_deleted) === 0)
+      .forEach((sale) => {
       const date = new Date(sale.created_at);
       if (Number.isNaN(date.getTime())) return;
 
@@ -153,6 +122,11 @@ export default function AdminDashboard() {
     <Layout title="Dashboard">
 
       <div className="p-6 space-y-6">
+        {error && (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            {error}
+          </div>
+        )}
 
         {/* SUMMARY CARDS */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
@@ -165,13 +139,13 @@ export default function AdminDashboard() {
           ].map((card, i) => {
             const IconCmp = card.icon;
             return (
-              <div key={i} className="bg-white p-4 rounded-2xl shadow-sm hover:shadow-md transition">
+              <div key={i} className="bg-white p-4 rounded-2xl shadow-sm hover:shadow-md transition min-h-[120px]">
                 <div className="flex items-center justify-between mb-3">
                   <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
                     <IconCmp className="w-5 h-5" />
                   </div>
                 </div>
-                <p className={`text-2xl font-bold ${card.color}`}>{card.value}</p>
+                <p className={`text-2xl font-bold ${card.color}`}>{loading ? "—" : card.value}</p>
                 <p className="text-sm text-gray-500 mt-1">{card.label}</p>
               </div>
             );
@@ -184,11 +158,11 @@ export default function AdminDashboard() {
             { label: "Total Online Orders", value: orderSummary?.total_orders ?? 0, color: "text-blue-700", bg: "bg-blue-50 border-blue-200" },
             { label: "Completed Orders", value: orderSummary?.completed_orders ?? 0, color: "text-green-700", bg: "bg-green-50 border-green-200" },
             { label: "Ready for Pickup", value: orderSummary?.ready_for_pickup_orders ?? 0, color: "text-emerald-700", bg: "bg-emerald-50 border-emerald-200" },
-            { label: "Online Revenue", value: `₱${Number(orderSummary?.completed_revenue ?? 0).toFixed(2)}`, color: "text-green-700", bg: "bg-green-50 border-green-200" },
+            { label: "Online Revenue", value: formatCurrency(orderSummary?.completed_revenue ?? 0), color: "text-green-700", bg: "bg-green-50 border-green-200" },
           ].map((card, i) => (
             <div key={i} className={`p-4 rounded-2xl shadow-sm border ${card.bg}`}>
               <p className="text-sm text-gray-500">{card.label}</p>
-              <p className={`text-xl font-bold mt-1 ${card.color}`}>{card.value}</p>
+              <p className={`text-xl font-bold mt-1 ${card.color}`}>{loading ? "—" : card.value}</p>
             </div>
           ))}
         </div>

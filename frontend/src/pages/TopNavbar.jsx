@@ -1,15 +1,17 @@
-import React from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { clearSession } from "../lib/api";
 
 export default function TopNavbar({ title, onMenuToggle }) {
   const navigate = useNavigate();
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   const user = (() => {
     try { return JSON.parse(localStorage.getItem("user") || "{}"); } catch { return {}; }
   })();
 
-  const handleLogout = () => {
-    localStorage.removeItem("user");
+  const confirmLogout = () => {
+    clearSession();
     navigate("/");
   };
 
@@ -54,7 +56,7 @@ export default function TopNavbar({ title, onMenuToggle }) {
 
           {/* Logout */}
           <button
-            onClick={handleLogout}
+            onClick={() => setShowLogoutConfirm(true)}
             className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -64,6 +66,45 @@ export default function TopNavbar({ title, onMenuToggle }) {
           </button>
         </div>
       </div>
+
+      {showLogoutConfirm && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={() => setShowLogoutConfirm(false)}
+        >
+          <div
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="logout-confirm-title"
+            aria-describedby="logout-confirm-message"
+            className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h2 id="logout-confirm-title" className="mb-2 text-lg font-bold text-gray-900">
+              Confirm logout
+            </h2>
+            <p id="logout-confirm-message" className="mb-6 text-sm text-gray-600">
+              Are you sure you want to log out?
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowLogoutConfirm(false)}
+                className="rounded-lg px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-100"
+              >
+                No
+              </button>
+              <button
+                type="button"
+                onClick={confirmLogout}
+                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700"
+              >
+                Yes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </header>
   );
 }

@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback } from 'react'
+import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react'
 import { useAuth } from './AuthContext'
 
 const CartContext = createContext(null)
@@ -12,6 +12,8 @@ export function CartProvider({ children }) {
   const [cart, setCart] = useState([])
   const [selectedIds, setSelectedIds] = useState(new Set())
 
+  const getItemKey = (item) => `${item._id}_${item.selectedSize || ''}`
+
   useEffect(() => {
     const key = getCartKey(user?.id)
     const savedCart = localStorage.getItem(key)
@@ -24,13 +26,23 @@ export function CartProvider({ children }) {
     localStorage.setItem(key, JSON.stringify(cart))
   }, [cart, user?.id])
 
-  useEffect(() => {
-    if (cart.length > 0 && selectedIds.size === 0) {
-      setSelectedIds(new Set(cart.map((item) => `${item._id}_${item.selectedSize || ''}`)))
-    }
-  }, [cart])
+  // Default to everything selected when a cart is loaded or when the first item
+  // is added.
+  //
+  // This deliberately does not read selectedIds. Keying off "nothing is selected
+  // yet" meant that a customer who deliberately unchecked every item had their
+  // choices silently reverted the next time the cart changed.
+  const previousCartRef = useRef(null)
 
-  const getItemKey = (item) => `${item._id}_${item.selectedSize || ''}`
+  useEffect(() => {
+    const previous = previousCartRef.current
+    previousCartRef.current = cart
+
+    if (cart.length === 0) return
+    if (previous !== null && previous.length > 0) return
+
+    setSelectedIds(new Set(cart.map(getItemKey)))
+  }, [cart])
 
   const toggleItem = useCallback((itemKey) => {
     setSelectedIds((prev) => {

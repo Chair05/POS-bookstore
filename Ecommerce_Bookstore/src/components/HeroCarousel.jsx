@@ -30,7 +30,16 @@ function buildSlides(products) {
       },
     ]
   }
-  return products.slice(0, 5).map((product, i) => ({
+
+  const seenNames = new Set()
+  const uniqueProducts = products.filter((product) => {
+    const key = String(product.name || product._id).trim().toLowerCase()
+    if (seenNames.has(key)) return false
+    seenNames.add(key)
+    return true
+  })
+
+  return uniqueProducts.slice(0, 5).map((product, i) => ({
     id: product._id,
     name: product.name,
     category: product.category,

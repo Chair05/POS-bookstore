@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import api from '../config/api'
 import { useCart } from '../context/CartContext'
 import { useAuth } from '../context/AuthContext'
@@ -16,6 +16,12 @@ const resolveImageSrc = (image) => {
   if (image.startsWith('/uploads')) return image
   return image
 }
+
+const CUSTOMER_FIELDS = [
+  { key: 'fullName', label: 'Full Name', type: 'text' },
+  { key: 'email', label: 'Email Address', type: 'email' },
+  { key: 'contactNumber', label: 'Contact Number', type: 'tel', placeholder: '09XX-XXX-XXXX' },
+]
 
 export default function Checkout() {
   const { cart, selectedItems, selectedTotal, getCartTotal, removeSelectedFromCart } = useCart()
@@ -41,7 +47,6 @@ export default function Checkout() {
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value })
   }
-
   const handleSubmit = async (e) => {
     e.preventDefault()
 
@@ -192,41 +197,44 @@ export default function Checkout() {
               <div className="card">
                 <h2 className="text-lg font-semibold text-gray-900 mb-4">Customer Information</h2>
                 <div className="grid sm:grid-cols-2 gap-4">
-                  <div className="sm:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
-                    <input
-                      type="text"
-                      name="fullName"
-                      value={user?.fullName || form.fullName}
-                      readOnly
-                      disabled
-                      className="input-field bg-gray-100 text-gray-500 cursor-not-allowed"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
-                    <input
-                      type="email"
-                      name="email"
-                      value={user?.email || form.email}
-                      readOnly
-                      disabled
-                      className="input-field bg-gray-100 text-gray-500 cursor-not-allowed"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Contact Number</label>
-                    <input
-                      type="tel"
-                      name="contactNumber"
-                      value={user?.contactNumber || form.contactNumber}
-                      readOnly
-                      disabled
-                      className="input-field bg-gray-100 text-gray-500 cursor-not-allowed"
-                      placeholder="09XX-XXX-XXXX"
-                    />
-                  </div>
+                  {CUSTOMER_FIELDS.map(({ key, label, type, placeholder }) => {
+                    // A field the customer has already saved is shown locked.
+                    // A field they never filled in stays editable, otherwise
+                    // handleSubmit rejects the order and the disabled input
+                    // leaves no way to recover without leaving the page.
+                    const locked = Boolean(user?.[key])
+                    const value = user?.[key] || form[key] || ''
+
+                    return (
+                      <div key={key} className={key === 'fullName' ? 'sm:col-span-2' : ''}>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+                        <input
+                          type={type}
+                          name={key}
+                          value={value}
+                          onChange={handleChange}
+                          readOnly={locked}
+                          disabled={locked}
+                          placeholder={placeholder}
+                          className={
+                            locked
+                              ? 'input-field bg-gray-100 text-gray-500 cursor-not-allowed'
+                              : 'input-field'
+                          }
+                        />
+                      </div>
+                    )
+                  })}
                 </div>
+                {CUSTOMER_FIELDS.some(({ key }) => !user?.[key]) && (
+                  <p className="mt-3 text-sm text-amber-700">
+                    Some details are missing from your profile. Fill them in here or update your{' '}
+                    <Link to="/profile" className="underline font-medium">
+                      profile
+                    </Link>{' '}
+                    before placing your order.
+                  </p>
+                )}
               </div>
 
               <div className="card">
@@ -476,9 +484,7 @@ export default function Checkout() {
                     Processing Payment...
                   </>
                 ) : (
-                  <>
-                    Submit Payment — ₱{checkoutTotal.toLocaleString()}
-                  </>
+                  "Submit"
                 )}
               </button>
 

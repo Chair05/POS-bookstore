@@ -2,10 +2,10 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import logo from "../assets/LCCB-Logo.jpeg";
 import cover from "../assets/gg.jpg";
+import { api, storeSession } from "../lib/api";
 import {
   UserIcon,
   LockIcon,
-  ChevronDownIcon,
   ShoppingBagIcon,
   ChartIcon,
   PackageIcon,
@@ -21,51 +21,43 @@ export default function LogIn() {
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [loginAs, setLoginAs] = useState("admin");
   const [showPassword, setShowPassword] = useState(false);
-  const [role, setRole] = useState("admin");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
 
     setError("");
 
-    if (!username || !password || !role) {
+    if (!username || !password) {
       setError("Please fill in all fields.");
       return;
     }
 
-    // Ensure password meets minimum length requirement
-    if (password.length < 8) {
-      setError("Password must be at least 8 characters.");
-      return;
-    }
-
     setSubmitting(true);
-    fetch("http://localhost:5000/api/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password, role }),
-    })
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.success) {
-          localStorage.setItem(
-            "user",
-            JSON.stringify({ name: data.name, role: data.role, canViewInventoryLogs: Boolean(data.canViewInventoryLogs) })
-          );
+    try {
+      const data = await api.post("/login", { username, password, role: loginAs });
 
-          const redirectUrl = data.role === "sub" ? "/stock" : "/admin-dashboard";
-          window.location.href = redirectUrl;
-        } else {
-          setError(data.message || "Invalid credentials.");
-        }
-      })
-      .catch(() => {
-        setError("Server error. Try again later.");
-      })
-      .finally(() => setSubmitting(false));
+      if (!data.success) {
+        setError(data.message || "Invalid credentials.");
+        return;
+      }
+
+      storeSession(data.token, {
+        id: data.user?.id,
+        name: data.user?.username,
+        role: data.user?.role,
+        canViewInventoryLogs: Boolean(data.user?.canViewInventoryLogs),
+      });
+
+      window.location.href = data.user?.role === "sub" ? "/stock" : "/admin-dashboard";
+    } catch (err) {
+      setError(err.message || "Server error. Try again later.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -157,23 +149,27 @@ export default function LogIn() {
 
           {/* Form */}
           <form onSubmit={handleLogin} className="space-y-5">
-            <div>
-              <label className="block mb-1.5 text-sm font-medium text-gray-700">
-                Login as
-              </label>
-              <div className="relative">
-                <UserIcon className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                <select
-                  value={role}
-                  onChange={(e) => setRole(e.target.value)}
-                  className={`${fieldClass} pr-9 appearance-none cursor-pointer`}
+            <fieldset>
+              <legend className="block mb-1.5 text-sm font-medium text-gray-700">Log in as</legend>
+              <div role="group" aria-label="Account type" className="grid grid-cols-2 gap-1 rounded-xl bg-gray-100 p-1">
+                <button
+                  type="button"
+                  aria-pressed={loginAs === "admin"}
+                  onClick={() => setLoginAs("admin")}
+                  className={`m-0 h-10 rounded-lg border text-sm font-medium transition ${loginAs === "admin" ? "border-blue-200 bg-white text-blue-700 shadow-sm" : "border-transparent text-gray-500 hover:text-gray-700"}`}
                 >
-                  <option value="admin">Admin</option>
-                  <option value="sub">Staff</option>
-                </select>
-                <ChevronDownIcon className="w-4 h-4 text-gray-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  Admin
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={loginAs === "sub"}
+                  onClick={() => setLoginAs("sub")}
+                  className={`m-0 h-10 rounded-lg border text-sm font-medium transition ${loginAs === "sub" ? "border-blue-200 bg-white text-blue-700 shadow-sm" : "border-transparent text-gray-500 hover:text-gray-700"}`}
+                >
+                  Sub-admin
+                </button>
               </div>
-            </div>
+            </fieldset>
 
             <div>
               <label className="block mb-1.5 text-sm font-medium text-gray-700">

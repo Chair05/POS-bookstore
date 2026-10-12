@@ -4,6 +4,23 @@ import { useAuth } from '../context/AuthContext'
 import OtpInput from '../components/OtpInput'
 import toast from 'react-hot-toast'
 
+/**
+ * Only same-origin, in-app paths may be used as a post-login destination.
+ *
+ * `location.state.from` is set by whatever sent the customer to /login. Today
+ * that is only Cart.jsx with a hardcoded '/checkout', but a value such as
+ * '//evil.example' or '\\evil.example' would be treated as a protocol-relative
+ * URL by the browser, turning the login page into an open redirect. Anything
+ * that is not a plain internal path falls back to the storefront home.
+ */
+function safeInternalPath(value) {
+  if (typeof value !== 'string' || value.length === 0) return '/'
+  if (!value.startsWith('/')) return '/'
+  // Reject protocol-relative and backslash-smuggled forms: //host, /\host.
+  if (/^\/[/\\]/.test(value)) return '/'
+  return value
+}
+
 export default function Login() {
   const [form, setForm] = useState({ email: '', password: '' })
   const [loading, setLoading] = useState(false)
@@ -16,7 +33,7 @@ export default function Login() {
   const { login, verifyOtpLogin, resendOtp } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
-  const from = location.state?.from || '/'
+  const from = safeInternalPath(location.state?.from)
 
   useEffect(() => {
     const pendingOtp = JSON.parse(localStorage.getItem('pendingLoginOtp') || 'null')

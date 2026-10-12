@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import Layout from "./Layout";
+import { api } from "../lib/api";
 
 const STATUS_CONFIG = {
   pending_payment: { label: "Pending Payment", color: "bg-yellow-100 text-yellow-800 border-yellow-300" },
@@ -30,6 +31,9 @@ export default function Orders() {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [showDetail, setShowDetail] = useState(false);
   const [showReceipt, setShowReceipt] = useState(null);
+  const [receiptImageUrl, setReceiptImageUrl] = useState(null);
+  const [receiptImageLoading, setReceiptImageLoading] = useState(false);
+  const [receiptImageError, setReceiptImageError] = useState("");
   const [confirmAction, setConfirmAction] = useState(null);
   const [notifications, setNotifications] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
@@ -46,14 +50,48 @@ export default function Orders() {
 
   const loadOrders = async () => {
     try {
-      const res = await fetch("http://localhost:5000/api/orders/orders");
-      const data = await res.json();
+      const data = await api.get("/orders/orders");
       if (data.success) setOrders(Array.isArray(data.orders) ? data.orders : []);
       else console.error("GET /api/orders/orders failed:", data);
     } catch (err) { console.error(err); }
   };
 
   useEffect(() => { loadOrders(); }, []);
+
+  useEffect(() => {
+    if (!showReceipt?.receipt_image) {
+      setReceiptImageUrl(null);
+      setReceiptImageLoading(false);
+      setReceiptImageError("");
+      return;
+    }
+
+    let active = true;
+    let objectUrl = null;
+    const filename = showReceipt.receipt_image.split("/").pop();
+    setReceiptImageUrl(null);
+    setReceiptImageLoading(true);
+    setReceiptImageError("");
+
+    api.get(`/orders/receipts/${encodeURIComponent(filename)}`, { raw: true })
+      .then((response) => response.blob())
+      .then((blob) => {
+        if (!active) return;
+        objectUrl = URL.createObjectURL(blob);
+        setReceiptImageUrl(objectUrl);
+      })
+      .catch((err) => {
+        if (active) setReceiptImageError(err.message || "Unable to load payment receipt");
+      })
+      .finally(() => {
+        if (active) setReceiptImageLoading(false);
+      });
+
+    return () => {
+      active = false;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [showReceipt]);
 
   const genId = () => {
     if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") return crypto.randomUUID();
@@ -94,74 +132,71 @@ export default function Orders() {
     } catch { return "—"; }
   };
 
+  const showOrdersByStatus = (status) => {
+    setStatusFilter(status);
+    setSearch("");
+    setCurrentPage(1);
+    setShowDetail(false);
+    setSelectedOrder(null);
+  };
+
   const handleStatusChange = async (orderId, newStatus, source = "pos") => {
     try {
-      const res = await fetch(`http://localhost:5000/api/orders/orders/${orderId}/status?source=${source}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: newStatus }),
+      const data = await api.put(`/orders/orders/${orderId}/status?source=${source}`, {
+        status: newStatus,
       });
-      const data = await res.json();
       if (data.success) {
         addNotification(`Order status updated to ${STATUS_CONFIG[newStatus]?.label || newStatus}`, "success");
         loadOrders();
-        if (showDetail?.id === orderId) {
-          setSelectedOrder((prev) => ({ ...prev, order_status: newStatus }));
-        }
+        showOrdersByStatus(newStatus);
       } else {
         addNotification(data.message || "Failed to update status", "error");
       }
     } catch (err) {
-      addNotification("Error updating status", "error");
+      addNotification(err.message || "Error updating status", "error");
     }
     setConfirmAction(null);
   };
 
   const handleVerifyPayment = async (orderId, source = "pos") => {
     try {
-      const res = await fetch(`http://localhost:5000/api/orders/orders/${orderId}/verify-payment?source=${source}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ verified_by: user.id || null }),
+      const data = await api.put(`/orders/orders/${orderId}/verify-payment?source=${source}`, {
+        verified_by: user?.id || null,
       });
-      const data = await res.json();
       if (data.success) {
         addNotification("Payment verified successfully", "success");
         loadOrders();
-        setShowDetail(null);
+        showOrdersByStatus("verified");
       } else {
         addNotification(data.message || "Verification failed", "error");
       }
     } catch (err) {
-      addNotification("Error verifying payment", "error");
+      addNotification(err.message || "Error verifying payment", "error");
     }
     setConfirmAction(null);
   };
 
   const handleRejectPayment = async (orderId, source = "pos") => {
     try {
-      const res = await fetch(`http://localhost:5000/api/orders/orders/${orderId}/reject-payment?source=${source}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-      });
-      const data = await res.json();
+      const data = await api.put(`/orders/orders/${orderId}/reject-payment?source=${source}`);
       if (data.success) {
         addNotification("Payment rejected", "success");
         loadOrders();
-        setShowDetail(null);
+        showOrdersByStatus("rejected");
       } else {
         addNotification(data.message || "Rejection failed", "error");
       }
     } catch (err) {
-      addNotification("Error rejecting payment", "error");
+      addNotification(err.message || "Error rejecting payment", "error");
     }
     setConfirmAction(null);
   };
 
   const viewOrderDetail = async (order) => {
     try {
-      const res = await fetch(`http://localhost:5000/api/orders/orders/${order.id}?source=${order.source || "pos"}`);
-      const data = await res.json();
+      const data = await api.get(
+        `/orders/orders/${order.id}?source=${order.source || "pos"}`
+      );
       if (data.success) {
         setSelectedOrder(data.order);
         setShowDetail(true);
@@ -464,13 +499,24 @@ export default function Orders() {
       {/* RECEIPT VIEWER */}
       {showReceipt && (
         <div className="fixed inset-0 bg-black/50 flex justify-center items-center z-50 p-4" onClick={() => setShowReceipt(null)}>
-          <div className="bg-white rounded-2xl p-6 max-w-lg w-full shadow-2xl" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white rounded-2xl p-6 max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-bold">Payment Receipt</h3>
               <button onClick={() => setShowReceipt(null)} className="text-gray-400 hover:text-gray-600 text-2xl">×</button>
             </div>
             <p className="text-sm text-gray-500 mb-3">Order: {showReceipt.order_number}</p>
-            <img src={`http://localhost:5000${showReceipt.receipt_image}`} alt="Payment Receipt" className="w-full rounded-lg border" />
+            {receiptImageLoading ? (
+              <p className="py-8 text-center text-sm text-gray-500">Loading receipt image...</p>
+            ) : receiptImageUrl ? (
+              <img
+                src={receiptImageUrl}
+                alt="Uploaded payment receipt"
+                className="w-full rounded-lg border"
+                onError={() => setReceiptImageError("The uploaded receipt image could not be displayed")}
+              />
+            ) : (
+              <p className="py-8 text-center text-sm text-red-600">{receiptImageError || "Receipt image unavailable"}</p>
+            )}
           </div>
         </div>
       )}

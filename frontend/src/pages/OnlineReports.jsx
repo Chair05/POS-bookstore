@@ -1,7 +1,8 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useCallback, useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import Layout from "./Layout";
+import { api } from "../lib/api";
 
 export default function OnlineReports() {
   const [activeTab, setActiveTab] = useState("overview");
@@ -19,30 +20,24 @@ export default function OnlineReports() {
     if (!localStorage.getItem("user")) navigate("/");
   }, [navigate]);
 
-  useEffect(() => {
-    fetchData();
-  }, [startDate, endDate]);
-
-  const dateParams = () => {
+  const dateParams = useCallback(() => {
     const params = new URLSearchParams();
     if (startDate) params.set("start_date", startDate);
     if (endDate) params.set("end_date", endDate);
     return params.toString();
-  };
+  }, [startDate, endDate]);
 
-  const fetchData = async () => {
+  // Memoised so the effect below depends on a stable identity and refetches
+  // exactly when the date range changes.
+  const fetchData = useCallback(async () => {
     const dp = dateParams();
     try {
-      const [summaryRes, dailyRes, bestRes, customerRes, ordersRes] = await Promise.all([
-        fetch(`http://localhost:5000/api/orders/reports/summary?${dp}`),
-        fetch(`http://localhost:5000/api/orders/reports/daily-sales?${dp}`),
-        fetch(`http://localhost:5000/api/orders/reports/best-sellers?${dp}`),
-        fetch(`http://localhost:5000/api/orders/reports/customer-summary`),
-        fetch(`http://localhost:5000/api/orders/orders`),
-      ]);
-
       const [summaryData, dailyData, bestData, customerData, ordersData] = await Promise.all([
-        summaryRes.json(), dailyRes.json(), bestRes.json(), customerRes.json(), ordersRes.json(),
+        api.get(`/orders/reports/summary?${dp}`),
+        api.get(`/orders/reports/daily-sales?${dp}`),
+        api.get(`/orders/reports/best-sellers?${dp}`),
+        api.get(`/orders/reports/customer-summary`),
+        api.get(`/orders/orders`),
       ]);
 
       if (summaryData.success) setSummary(summaryData.summary);
@@ -51,7 +46,11 @@ export default function OnlineReports() {
       if (customerData.success) setCustomerSummary(customerData.data || []);
       if (ordersData.success) setRecentCompleted((ordersData.orders || []).filter((o) => o.order_status === "completed").slice(0, 20));
     } catch (err) { console.error(err); }
-  };
+  }, [dateParams]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const formatDate = (d) => new Date(d).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" });
 

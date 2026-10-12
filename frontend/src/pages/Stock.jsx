@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState, useRef } from "react";
-import { useNavigate } from "react-router-dom";
 import Layout from "./Layout";
+import { api, assetUrl } from "../lib/api";
 import {
   SearchIcon,
   ChevronDownIcon,
@@ -16,7 +16,7 @@ import {
   PencilIcon,
 } from "../components/Icons";
 
-const LOW_STOCK_THRESHOLD = 5;
+const LOW_STOCK_THRESHOLD = 30;
 
 export default function Stock() {
   const [stock, setStock] = useState([]);
@@ -66,9 +66,6 @@ export default function Stock() {
   const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
   const categoryDropdownRef = useRef(null);
 
-
-  const navigate = useNavigate();
-
   useEffect(() => {
     loadStock();
     loadCategories();
@@ -100,8 +97,7 @@ export default function Stock() {
   const loadStock = async () => {
     setLoading(true);
     try {
-      const res = await fetch("http://localhost:5000/api/products");
-      const data = await res.json();
+      const data = await api.get("/products");
       if (!data.success) throw new Error("Failed to load stock");
       setStock(data.products || []);
     } catch (err) {
@@ -113,8 +109,7 @@ export default function Stock() {
 
   const loadCategories = async () => {
     try {
-      const res = await fetch("http://localhost:5000/api/categories");
-      const data = await res.json();
+      const data = await api.get("/categories");
       if (data.success) setCategories(data.categories || []);
     } catch (err) {
       console.error(err);
@@ -147,12 +142,7 @@ export default function Stock() {
     formData.append("department", newProduct.department || "");
 
     try {
-      const res = await fetch("http://localhost:5000/api/products", {
-        method: "POST",
-        body: formData,
-      });
-
-      const data = await res.json();
+      const data = await api.post("/products", formData);
 
       if (data.success) {
         setNotification({ type: "success", message: "Product added successfully!" });
@@ -185,13 +175,7 @@ export default function Stock() {
     if (!newCategory.trim()) return alert("Enter category name");
 
     try {
-      const res = await fetch("http://localhost:5000/api/categories", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: newCategory }),
-      });
-
-      const data = await res.json();
+      const data = await api.post("/categories", { name: newCategory });
 
       if (!data.success) {
         return alert(data.message || "Failed to add category");
@@ -221,9 +205,12 @@ export default function Stock() {
   const deleteProduct = async (id) => {
     if (!window.confirm("Delete this product?")) return;
 
-    await fetch(`http://localhost:5000/api/products/${id}`, {
-      method: "DELETE",
-    });
+    try {
+      await api.del(`/products/${id}`);
+    } catch (err) {
+      alert(err.message || "Could not delete this product");
+      return;
+    }
 
     setOpenActionMenuId(null);
     loadStock();
@@ -279,11 +266,7 @@ export default function Stock() {
     }
 
     try {
-      const res = await fetch(
-        `http://localhost:5000/api/products/${editModal.id}`,
-        { method: "PUT", body: formData }
-      );
-      const data = await res.json();
+      const data = await api.put(`/products/${editModal.id}`, formData);
 
       if (data.success) {
         setNotification({ type: "success", message: "Product updated successfully!" });
@@ -302,9 +285,7 @@ export default function Stock() {
   const removeEditImage = async () => {
     if (!window.confirm("Remove image for this product?")) return;
 
-    await fetch(`http://localhost:5000/api/products/${editModal.id}/remove-image`, {
-      method: "PUT",
-    });
+    await api.put(`/products/${editModal.id}/remove-image`);
 
     setEditModal((prev) => ({ ...prev, image: "" }));
     setEditForm((prev) => ({ ...prev, imageFile: null, imagePreview: "" }));
@@ -583,7 +564,7 @@ export default function Stock() {
                   <td className="p-3">
                     {item.image ? (
                       <img
-                        src={`http://localhost:5000${item.image}`}
+                        src={assetUrl(item.image)}
                         alt={item.name}
                         className="h-11 w-11 rounded-xl object-cover border border-gray-100"
                       />
@@ -658,13 +639,7 @@ export default function Stock() {
                               const fd = new FormData();
                               fd.append("image", file);
 
-                              await fetch(
-                                `http://localhost:5000/api/products/${item.id}/update-image`,
-                                {
-                                  method: "PUT",
-                                  body: fd,
-                                }
-                              );
+                              await api.put(`/products/${item.id}/update-image`, fd);
 
                               setOpenActionMenuId(null);
                               loadStock();
@@ -677,12 +652,7 @@ export default function Stock() {
                             onClick={async () => {
                               if (!window.confirm("Remove image for this product?")) return;
 
-                              await fetch(
-                                `http://localhost:5000/api/products/${item.id}/remove-image`,
-                                {
-                                  method: "PUT",
-                                }
-                              );
+                              await api.put(`/products/${item.id}/remove-image`);
 
                               setOpenActionMenuId(null);
                               loadStock();
@@ -919,9 +889,7 @@ export default function Stock() {
                       <button
                         type="button"
                         onClick={() => {
-                          try {
-                            URL.revokeObjectURL(newProduct.imagePreview);
-                          } catch (e) {}
+                          URL.revokeObjectURL(newProduct.imagePreview);
                           setNewProduct((prev) => ({
                             ...prev,
                             imageFile: null,
@@ -1126,8 +1094,7 @@ export default function Stock() {
                   {editForm.imagePreview || editModal.image ? (
                     <img
                       src={
-                        editForm.imagePreview ||
-                        `http://localhost:5000${editModal.image}`
+                        editForm.imagePreview || assetUrl(editModal.image)
                       }
                       alt="product"
                       className="h-20 w-20 rounded-xl object-cover border border-gray-200"

@@ -2,10 +2,10 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import logo from "../assets/LCCB-Logo.jpeg";
 import cover from "../assets/gg.jpg";
+import { api } from "../lib/api";
 import {
   UserIcon,
   LockIcon,
-  ChevronDownIcon,
   ShoppingBagIcon,
   ChartIcon,
   PackageIcon,
@@ -24,51 +24,51 @@ export default function SignUp() {
   const [showPassword, setShowPassword] = useState(false);
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [role, setRole] = useState("admin");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleSignUp = (e) => {
+  const flashError = (message) => {
+    setError(message);
+    setTimeout(() => setError(""), 4000);
+  };
+
+  const handleSignUp = async (e) => {
     e.preventDefault();
 
     if (!username || !password || !confirmPassword) {
-      setError("Please fill in all fields.");
-      setTimeout(() => setError(""), 4000);
+      flashError("Please fill in all fields.");
       return;
     }
 
     if (password.length < 8) {
-      setError("Password must be at least 8 characters.");
-      setTimeout(() => setError(""), 4000);
+      flashError("Password must be at least 8 characters.");
       return;
     }
 
     if (password !== confirmPassword) {
-      setError("Passwords do not match.");
-      setTimeout(() => setError(""), 4000);
+      flashError("Passwords do not match.");
       return;
     }
 
-    fetch("http://localhost:5000/api/register", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password, role }),
-    })
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.success) {
-          const displayRole = role === "sub" ? "Staff" : "Admin";
-          setSuccess(`${displayRole} account created successfully!`);
-          setTimeout(() => navigate("/login"), 1200);
-        } else {
-          setError(data.message || "Registration failed.");
-          setTimeout(() => setError(""), 4000);
-        }
-      })
-      .catch(() => {
-        setError("Server error. Try again later.");
-        setTimeout(() => setError(""), 4000);
-      });
+    setSubmitting(true);
+    try {
+      // Bootstrap only: the server rejects this once any admin exists, and
+      // always creates an admin. Additional staff accounts are created by a
+      // signed-in admin from Manage Staff.
+      const data = await api.post("/register", { username, password });
+
+      if (data.success) {
+        setSuccess("Administrator account created successfully!");
+        setTimeout(() => navigate("/login"), 1200);
+      } else {
+        flashError(data.message || "Registration failed.");
+      }
+    } catch (err) {
+      flashError(err.message || "Server error. Try again later.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -102,7 +102,7 @@ export default function SignUp() {
             Create Your Account
           </h2>
           <p className="text-lg text-blue-100/90 mb-10 max-w-md">
-            Register an Admin or Staff account to manage the bookstore system.
+            Set up the initial administrator account. An administrator can add sub-admins later.
           </p>
 
           <div className="space-y-4">
@@ -145,7 +145,7 @@ export default function SignUp() {
                 Sign Up
               </h1>
               <p className="text-sm text-gray-500 mt-0.5">
-                Create an Admin or Staff account
+                Create the initial administrator account
               </p>
             </div>
           </div>
@@ -166,22 +166,10 @@ export default function SignUp() {
 
           {/* Form */}
           <form onSubmit={handleSignUp} className="space-y-5">
-            <div>
-              <label className="block mb-1.5 text-sm font-medium text-gray-700">
-                Sign up as
-              </label>
-              <div className="relative">
-                <UserIcon className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                <select
-                  value={role}
-                  onChange={(e) => setRole(e.target.value)}
-                  className={`${fieldClass} pr-9 appearance-none cursor-pointer`}
-                >
-                  <option value="admin">Admin</option>
-                  <option value="sub">Staff</option>
-                </select>
-                <ChevronDownIcon className="w-4 h-4 text-gray-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-              </div>
+            <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs leading-relaxed">
+              First-run setup only. This form creates the initial administrator
+              account and stops working once one exists. To add staff later, sign
+              in as an administrator and use <strong>Manage Staff</strong>.
             </div>
 
             <div>
@@ -248,9 +236,10 @@ export default function SignUp() {
 
             <button
               type="submit"
-              className="m-0 w-full h-11 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 text-white text-sm font-semibold shadow-lg shadow-blue-600/25 hover:brightness-105 active:scale-[0.99] transition"
+              disabled={submitting}
+              className="m-0 w-full h-11 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 text-white text-sm font-semibold shadow-lg shadow-blue-600/25 hover:brightness-105 active:scale-[0.99] transition disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              Sign Up
+              {submitting ? "Creating..." : "Create Administrator"}
             </button>
           </form>
 

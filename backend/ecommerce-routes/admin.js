@@ -1,10 +1,10 @@
 const { Router } = require('express');
 const { promisePool } = require('../db');
-const { authenticateToken, requireAdmin } = require('../ecommerce-middleware/auth');
+const { authenticateEcomAdmin } = require('../ecommerce-middleware/auth');
 
 const router = Router();
 
-router.use(authenticateToken, requireAdmin);
+router.use(authenticateEcomAdmin);
 
 function generatePickupCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';

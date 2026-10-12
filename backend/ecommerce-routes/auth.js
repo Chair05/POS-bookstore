@@ -2,30 +2,16 @@ const { Router } = require('express');
 const crypto = require('crypto');
 const { promisePool } = require('../db');
 const { authenticateToken } = require('../ecommerce-middleware/auth');
+const { hashPassword, verifyPassword, needsRehash } = require('../lib/passwords');
+const { signToken, AUDIENCES } = require('../lib/tokens');
+const { loginLimiter, otpVerifyLimiter, registerLimiter } = require('../middleware/rateLimiters');
 
 const router = Router();
 
-function hashPassword(password) {
-  const salt = crypto.randomBytes(16).toString('hex');
-  const derivedKey = crypto.scryptSync(password, salt, 64);
-  return salt + ':' + derivedKey.toString('hex');
-}
-
-function verifyPassword(password, hashed) {
-  const [salt, key] = hashed.split(':');
-  const derivedKey = crypto.scryptSync(password, salt, 64);
-  return derivedKey.toString('hex') === key;
-}
-
-function signToken(payload) {
-  const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
-  const body = Buffer.from(JSON.stringify({ ...payload, exp: Math.floor(Date.now() / 1000) + 7 * 24 * 60 * 60 })).toString('base64url');
-  const signature = crypto.createHmac('sha256', process.env.JWT_SECRET).update(`${header}.${body}`).digest('base64url');
-  return `${header}.${body}.${signature}`;
-}
-
 function generateSecureOtp() {
-  return String(crypto.randomInt(100000, 999999));
+  // Full six-digit range: 100000-999999 inclusive. randomInt's upper bound is
+  // exclusive, so the bound is 1000000, not 999999.
+  return String(crypto.randomInt(100000, 1000000));
 }
 
 let transporterPromise = null;
@@ -112,7 +98,7 @@ async function sendOtpEmail(email, otp, purpose) {
   }
 }
 
-router.post('/register', async (req, res) => {
+router.post('/register', registerLimiter, async (req, res) => {
   try {
     const { fullName, email, contactNumber, password } = req.body;
 
@@ -162,7 +148,7 @@ router.post('/register', async (req, res) => {
   }
 });
 
-router.post('/login', async (req, res) => {
+router.post('/login', loginLimiter, async (req, res) => {
   try {
     const { email, password } = req.body;
 
@@ -188,6 +174,13 @@ router.post('/login', async (req, res) => {
     const validPassword = verifyPassword(password, user.password);
     if (!validPassword) {
       return res.status(401).json({ message: 'Incorrect password' });
+    }
+
+    // Upgrade accounts still stored with the legacy scrypt parameters.
+    if (needsRehash(user.password)) {
+      await promisePool
+        .query('UPDATE customers SET password = ? WHERE id = ?', [hashPassword(password), user.id])
+        .catch((err) => console.warn('Customer password rehash failed:', err.message));
     }
 
     await promisePool.query(
@@ -217,7 +210,7 @@ router.post('/login', async (req, res) => {
   }
 });
 
-router.post('/verify-otp', async (req, res) => {
+router.post('/verify-otp', otpVerifyLimiter, async (req, res) => {
   try {
     const { email, otp, purpose = 'login' } = req.body;
 
@@ -266,7 +259,7 @@ router.post('/verify-otp', async (req, res) => {
     }
 
     const user = userRows[0];
-    const token = signToken({ userId: user.id });
+    const token = signToken({ sub: String(user.id), role: user.role }, AUDIENCES.ECOM);
 
     res.json({
       token,
@@ -284,7 +277,7 @@ router.post('/verify-otp', async (req, res) => {
   }
 });
 
-router.post('/resend-otp', async (req, res) => {
+router.post('/resend-otp', otpVerifyLimiter, async (req, res) => {
   try {
     const { email, purpose = 'login' } = req.body;
 

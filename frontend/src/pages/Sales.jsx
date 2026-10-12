@@ -8,6 +8,7 @@ import ReceiptCard from "../components/sales/ReceiptCard";
 import ReceiptDetails from "../components/sales/ReceiptDetails";
 import MiniDonut from "../components/sales/MiniDonut";
 import Sparkline from "../components/sales/Sparkline";
+import { api } from "../lib/api";
 import {
   ShoppingBagIcon,
   WalletIcon,
@@ -35,8 +36,7 @@ export default function SalesPage() {
   /* ================= LOAD ================= */
   const loadSales = useCallback(async () => {
     try {
-      const res = await fetch("http://localhost:5000/api/products/sales");
-      const data = await res.json();
+      const data = await api.get("/products/sales");
       console.log("Loaded sales:", data.sales);
       if (data.success) setSales(data.sales);
     } catch (err) {
@@ -133,15 +133,25 @@ export default function SalesPage() {
     [searchedSales]
   );
 
+  const activeCatalogSales = useMemo(
+    () => searchedSales.filter((sale) => sale.product_id != null && Number(sale.product_deleted) === 0),
+    [searchedSales]
+  );
+
+  const activeProductUnits = useMemo(
+    () => activeCatalogSales.reduce((sum, sale) => sum + (Number(sale.quantity) || 0), 0),
+    [activeCatalogSales]
+  );
+
   const productSummary = useMemo(() => {
-    return searchedSales
+    return activeCatalogSales
       .reduce((acc, sale) => {
         const name = sale.product_name;
         const qty = Number(sale.quantity) || 0;
         acc[name] = (acc[name] || 0) + qty;
         return acc;
       }, {});
-  }, [searchedSales]);
+  }, [activeCatalogSales]);
 
   const mostBoughtItems = useMemo(
     () =>
@@ -253,9 +263,9 @@ export default function SalesPage() {
   const dailyReceipts = useMemo(() => chartData.map((d) => d.sales), [chartData]);
   const dailyRevenue = useMemo(() => chartData.map((d) => d.revenue), [chartData]);
   const topItemPercent = useMemo(() => {
-    if (!totalUnits) return 0;
-    return Math.round(((mostBoughtItems[0]?.[1] || 0) / totalUnits) * 100);
-  }, [mostBoughtItems, totalUnits]);
+    if (!activeProductUnits) return 0;
+    return Math.round(((mostBoughtItems[0]?.[1] || 0) / activeProductUnits) * 100);
+  }, [mostBoughtItems, activeProductUnits]);
 
   /* ================= SELECTION ================= */
   useEffect(() => {

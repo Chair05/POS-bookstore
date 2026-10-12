@@ -1,11 +1,10 @@
 import { useState, useRef } from 'react'
-import { useParams, useNavigate, Link } from 'react-router-dom'
+import { useParams, Link } from 'react-router-dom'
 import api from '../config/api'
 import toast from 'react-hot-toast'
 
 export default function UploadPayment() {
   const { orderId } = useParams()
-  const navigate = useNavigate()
   const fileInputRef = useRef(null)
   const [loading, setLoading] = useState(false)
   const [receipt, setReceipt] = useState(null)

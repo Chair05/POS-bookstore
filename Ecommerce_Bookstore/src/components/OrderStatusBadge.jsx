@@ -56,14 +56,20 @@ export default function OrderStatusBadge({ status, showDescription = true }) {
   )
 }
 
+const DEFAULT_STATUS_FLOW = [
+  'Pending Payment Verification',
+  'Payment Verified',
+  'Preparing',
+  'Ready for Pickup',
+  'Completed',
+]
+
 export function StatusTimeline({ statuses, currentStatus }) {
-  const allStatuses = [
-    'Pending Payment Verification',
-    'Payment Verified',
-    'Preparing',
-    'Ready for Pickup',
-    'Completed',
-  ]
+  // Prefer the flow the API sends for this order; fall back to the standard
+  // one. Previously the prop was accepted and then ignored, so any order with a
+  // non-standard flow was rendered with the wrong steps.
+  const allStatuses =
+    Array.isArray(statuses) && statuses.length > 0 ? statuses : DEFAULT_STATUS_FLOW
 
   const currentIndex = allStatuses.indexOf(currentStatus)
   const isRejected = currentStatus === 'Rejected'

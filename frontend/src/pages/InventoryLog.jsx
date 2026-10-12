@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import Layout from "./Layout";
+import { api } from "../lib/api";
 import {
   SearchIcon,
   CalendarIcon,
@@ -10,7 +10,6 @@ import {
 } from "../components/Icons";
 
 export default function InventoryLog() {
-  const navigate = useNavigate();
 
   const [logs, setLogs] = useState([]);
   const [user, setUser] = useState(() => {
@@ -47,24 +46,9 @@ export default function InventoryLog() {
   const loadLogs = async () => {
     setLoading(true);
     try {
-      const res = await fetch("http://localhost:5000/api/inventory-logs", {
-        headers: {
-          "x-user-role": user?.role || "",
-          "x-user-can-view-inventory-logs": user?.canViewInventoryLogs ? "true" : "false",
-        },
-      });
-
-      const text = await res.text();
-
-      if (!res.ok)
-        throw new Error(`Inventory log error ${res.status}: ${text}`);
-
-      let data;
-      try {
-        data = JSON.parse(text);
-      } catch (parseErr) {
-        throw new Error(`Response was not JSON: ${text.substring(0, 200)}`);
-      }
+      // Access is decided server-side from the bearer token; the previous
+      // x-user-role / x-user-can-view-inventory-logs headers were client-asserted.
+      const data = await api.get("/inventory-logs");
 
       if (!data.success)
         throw new Error("Failed to load logs");
