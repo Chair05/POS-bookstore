@@ -23,6 +23,7 @@ COPY --from=build /app/node_modules ./node_modules
 COPY package.json ./
 COPY server.js ./
 COPY db.js ./
+COPY db-postgres.js ./
 COPY lib ./lib
 COPY middleware ./middleware
 COPY routes ./routes
