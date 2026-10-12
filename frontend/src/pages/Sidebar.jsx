@@ -1,6 +1,6 @@
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
-import LccbLogo from "../assets/Lccb-logo.jpeg";
+import LccbLogo from "../assets/LCCB-Logo.jpeg";
 
 const NAV_SECTIONS = [
   {

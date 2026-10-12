@@ -1,6 +1,6 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import logo from "../assets/Lccb-logo.jpeg";
+import logo from "../assets/LCCB-Logo.jpeg";
 import cover from "../assets/cover.jpg";
 
 export default function StartPage() {
