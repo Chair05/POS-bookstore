@@ -96,6 +96,10 @@ router.post('/:id/payment', upload.single('receipt'), async (req, res) => {
   try {
     const { id } = req.params;
     const { referenceNumber, paymentMethod = 'GCash' } = req.body;
+    if (typeof paymentMethod !== 'string' || paymentMethod.trim().toLowerCase() !== 'gcash') {
+      await discardTemporaryUpload(req.file);
+      return res.status(400).json({ message: 'GCash is the only supported online payment method' });
+    }
 
     const [orders] = await promisePool.query(
       'SELECT * FROM ecom_orders WHERE id = ? AND customer_id = ?',
@@ -118,12 +122,12 @@ router.post('/:id/payment', upload.single('receipt'), async (req, res) => {
       await connection.beginTransaction();
       await connection.query(
         "UPDATE ecom_orders SET reference_number = ?, receipt_image = ?, payment_method = ?, payment_status = 'pending' WHERE id = ?",
-        [referenceNumber || '', receiptPath, paymentMethod, id]
+        [referenceNumber || '', receiptPath, 'GCash', id]
       );
 
       await connection.query(
         'INSERT INTO ecom_payments (order_id, customer_id, receipt_image, reference_number, payment_method, amount, status) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        [id, req.user.id, receiptPath, referenceNumber || '', paymentMethod, orders[0].total_amount, 'pending']
+        [id, req.user.id, receiptPath, referenceNumber || '', 'GCash', orders[0].total_amount, 'pending']
       );
       await connection.commit();
     } catch (error) {

@@ -182,7 +182,7 @@ export default function UploadPayment() {
                 value={referenceNumber}
                 onChange={(e) => setReferenceNumber(e.target.value)}
                 className="input-field"
-                placeholder="Enter your GCash or bank reference number"
+                placeholder="Enter your GCash transaction/reference number"
                 required
               />
               <p className="text-xs text-gray-400 mt-1">

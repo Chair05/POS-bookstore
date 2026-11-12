@@ -10,7 +10,7 @@ const GRADIENTS = [
 ]
 
 const DEFAULT_TEXT =
-  'Pre-order your textbooks, uniforms, and school supplies online. Pay via GCash or bank transfer, then pick up at the bookstore.'
+  'Pre-order your textbooks, uniforms, and school supplies online. Pay via GCash, then pick up at the bookstore.'
 
 function resolveImage(product) {
   if (!product || !product.image) return '/placeholder-book.svg'

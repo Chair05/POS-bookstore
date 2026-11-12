@@ -230,6 +230,10 @@ router.post("/orders", handle(async (req, res) => {
     return res.status(400).json({ success: false, message: "Customer and items required" });
   }
 
+  if (payment_method && String(payment_method).trim().toLowerCase() !== "gcash") {
+    return res.status(400).json({ success: false, message: "GCash is the only supported online payment method" });
+  }
+
   // Prices come from the catalogue, never from the request body.
   const [products] = await promisePool.query(
     `SELECT id, name, price, barcode FROM products
@@ -266,7 +270,7 @@ router.post("/orders", handle(async (req, res) => {
             orderNumber,
             customer_id,
             totalAmount,
-            payment_method === "rcbc" ? "rcbc" : "gcash",
+            "gcash",
             reference_number || null,
             receipt_image || null,
             notes || null,

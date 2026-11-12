@@ -70,6 +70,38 @@ private and are only served through the authenticated backend route.
 Render's free web service can sleep when idle. It does not provide durable local
 disk, so the service is configured to use Supabase Storage for uploaded files.
 
+## Deploy the ecommerce storefront to Vercel
+
+The storefront is a separate Vite project in `Ecommerce_Bookstore`; deploy it
+as a static Vercel project. Keep the Express API on Render (or another
+long-running Node.js host), since this backend uses persistent database
+connections and is not configured as a Vercel Function.
+
+1. In Vercel, import the GitHub repository and set **Root Directory** to
+   `Ecommerce_Bookstore`.
+2. Use the `npm` install command `npm install`, build command `npm run build`,
+   and output directory `dist`. Vercel should detect Vite automatically.
+   `Ecommerce_Bookstore/vercel.json` sends client-side routes back to the
+   storefront entry page.
+3. Add these environment variables to the Vercel project:
+   - `VITE_API_URL` — the deployed API origin followed by `/api`, for example
+     `https://pos-bookstore-api.onrender.com/api`. Do not use the example
+     hostname; use the URL assigned to your Render service.
+   - `VITE_GCASH_PAYMENT_LINK` — optional, if checkout should show the GCash
+     payment link.
+4. Deploy the storefront. Add its exact public Vercel origin (scheme and
+   hostname, with no trailing slash) to the backend's `CORS_ORIGINS` value on
+   Render, alongside any POS origin. Save the variable and redeploy/restart the
+   API. If you attach a custom domain later, add that exact origin too.
+5. Redeploy the storefront after changing its environment variables. Verify
+   the storefront loads, its product and category requests succeed, and
+   customer registration/login and checkout reach the deployed API.
+
+Product image URLs must point to the public Supabase `product-images` bucket;
+the Vercel static site cannot serve files from the backend's local upload
+directory. Payment receipts should continue to be uploaded through the API and
+kept in the private `payment-receipts` bucket.
+
 ## Create the Supabase schema
 
 In PowerShell, from `backend`:

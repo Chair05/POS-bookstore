@@ -230,7 +230,7 @@ export default function ProductDetail() {
                 </svg>
                 <div className="text-sm text-primary-800">
                   <p className="font-medium">Pickup Only</p>
-                  <p>Order online, pay via GCash or bank transfer, then pick up at the LCCB Bookstore.</p>
+                  <p>Order online, pay via GCash, then pick up at the LCCB Bookstore.</p>
                 </div>
               </div>
             </div>

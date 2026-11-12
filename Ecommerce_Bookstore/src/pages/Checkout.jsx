@@ -5,7 +5,6 @@ import { useCart } from '../context/CartContext'
 import { useAuth } from '../context/AuthContext'
 import toast from 'react-hot-toast'
 import gcashLogo from '../assets/gcash.png'
-import rcbcLogo from '../assets/rcbc.png'
 import gcashQr from '../assets/qr.jpg'
 
 const gcashPaymentLink = import.meta.env.VITE_GCASH_PAYMENT_LINK?.trim()
@@ -30,8 +29,6 @@ export default function Checkout() {
   const { user } = useAuth()
   const navigate = useNavigate()
   const receiptInputRef = useRef(null)
-  const [loading, setLoading] = useState(false)
-  const [paymentMethod, setPaymentMethod] = useState('GCash')
   const [showGcash, setShowGcash] = useState(false)
   const [gcashReceipt, setGcashReceipt] = useState(null)
   const [gcashReceiptPreview, setGcashReceiptPreview] = useState(null)
@@ -60,43 +57,7 @@ export default function Checkout() {
       return
     }
 
-    setLoading(true)
-    try {
-      if (paymentMethod === 'GCash') {
-        setLoading(false)
-        setShowGcash(true)
-        return
-      }
-
-      const orderData = {
-        items: checkoutItems.map((item) => ({
-          product: item._id,
-          name: item.name,
-          quantity: item.quantity,
-          price: item.price,
-          selectedSize: item.selectedSize,
-        })),
-        totalAmount: checkoutTotal,
-        paymentMethod,
-        customerInfo: {
-          fullName: form.fullName,
-          email: form.email,
-          contactNumber: form.contactNumber,
-        },
-      }
-
-      const response = await api.post('/customer/orders', orderData)
-      const orderId = response.data.order?._id || response.data._id || response.data.orderId
-
-      removeSelectedFromCart()
-      toast.success('Order placed successfully!')
-      navigate(`/upload-payment/${orderId}`)
-    } catch (err) {
-      console.error('Order failed:', err)
-      toast.error(err.response?.data?.message || 'Failed to place order. Please try again.')
-    } finally {
-      setLoading(false)
-    }
+    setShowGcash(true)
   }
 
   const handleGcashReceiptChange = (e) => {
@@ -264,50 +225,22 @@ export default function Checkout() {
 
               <div className="card">
                 <h2 className="text-lg font-semibold text-gray-900 mb-4">Payment Method</h2>
-                <div className="grid sm:grid-cols-2 gap-4">
-                  <button
-                    type="button"
-                    onClick={() => setPaymentMethod('GCash')}
-                    className={`border-2 rounded-xl p-6 text-center transition-all ${
-                      paymentMethod === 'GCash'
-                        ? 'border-primary-500 bg-primary-50 shadow-sm'
-                        : 'border-gray-200 bg-white hover:border-primary-200'
-                    }`}
-                  >
+                <div className="max-w-sm">
+                  <div className="border-2 border-primary-500 bg-primary-50 rounded-xl p-6 text-center">
                     <div className="w-16 h-16 bg-white rounded-lg flex items-center justify-center mx-auto mb-3 p-2 shadow-sm">
                       <img src={gcashLogo} alt="GCash" className="w-full h-full object-contain" />
                     </div>
                     <h3 className="font-semibold text-gray-900">GCash</h3>
                     <p className="text-sm text-gray-500 mt-1">Pay to 0916-413-8090</p>
-                    <span className={`mt-2 inline-flex items-center gap-1 text-xs font-medium ${paymentMethod === 'GCash' ? 'text-primary-600' : 'text-gray-400'}`}>
-                      <span className={`w-3 h-3 rounded-full border-2 ${paymentMethod === 'GCash' ? 'border-primary-600 bg-primary-600' : 'border-gray-300'}`}></span>
-                      {paymentMethod === 'GCash' ? 'Selected' : 'Select'}
+                    <span className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-primary-600">
+                      <span className="w-3 h-3 rounded-full border-2 border-primary-600 bg-primary-600"></span>
+                      Available payment method
                     </span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPaymentMethod('RCBC')}
-                    className={`border-2 rounded-xl p-6 text-center transition-all ${
-                      paymentMethod === 'RCBC'
-                        ? 'border-primary-500 bg-primary-50 shadow-sm'
-                        : 'border-gray-200 bg-white hover:border-primary-200'
-                    }`}
-                  >
-                    <div className="w-16 h-16 bg-white rounded-lg flex items-center justify-center mx-auto mb-3 p-2 shadow-sm">
-                      <img src={rcbcLogo} alt="RCBC" className="w-full h-full object-contain" />
-                    </div>
-                    <h3 className="font-semibold text-gray-900">RCBC Bank Transfer</h3>
-                    <p className="text-sm text-gray-500 mt-1">Transfer to our RCBC account</p>
-                    <span className={`mt-2 inline-flex items-center gap-1 text-xs font-medium ${paymentMethod === 'RCBC' ? 'text-primary-600' : 'text-gray-400'}`}>
-                      <span className={`w-3 h-3 rounded-full border-2 ${paymentMethod === 'RCBC' ? 'border-primary-600 bg-primary-600' : 'border-gray-300'}`}></span>
-                      {paymentMethod === 'RCBC' ? 'Selected' : 'Select'}
-                    </span>
-                  </button>
+                  </div>
                 </div>
+              </div>
 
-                </div>
             </div>
-
             <div className="lg:col-span-1">
               <div className="card sticky top-24">
                 <h3 className="font-semibold text-gray-900 mb-4 pb-4 border-b border-gray-100">Order Summary</h3>
@@ -330,28 +263,16 @@ export default function Checkout() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                     <p className="text-xs text-blue-700">
-                      {paymentMethod === 'GCash'
-                        ? 'After placing your order, you will upload your GCash receipt. Your order will be prepared after payment verification.'
-                        : "After placing your order, you'll be directed to upload your payment receipt. Your order will be prepared only after payment verification."}
+                      After placing your order, you will upload your GCash receipt. Your order will be prepared after payment verification.
                     </p>
                   </div>
                 </div>
 
                 <button
                   type="submit"
-                  disabled={loading}
                   className="btn-primary w-full flex items-center justify-center gap-2"
                 >
-                  {loading ? (
-                    <>
-                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                      Placing Order...
-                    </>
-                  ) : (
-                    <>
-                      {paymentMethod === 'GCash' ? 'Pay with GCash — ₱' : 'Place Order — ₱'}{checkoutTotal.toLocaleString()}
-                    </>
-                  )}
+                  Pay with GCash — ₱{checkoutTotal.toLocaleString()}
                 </button>
               </div>
             </div>
