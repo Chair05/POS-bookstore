@@ -1,6 +1,14 @@
 {
   "rewrites": [
     {
+      "source": "/api/:path*",
+      "destination": "https://walks-muze-guest-viii.trycloudflare.com/api/:path*"
+    },
+    {
+      "source": "/uploads/:path*",
+      "destination": "https://walks-muze-guest-viii.trycloudflare.com/uploads/:path*"
+    },
+    {
       "source": "/(.*)",
       "destination": "/"
     }
