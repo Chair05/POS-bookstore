@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import api from '../config/api'
+import api, { formatCurrency, resolveImageUrl } from '../config/api'
 import { useCart } from '../context/CartContext'
 import { useAuth } from '../context/AuthContext'
 import toast from 'react-hot-toast'
@@ -8,13 +8,7 @@ import gcashLogo from '../assets/gcash.png'
 import gcashQr from '../assets/qr.jpg'
 
 const gcashPaymentLink = import.meta.env.VITE_GCASH_PAYMENT_LINK?.trim()
-
-const resolveImageSrc = (image) => {
-  if (!image) return '/placeholder-book.svg'
-  if (image.startsWith('http://') || image.startsWith('https://')) return image
-  if (image.startsWith('/uploads')) return image
-  return image
-}
+const GCASH_ACCOUNT_NUMBER = '0916-413-8090'
 
 const CUSTOMER_FIELDS = [
   { key: 'fullName', label: 'Full Name', type: 'text' },
@@ -44,6 +38,16 @@ export default function Checkout() {
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value })
   }
+
+  const handleCopyGcashNumber = async () => {
+    try {
+      await navigator.clipboard.writeText(GCASH_ACCOUNT_NUMBER.replace(/-/g, ''))
+      toast.success('GCash number copied')
+    } catch {
+      toast.error('Could not copy automatically')
+    }
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
 
@@ -136,12 +140,14 @@ export default function Checkout() {
   if (checkoutItems.length === 0 && !paidOrder) {
     return (
       <div className="page-container animate-fade-in">
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-16 text-center">
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">No items to checkout</h2>
-          <p className="text-gray-500 mb-4">Select items from your cart to checkout.</p>
-          <button onClick={() => navigate('/products')} className="btn-primary">
-            Browse Products
-          </button>
+        <div className="max-w-xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
+          <div className="card text-center py-12">
+            <h2 className="text-2xl font-bold text-slate-900 mb-2">No items to checkout</h2>
+            <p className="text-sm text-slate-500 mb-6">Select items from your cart before proceeding to checkout.</p>
+            <button type="button" onClick={() => navigate('/products')} className="btn-primary">
+              Browse Catalog
+            </button>
+          </div>
         </div>
       </div>
     )
@@ -150,25 +156,33 @@ export default function Checkout() {
   return (
     <div className="page-container animate-fade-in">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-8">Checkout</h1>
+        <div className="mb-8">
+          <p className="text-xs font-semibold uppercase tracking-wider text-primary-600 mb-1">
+            Campus Pre-Order
+          </p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">Checkout</h1>
+        </div>
 
         <form onSubmit={handleSubmit}>
-          <div className="grid lg:grid-cols-3 gap-8">
-            <div className="lg:col-span-2 space-y-6">
+          <div className="grid lg:grid-cols-3 gap-6 lg:gap-8 items-start">
+            <div className="lg:col-span-2 space-y-5">
               <div className="card">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">Customer Information</h2>
+                <div className="flex items-center gap-3 mb-5">
+                  <span className="w-7 h-7 rounded-lg bg-primary-600 text-white text-xs font-bold flex items-center justify-center">
+                    1
+                  </span>
+                  <h2 className="text-lg font-bold text-slate-900">Customer Information</h2>
+                </div>
                 <div className="grid sm:grid-cols-2 gap-4">
                   {CUSTOMER_FIELDS.map(({ key, label, type, placeholder }) => {
-                    // A field the customer has already saved is shown locked.
-                    // A field they never filled in stays editable, otherwise
-                    // handleSubmit rejects the order and the disabled input
-                    // leaves no way to recover without leaving the page.
                     const locked = Boolean(user?.[key])
                     const value = user?.[key] || form[key] || ''
 
                     return (
                       <div key={key} className={key === 'fullName' ? 'sm:col-span-2' : ''}>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+                        <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">
+                          {label}
+                        </label>
                         <input
                           type={type}
                           name={key}
@@ -179,7 +193,7 @@ export default function Checkout() {
                           placeholder={placeholder}
                           className={
                             locked
-                              ? 'input-field bg-gray-100 text-gray-500 cursor-not-allowed'
+                              ? 'input-field bg-slate-100 text-slate-500 cursor-not-allowed'
                               : 'input-field'
                           }
                         />
@@ -188,9 +202,9 @@ export default function Checkout() {
                   })}
                 </div>
                 {CUSTOMER_FIELDS.some(({ key }) => !user?.[key]) && (
-                  <p className="mt-3 text-sm text-amber-700">
+                  <p className="mt-3 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3.5 py-2.5">
                     Some details are missing from your profile. Fill them in here or update your{' '}
-                    <Link to="/profile" className="underline font-medium">
+                    <Link to="/profile" className="underline font-semibold">
                       profile
                     </Link>{' '}
                     before placing your order.
@@ -199,24 +213,44 @@ export default function Checkout() {
               </div>
 
               <div className="card">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">Order Items</h2>
+                <div className="flex items-center gap-3 mb-5">
+                  <span className="w-7 h-7 rounded-lg bg-primary-600 text-white text-xs font-bold flex items-center justify-center">
+                    2
+                  </span>
+                  <h2 className="text-lg font-bold text-slate-900">
+                    Order Items ({checkoutItems.length})
+                  </h2>
+                </div>
                 <div className="space-y-3">
                   {checkoutItems.map((item) => (
-                    <div key={`${item._id}-${item.selectedSize}`} className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
-                      <div className="w-12 h-12 bg-white rounded-lg overflow-hidden shrink-0">
+                    <div
+                      key={`${item._id}-${item.selectedSize}`}
+                      className="flex items-center gap-3.5 p-3 bg-slate-50/80 border border-slate-100 rounded-xl"
+                    >
+                      <div className="w-12 h-12 bg-white border border-slate-200/60 rounded-lg overflow-hidden shrink-0 flex items-center justify-center p-1">
                         <img
-                          src={resolveImageSrc(item.image)}
+                          src={resolveImageUrl(item.image)}
                           alt={item.name}
-                          className="w-full h-full object-contain p-1"
+                          className="w-full h-full object-contain"
+                          onError={(e) => {
+                            e.target.src = '/placeholder-book.svg'
+                          }}
                         />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="font-medium text-gray-900 text-sm truncate">{item.name}</p>
-                        {item.selectedSize && <p className="text-xs text-gray-500">Size: {item.selectedSize}</p>}
+                        <p className="font-semibold text-slate-900 text-sm truncate">{item.name}</p>
+                        <p className="text-xs text-slate-500">
+                          {item.selectedSize ? `Size: ${item.selectedSize} · ` : ''}
+                          Qty: {item.quantity}
+                        </p>
                       </div>
                       <div className="text-right shrink-0">
-                        <p className="text-sm font-medium text-gray-900">₱{item.price.toLocaleString()}</p>
-                        <p className="text-xs text-gray-500">Qty: {item.quantity}</p>
+                        <p className="text-sm font-bold text-slate-900 tabular-nums">
+                          {formatCurrency(item.price * item.quantity)}
+                        </p>
+                        <p className="text-[11px] text-slate-400 tabular-nums">
+                          {formatCurrency(item.price)} ea
+                        </p>
                       </div>
                     </div>
                   ))}
@@ -224,55 +258,65 @@ export default function Checkout() {
               </div>
 
               <div className="card">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">Payment Method</h2>
-                <div className="max-w-sm">
-                  <div className="border-2 border-primary-500 bg-primary-50 rounded-xl p-6 text-center">
-                    <div className="w-16 h-16 bg-white rounded-lg flex items-center justify-center mx-auto mb-3 p-2 shadow-sm">
-                      <img src={gcashLogo} alt="GCash" className="w-full h-full object-contain" />
+                <div className="flex items-center gap-3 mb-5">
+                  <span className="w-7 h-7 rounded-lg bg-primary-600 text-white text-xs font-bold flex items-center justify-center">
+                    3
+                  </span>
+                  <h2 className="text-lg font-bold text-slate-900">Payment Method</h2>
+                </div>
+                <div className="flex items-center gap-4 p-4 border-2 border-primary-500 bg-primary-50/50 rounded-2xl">
+                  <div className="w-14 h-14 bg-white rounded-xl flex items-center justify-center p-2 shadow-sm border border-primary-100 shrink-0">
+                    <img src={gcashLogo} alt="GCash" className="w-full h-full object-contain" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-bold text-slate-900">GCash</h3>
+                      <span className="badge bg-primary-100 text-primary-700">Selected</span>
                     </div>
-                    <h3 className="font-semibold text-gray-900">GCash</h3>
-                    <p className="text-sm text-gray-500 mt-1">Pay to 0916-413-8090</p>
-                    <span className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-primary-600">
-                      <span className="w-3 h-3 rounded-full border-2 border-primary-600 bg-primary-600"></span>
-                      Available payment method
-                    </span>
+                    <p className="text-sm text-slate-600 mt-0.5 tabular-nums">Account: {GCASH_ACCOUNT_NUMBER}</p>
                   </div>
                 </div>
               </div>
-
             </div>
+
             <div className="lg:col-span-1">
               <div className="card sticky top-24">
-                <h3 className="font-semibold text-gray-900 mb-4 pb-4 border-b border-gray-100">Order Summary</h3>
-                <div className="space-y-3 mb-4">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-500">Subtotal</span>
-                    <span className="font-medium">₱{checkoutTotal.toLocaleString()}</span>
+                <h2 className="font-bold text-slate-900 text-lg pb-4 border-b border-slate-100 mb-4">
+                  Order Summary
+                </h2>
+                <div className="space-y-3 mb-4 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Subtotal</span>
+                    <span className="font-semibold text-slate-900 tabular-nums">{formatCurrency(checkoutTotal)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Pickup</span>
+                    <span className="font-semibold text-emerald-600">LCCB Bookstore</span>
                   </div>
                 </div>
-                <div className="border-t border-gray-100 pt-4 mb-6">
-                  <div className="flex justify-between">
-                    <span className="font-semibold text-gray-900">Total</span>
-                    <span className="font-bold text-xl text-primary-600">₱{checkoutTotal.toLocaleString()}</span>
+                <div className="border-t border-slate-100 pt-4 mb-5">
+                  <div className="flex items-baseline justify-between">
+                    <span className="font-semibold text-slate-900">Total</span>
+                    <span className="font-extrabold text-2xl text-primary-600 tabular-nums">
+                      {formatCurrency(checkoutTotal)}
+                    </span>
                   </div>
                 </div>
 
-                <div className="p-3 bg-blue-50 rounded-lg mb-4">
-                  <div className="flex items-start space-x-2">
-                    <svg className="w-5 h-5 text-blue-600 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <p className="text-xs text-blue-700">
-                      After placing your order, you will upload your GCash receipt. Your order will be prepared after payment verification.
-                    </p>
-                  </div>
+                <div className="p-3.5 bg-blue-50/80 border border-blue-100 rounded-xl mb-5 flex items-start gap-2.5">
+                  <svg className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <p className="text-xs text-blue-800 leading-relaxed">
+                    Scan the GCash QR code in the next step and upload your payment receipt for staff verification.
+                  </p>
                 </div>
 
                 <button
                   type="submit"
-                  className="btn-primary w-full flex items-center justify-center gap-2"
+                  className="btn-primary w-full py-3 flex items-center justify-center gap-2 tabular-nums"
                 >
-                  Pay with GCash — ₱{checkoutTotal.toLocaleString()}
+                  Pay with GCash — {formatCurrency(checkoutTotal)}
                 </button>
               </div>
             </div>
@@ -281,15 +325,21 @@ export default function Checkout() {
       </div>
 
       {showGcash && !paidOrder && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center p-4 overflow-y-auto bg-black/50" onClick={(e) => e.stopPropagation()}>
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md my-auto overflow-hidden" onClick={(e) => e.stopPropagation()}>
-            <div className="bg-blue-600 px-6 py-5 flex items-center gap-4">
-              <div className="w-12 h-12 bg-white rounded-lg p-1.5">
+        <div
+          className="fixed inset-0 z-50 flex items-start justify-center p-4 overflow-y-auto bg-slate-950/60 backdrop-blur-sm animate-fade-in"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div
+            className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-md my-auto overflow-hidden animate-scale-in"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="bg-gradient-to-r from-blue-700 to-blue-600 px-6 py-4 flex items-center gap-3.5">
+              <div className="w-11 h-11 bg-white rounded-xl p-1.5 shadow-sm shrink-0">
                 <img src={gcashLogo} alt="GCash" className="w-full h-full object-contain" />
               </div>
               <div>
-                <h2 className="text-white font-bold text-lg">GCash Secure Checkout</h2>
-                <p className="text-blue-100 text-xs">LCCB Bookstore</p>
+                <h2 className="text-white font-bold text-base">GCash Payment</h2>
+                <p className="text-blue-100 text-xs">LCCB Bookstore Checkout</p>
               </div>
               <button
                 type="button"
@@ -298,55 +348,62 @@ export default function Checkout() {
                   removeGcashReceipt()
                   setGcashError('')
                 }}
-                aria-label="Back to checkout"
-                className="ml-auto w-9 h-9 flex items-center justify-center rounded-lg bg-white/15 hover:bg-white/25 text-white transition-colors"
+                aria-label="Close GCash modal"
+                className="ml-auto w-9 h-9 flex items-center justify-center rounded-xl bg-white/15 hover:bg-white/25 text-white transition-colors"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             </div>
 
             <form onSubmit={handleGcashPay} className="p-6 space-y-4">
-              <div className="bg-gray-50 rounded-xl p-4 flex items-center justify-between">
-                <span className="text-sm text-gray-600">Amount to pay</span>
-                <span className="text-2xl font-bold text-gray-900">₱{checkoutTotal.toLocaleString()}</span>
+              <div className="bg-slate-50 border border-slate-200/80 rounded-2xl px-4 py-3 flex items-center justify-between">
+                <span className="text-sm font-medium text-slate-600">Amount due</span>
+                <span className="text-2xl font-extrabold text-slate-900 tabular-nums">
+                  {formatCurrency(checkoutTotal)}
+                </span>
               </div>
 
-              <div className="rounded-xl border border-blue-100 bg-blue-50 p-4 text-center">
-                <p className="text-xs text-blue-700 mb-2 font-medium">Scan this QR code with GCash to pay</p>
-                <div className="w-48 h-48 mx-auto bg-white rounded-lg border border-blue-200 flex items-center justify-center overflow-hidden">
-                  <img
-                    src={gcashQr}
-                    alt="GCash QR Code"
-                    className="w-full h-full object-contain"
-                  />
+              <div className="rounded-2xl border border-blue-100 bg-blue-50/70 p-4 text-center">
+                <p className="text-xs text-blue-800 mb-2.5 font-semibold">
+                  Scan QR code with GCash to pay
+                </p>
+                <div className="w-44 h-44 mx-auto bg-white rounded-xl border border-blue-200 p-1.5 flex items-center justify-center overflow-hidden shadow-sm">
+                  <img src={gcashQr} alt="GCash QR Code" className="w-full h-full object-contain" />
                 </div>
-                <p className="text-xs text-blue-700 mt-2">Account: 0916-413-8090 (LCCB Bookstore)</p>
+                <div className="mt-3 inline-flex items-center gap-2 bg-white border border-blue-200 rounded-xl px-3 py-1.5">
+                  <span className="text-xs font-semibold text-slate-700 tabular-nums">
+                    {GCASH_ACCOUNT_NUMBER}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleCopyGcashNumber}
+                    className="text-xs font-semibold text-blue-600 hover:text-blue-700"
+                  >
+                    Copy
+                  </button>
+                </div>
                 {gcashPaymentLink && (
                   <a
                     href={gcashPaymentLink}
                     target="_blank"
                     rel="noreferrer"
-                    className="mt-3 inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700"
+                    className="mt-3 inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-blue-700"
                   >
                     Open GCash payment link
-                    <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" aria-hidden="true">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M14 5h5v5m-1-4L10 14" />
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 14v3a2 2 0 01-2 2H7a2 2 0 01-2-2V7a2 2 0 012-2h3" />
-                    </svg>
                   </a>
                 )}
               </div>
 
               <div className="space-y-2">
-                <label className="block text-sm font-medium text-gray-700">Payment Receipt</label>
+                <label className="block text-sm font-semibold text-slate-800">Upload Payment Receipt</label>
                 <div
                   onClick={() => receiptInputRef.current?.click()}
-                  className={`border-2 border-dashed rounded-xl p-4 text-center cursor-pointer transition-all ${
+                  className={`border-2 border-dashed rounded-2xl p-4 text-center cursor-pointer transition-all ${
                     gcashReceiptPreview
-                      ? 'border-primary-300 bg-primary-50'
-                      : 'border-gray-200 hover:border-primary-300 hover:bg-gray-50'
+                      ? 'border-primary-300 bg-primary-50/60'
+                      : 'border-slate-200 hover:border-primary-300 hover:bg-slate-50'
                   }`}
                 >
                   {gcashReceiptPreview ? (
@@ -354,7 +411,7 @@ export default function Checkout() {
                       <img
                         src={gcashReceiptPreview}
                         alt="Payment receipt"
-                        className="max-h-32 mx-auto rounded-lg"
+                        className="max-h-32 mx-auto rounded-xl shadow-sm"
                       />
                       <button
                         type="button"
@@ -362,20 +419,20 @@ export default function Checkout() {
                           e.stopPropagation()
                           removeGcashReceipt()
                         }}
-                        className="text-sm text-red-500 hover:text-red-600 font-medium"
+                        className="text-xs text-red-600 hover:text-red-700 font-semibold"
                       >
                         Remove image
                       </button>
                     </div>
                   ) : (
-                    <div className="space-y-1">
-                      <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center mx-auto">
-                        <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="space-y-1 py-2">
+                      <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center mx-auto">
+                        <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                         </svg>
                       </div>
-                      <p className="text-sm font-medium text-gray-700">Tap to upload receipt</p>
-                      <p className="text-xs text-gray-400">PNG, JPG up to 5MB</p>
+                      <p className="text-sm font-semibold text-slate-700">Tap to upload receipt screenshot</p>
+                      <p className="text-xs text-slate-400">PNG or JPG up to 5MB</p>
                     </div>
                   )}
                 </div>
@@ -389,8 +446,8 @@ export default function Checkout() {
               </div>
 
               {gcashError && (
-                <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3">
-                  <p className="text-sm text-red-600">{gcashError}</p>
+                <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-2.5">
+                  <p className="text-xs font-medium text-red-700">{gcashError}</p>
                 </div>
               )}
 
@@ -401,11 +458,11 @@ export default function Checkout() {
               >
                 {gcashSubmitting ? (
                   <>
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                    Processing Payment...
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white/30 border-t-white" />
+                    Submitting Receipt...
                   </>
                 ) : (
-                  "Submit"
+                  'Confirm & Submit Order'
                 )}
               </button>
 
@@ -416,7 +473,7 @@ export default function Checkout() {
                   removeGcashReceipt()
                   setGcashError('')
                 }}
-                className="w-full text-sm text-gray-500 hover:text-gray-700 py-2"
+                className="w-full text-xs font-medium text-slate-500 hover:text-slate-700 py-1.5"
               >
                 Cancel
               </button>
@@ -426,44 +483,38 @@ export default function Checkout() {
       )}
 
       {paidOrder && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-8 text-center">
-            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-md p-8 text-center animate-scale-in">
+            <div className="w-16 h-16 bg-emerald-100 rounded-2xl flex items-center justify-center mx-auto mb-5">
+              <svg className="w-8 h-8 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M5 13l4 4L19 7" />
               </svg>
             </div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Payment Submitted!</h2>
-            <p className="text-gray-500 mb-4">
-              Your GCash payment receipt for ₱{paidOrder.amount.toLocaleString()} has been submitted.
-              Our administrator will verify your payment before your order is prepared for pickup.
+            <h2 className="text-2xl font-bold text-slate-900 mb-2">Payment Submitted!</h2>
+            <p className="text-sm text-slate-600 mb-5 leading-relaxed">
+              Your GCash receipt for <span className="font-bold text-slate-900 tabular-nums">{formatCurrency(paidOrder.amount)}</span> has been received. Our staff will verify your payment before preparing your pickup order.
             </p>
-            <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 mb-4">
-              <div className="flex items-center justify-center gap-2 mb-1">
-                <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-                <p className="text-sm font-bold text-blue-800">Pickup Location</p>
-              </div>
-              <p className="text-sm font-semibold text-blue-900">LCCB Bookstore</p>
-              <p className="text-xs text-blue-600 mt-0.5">Bring your pickup code when you claim your order</p>
-            </div>
-            <div className="bg-primary-50 rounded-xl p-4 mb-6">
-              <p className="text-sm text-primary-800 leading-relaxed">
-                You will receive a pickup code once your payment is verified. You can track your order status in the meantime.
+            <div className="bg-primary-50/80 border border-primary-100 rounded-2xl p-4 mb-6 text-left">
+              <p className="text-xs font-bold uppercase tracking-wider text-primary-700 mb-1">
+                Pickup Location
+              </p>
+              <p className="text-sm font-semibold text-slate-900">LCCB Bookstore Counter</p>
+              <p className="text-xs text-slate-600 mt-1">
+                Your pickup code will unlock once payment is verified.
               </p>
             </div>
-            <div className="space-y-3">
+            <div className="space-y-2.5">
               <button
+                type="button"
                 onClick={() => navigate(`/order-status/${paidOrder.orderId}`)}
-                className="btn-primary w-full"
+                className="btn-primary w-full py-3"
               >
                 Track Order Status
               </button>
               <button
+                type="button"
                 onClick={() => navigate('/products')}
-                className="btn-secondary w-full"
+                className="btn-secondary w-full py-2.5"
               >
                 Continue Shopping
               </button>

@@ -34,17 +34,28 @@ export default function Profile() {
   return (
     <div className="page-container animate-fade-in">
       <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-8">My Profile</h1>
+        <div className="card mb-5 flex items-center gap-4">
+          <div className="w-14 h-14 rounded-2xl bg-primary-600 text-white flex items-center justify-center text-xl font-bold shrink-0 shadow-sm shadow-primary-600/20">
+            {user?.fullName?.charAt(0)?.toUpperCase() || 'U'}
+          </div>
+          <div className="min-w-0">
+            <h1 className="text-xl sm:text-2xl font-bold text-slate-900 truncate">
+              {user?.fullName || 'My Profile'}
+            </h1>
+            <p className="text-sm text-slate-500 truncate">{user?.email}</p>
+          </div>
+        </div>
 
         <div className="card">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-lg font-semibold text-gray-900">Personal Information</h2>
+          <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-100">
+            <h2 className="text-base font-bold text-slate-900">Personal Information</h2>
             {!editing && (
               <button
+                type="button"
                 onClick={() => setEditing(true)}
-                className="text-sm text-primary-600 hover:text-primary-700 font-medium"
+                className="text-sm text-primary-600 hover:text-primary-700 font-semibold"
               >
-                Edit
+                Edit details
               </button>
             )}
           </div>
@@ -52,7 +63,9 @@ export default function Profile() {
           {editing ? (
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">
+                  Full Name
+                </label>
                 <input
                   type="text"
                   name="fullName"
@@ -63,7 +76,9 @@ export default function Profile() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">
+                  Email Address
+                </label>
                 <input
                   type="email"
                   name="email"
@@ -74,7 +89,9 @@ export default function Profile() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Contact Number</label>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">
+                  Contact Number
+                </label>
                 <input
                   type="tel"
                   name="contactNumber"
@@ -104,50 +121,50 @@ export default function Profile() {
               </div>
             </form>
           ) : (
-            <div className="space-y-4">
-              <div>
-                <p className="text-sm text-gray-500">Full Name</p>
-                <p className="font-medium text-gray-900">{user?.fullName || '-'}</p>
+            <div className="grid sm:grid-cols-2 gap-5 text-sm">
+              <div className="sm:col-span-2">
+                <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Full Name</p>
+                <p className="font-semibold text-slate-900 mt-0.5">{user?.fullName || '-'}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-500">Email Address</p>
-                <p className="font-medium text-gray-900">{user?.email || '-'}</p>
+                <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Email Address</p>
+                <p className="font-semibold text-slate-900 mt-0.5">{user?.email || '-'}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-500">Contact Number</p>
-                <p className="font-medium text-gray-900">{user?.contactNumber || '-'}</p>
+                <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Contact Number</p>
+                <p className="font-semibold text-slate-900 mt-0.5">{user?.contactNumber || '-'}</p>
               </div>
             </div>
           )}
         </div>
 
-        <div className="mt-6 space-y-3">
-          <Link to="/orders" className="card flex items-center space-x-4 hover:shadow-card-hover transition-all cursor-pointer">
-            <div className="w-10 h-10 bg-primary-100 rounded-xl flex items-center justify-center shrink-0">
-              <svg className="w-5 h-5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="mt-5 grid sm:grid-cols-2 gap-4">
+          <Link to="/orders" className="card card-hover flex items-center gap-3.5 p-5">
+            <div className="w-10 h-10 bg-primary-50 text-primary-600 rounded-xl flex items-center justify-center shrink-0">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
               </svg>
             </div>
-            <div>
-              <p className="font-medium text-gray-900">Order History</p>
-              <p className="text-sm text-gray-500">View your past orders</p>
+            <div className="min-w-0 flex-1">
+              <p className="font-semibold text-slate-900 text-sm">Order History</p>
+              <p className="text-xs text-slate-500">Track pre-orders</p>
             </div>
-            <svg className="w-5 h-5 text-gray-400 ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
           </Link>
 
-          <Link to="/change-password" className="card flex items-center space-x-4 hover:shadow-card-hover transition-all cursor-pointer">
-            <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center shrink-0">
-              <svg className="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <Link to="/change-password" className="card card-hover flex items-center gap-3.5 p-5">
+            <div className="w-10 h-10 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center shrink-0">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
               </svg>
             </div>
-            <div>
-              <p className="font-medium text-gray-900">Change Password</p>
-              <p className="text-sm text-gray-500">Update your password</p>
+            <div className="min-w-0 flex-1">
+              <p className="font-semibold text-slate-900 text-sm">Security</p>
+              <p className="text-xs text-slate-500">Change password</p>
             </div>
-            <svg className="w-5 h-5 text-gray-400 ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
           </Link>

@@ -59,20 +59,22 @@ export default function ChangePassword() {
   return (
     <div className="page-container animate-fade-in">
       <div className="max-w-md mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <nav className="flex items-center space-x-2 text-sm text-gray-500 mb-6">
+        <nav className="flex items-center gap-2 text-sm text-slate-500 mb-6">
           <Link to="/profile" className="hover:text-primary-600 transition-colors">Profile</Link>
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-4 h-4 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
           </svg>
-          <span className="text-gray-900 font-medium">Change Password</span>
+          <span className="text-slate-900 font-medium">Change Password</span>
         </nav>
 
-        <h1 className="text-3xl font-bold text-gray-900 mb-8">Change Password</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 mb-6">Change Password</h1>
 
         <div className="card">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Current Password</label>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">
+                Current Password
+              </label>
               <input
                 type={showPasswords ? 'text' : 'password'}
                 name="currentPassword"
@@ -83,7 +85,9 @@ export default function ChangePassword() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">New Password</label>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">
+                New Password
+              </label>
               <input
                 type={showPasswords ? 'text' : 'password'}
                 name="newPassword"
@@ -95,7 +99,9 @@ export default function ChangePassword() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Confirm New Password</label>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">
+                Confirm New Password
+              </label>
               <input
                 type={showPasswords ? 'text' : 'password'}
                 name="confirmPassword"
@@ -105,19 +111,19 @@ export default function ChangePassword() {
                 required
               />
               {form.newPassword && form.confirmPassword && form.newPassword !== form.confirmPassword && (
-                <p className="text-xs text-red-500 mt-1">Passwords do not match</p>
+                <p className="text-xs text-red-600 mt-1">Passwords do not match</p>
               )}
             </div>
 
-            <div className="flex items-center">
+            <div className="flex items-center pt-1">
               <input
                 type="checkbox"
                 id="showPasswords"
                 checked={showPasswords}
                 onChange={(e) => setShowPasswords(e.target.checked)}
-                className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
+                className="w-4 h-4 text-primary-600 border-slate-300 rounded focus:ring-primary-500"
               />
-              <label htmlFor="showPasswords" className="ml-2 text-sm text-gray-600">
+              <label htmlFor="showPasswords" className="ml-2 text-sm text-slate-600 cursor-pointer">
                 Show passwords
               </label>
             </div>
@@ -127,7 +133,7 @@ export default function ChangePassword() {
                 Cancel
               </Link>
               <button type="submit" disabled={loading} className="btn-primary flex-1">
-                {loading ? 'Changing...' : 'Change Password'}
+                {loading ? 'Saving...' : 'Update Password'}
               </button>
             </div>
           </form>

@@ -1,14 +1,37 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import api from '../config/api'
+import api, { formatCurrency, resolveImageUrl } from '../config/api'
 import OrderStatusBadge, { StatusTimeline } from '../components/OrderStatusBadge'
 import Loading from '../components/Loading'
 
-const resolveImageSrc = (image) => {
-  if (!image) return '/placeholder-book.svg'
-  if (image.startsWith('http://') || image.startsWith('https://')) return image
-  if (image.startsWith('/uploads')) return image
-  return image
+const PICKUP_CALLOUT = {
+  'Payment Verified': {
+    box: 'border-blue-200 bg-blue-50/70',
+    title: 'text-blue-900',
+    copy: 'text-blue-700',
+    codeBorder: 'border-blue-200',
+    codeText: 'text-blue-700',
+    heading: 'Payment Verified',
+    message: 'Your payment has been confirmed. Your order is queued for preparation.',
+  },
+  Preparing: {
+    box: 'border-indigo-200 bg-indigo-50/70',
+    title: 'text-indigo-900',
+    copy: 'text-indigo-700',
+    codeBorder: 'border-indigo-200',
+    codeText: 'text-indigo-700',
+    heading: 'Preparing Your Order',
+    message: 'Our bookstore staff is gathering your items for pickup.',
+  },
+  'Ready for Pickup': {
+    box: 'border-emerald-200 bg-emerald-50/70',
+    title: 'text-emerald-900',
+    copy: 'text-emerald-700',
+    codeBorder: 'border-emerald-200',
+    codeText: 'text-emerald-700',
+    heading: 'Ready for Pickup',
+    message: 'Please collect your order at the LCCB Bookstore counter (Mon–Fri, 8:00 AM – 5:00 PM).',
+  },
 }
 
 export default function OrderStatus() {
@@ -37,42 +60,75 @@ export default function OrderStatus() {
   if (error) {
     return (
       <div className="page-container animate-fade-in">
-        <div className="max-w-lg mx-auto px-4 sm:px-6 lg:px-8 py-16 text-center">
-          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
-            </svg>
+        <div className="max-w-lg mx-auto px-4 sm:px-6 lg:px-8 py-16">
+          <div className="card text-center py-12">
+            <div className="w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              </svg>
+            </div>
+            <h2 className="text-xl font-bold text-slate-900 mb-2">Order Not Found</h2>
+            <p className="text-sm text-slate-500 mb-6">{error}</p>
+            <Link to="/products" className="btn-primary inline-block">Browse Catalog</Link>
           </div>
-          <h2 className="text-xl font-bold text-gray-900 mb-2">Order Not Found</h2>
-          <p className="text-gray-500 mb-6">{error}</p>
-          <Link to="/products" className="btn-primary">Browse Products</Link>
         </div>
       </div>
     )
   }
 
+  const callout = PICKUP_CALLOUT[order.status]
+
   return (
     <div className="page-container animate-fade-in">
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <nav className="flex items-center space-x-2 text-sm text-gray-500 mb-6">
-          <Link to="/products" className="hover:text-primary-600 transition-colors">Products</Link>
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <nav className="flex items-center gap-2 text-sm text-slate-500 mb-6">
+          <Link to="/orders" className="hover:text-primary-600 transition-colors">Orders</Link>
+          <svg className="w-4 h-4 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
           </svg>
-          <span className="text-gray-900 font-medium">Order Status</span>
+          <span className="text-slate-900 font-medium">Order #{orderId?.slice(-8).toUpperCase()}</span>
         </nav>
 
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Order Details</h1>
-        <p className="text-gray-500 mb-8">Order #{orderId?.slice(-8).toUpperCase()}</p>
-
-        <div className="space-y-6">
-          <div className="card">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Current Status</h2>
-            <OrderStatusBadge status={order.status || 'Pending Payment Verification'} />
+        <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">Order Details</h1>
+            <p className="text-sm text-slate-500 mt-1 tabular-nums">Order #{orderId?.slice(-8).toUpperCase()}</p>
           </div>
+          <OrderStatusBadge status={order.status || 'Pending Payment Verification'} showDescription={false} />
+        </div>
+
+        <div className="space-y-5">
+          {callout && (order.pickupCode || order.status === 'Ready for Pickup' || order.status === 'Payment Verified') && (
+            <div className={`rounded-2xl border p-6 ${callout.box}`}>
+              <h2 className={`font-bold text-base mb-1 ${callout.title}`}>{callout.heading}</h2>
+              <p className={`text-sm mb-4 ${callout.copy}`}>{callout.message}</p>
+              {order.pickupCode && (
+                <div className={`bg-white rounded-2xl p-4 border text-center ${callout.codeBorder}`}>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">
+                    Your Pickup Code
+                  </p>
+                  <p className={`text-3xl font-mono font-extrabold tracking-[0.28em] ${callout.codeText}`}>
+                    {order.pickupCode}
+                  </p>
+                  <p className="text-xs text-slate-500 mt-2">
+                    Present this code at the LCCB Bookstore counter when collecting your items.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {order.status === 'Rejected' && (
+            <div className="rounded-2xl border border-red-200 bg-red-50/80 p-6">
+              <h2 className="font-bold text-red-900 mb-1">Payment Rejected</h2>
+              <p className="text-sm text-red-700">
+                Your payment could not be verified. Please visit the LCCB Bookstore or contact the administrator for assistance.
+              </p>
+            </div>
+          )}
 
           <div className="card">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Order Progress</h2>
+            <h2 className="text-base font-bold text-slate-900 mb-4">Order Progress</h2>
             <StatusTimeline
               statuses={order.statuses}
               currentStatus={order.status || 'Pending Payment Verification'}
@@ -81,131 +137,75 @@ export default function OrderStatus() {
 
           {order.items && order.items.length > 0 && (
             <div className="card">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Order Items</h2>
+              <h2 className="text-base font-bold text-slate-900 mb-4">Order Items</h2>
               <div className="space-y-3">
                 {order.items.map((item, index) => (
-                  <div key={index} className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
-                    <div className="w-12 h-12 bg-white rounded-lg overflow-hidden shrink-0">
+                  <div key={index} className="flex items-center gap-3.5 p-3 bg-slate-50/80 border border-slate-100 rounded-xl">
+                    <div className="w-12 h-12 bg-white border border-slate-200/60 rounded-lg overflow-hidden shrink-0 flex items-center justify-center p-1">
                       <img
-                        src={resolveImageSrc(item.product?.image || item.image)}
+                        src={resolveImageUrl(item.product?.image || item.image)}
                         alt={item.name}
-                        className="w-full h-full object-contain p-1"
+                        className="w-full h-full object-contain"
                         onError={(e) => {
                           e.target.src = '/placeholder-book.svg'
                         }}
                       />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium text-gray-900 text-sm truncate">{item.name}</p>
-                      {item.selectedSize && <p className="text-xs text-gray-500">Size: {item.selectedSize}</p>}
+                      <p className="font-semibold text-slate-900 text-sm truncate">{item.name}</p>
+                      <p className="text-xs text-slate-500">
+                        {item.selectedSize ? `Size: ${item.selectedSize} · ` : ''}
+                        Qty: {item.quantity}
+                      </p>
                     </div>
                     <div className="text-right shrink-0">
-                      <p className="text-sm font-medium text-gray-900">₱{(item.price || item.amount || 0).toLocaleString()}</p>
-                      <p className="text-xs text-gray-500">Qty: {item.quantity}</p>
+                      <p className="text-sm font-bold text-slate-900 tabular-nums">
+                        {formatCurrency(item.price || item.amount || 0)}
+                      </p>
                     </div>
                   </div>
                 ))}
+              </div>
+              <div className="flex items-center justify-between pt-4 mt-4 border-t border-slate-100">
+                <span className="font-semibold text-slate-900">Total Amount</span>
+                <span className="font-extrabold text-xl text-primary-600 tabular-nums">
+                  {formatCurrency(order.totalAmount || 0)}
+                </span>
               </div>
             </div>
           )}
 
           {order.customerInfo && (
             <div className="card">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Customer Information</h2>
-              <div className="grid sm:grid-cols-2 gap-4">
+              <h2 className="text-base font-bold text-slate-900 mb-4">Customer Information</h2>
+              <div className="grid sm:grid-cols-2 gap-4 text-sm">
                 <div>
-                  <p className="text-sm text-gray-500">Full Name</p>
-                  <p className="font-medium">{order.customerInfo.fullName}</p>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Full Name</p>
+                  <p className="font-semibold text-slate-900 mt-0.5">{order.customerInfo.fullName}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500">Email</p>
-                  <p className="font-medium">{order.customerInfo.email}</p>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Email</p>
+                  <p className="font-semibold text-slate-900 mt-0.5">{order.customerInfo.email}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500">Contact Number</p>
-                  <p className="font-medium">{order.customerInfo.contactNumber}</p>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Contact Number</p>
+                  <p className="font-semibold text-slate-900 mt-0.5">{order.customerInfo.contactNumber}</p>
                 </div>
                 {order.referenceNumber && (
                   <div>
-                    <p className="text-sm text-gray-500">Reference Number</p>
-                    <p className="font-medium">{order.referenceNumber}</p>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Reference Number</p>
+                    <p className="font-semibold text-slate-900 mt-0.5 tabular-nums">{order.referenceNumber}</p>
                   </div>
                 )}
               </div>
             </div>
           )}
 
-          <div className="card">
-            <div className="flex items-center justify-between">
-              <span className="font-semibold text-gray-900">Total Amount</span>
-              <span className="font-bold text-xl text-primary-600">
-                ₱{(order.totalAmount || 0).toLocaleString()}
-              </span>
-            </div>
-          </div>
-
-          {order.status === 'Rejected' && (
-            <div className="card border-2 border-red-200 bg-red-50">
-              <h3 className="font-semibold text-red-800 mb-2">Payment Rejected</h3>
-              <p className="text-sm text-red-700">
-                Your payment could not be verified. Please visit the LCCB Bookstore or contact 
-                the administrator for assistance.
-              </p>
-            </div>
-          )}
-
-          {order.status === 'Payment Verified' && (
-            <div className="card border-2 border-blue-200 bg-blue-50">
-              <h3 className="font-semibold text-blue-800 mb-2">Payment Verified</h3>
-              <p className="text-sm text-blue-700 mb-4">
-                Your payment has been confirmed. Your order is being prepared for pickup.
-              </p>
-              {order.pickupCode && (
-                <div className="bg-white rounded-xl p-4 border border-blue-200 text-center">
-                  <p className="text-xs text-gray-500 mb-1">Your Pickup Code</p>
-                  <p className="text-3xl font-mono font-bold tracking-[0.3em] text-blue-700">{order.pickupCode}</p>
-                  <p className="text-xs text-gray-500 mt-2">Save this code — show it to the seller when collecting your order</p>
-                </div>
-              )}
-            </div>
-          )}
-
-          {order.status === 'Preparing' && order.pickupCode && (
-            <div className="card border-2 border-amber-200 bg-amber-50">
-              <h3 className="font-semibold text-amber-800 mb-2">Preparing Your Order</h3>
-              <p className="text-sm text-amber-700 mb-4">
-                Your order is being prepared. We'll notify you when it's ready.
-              </p>
-              <div className="bg-white rounded-xl p-4 border border-amber-200 text-center">
-                <p className="text-xs text-gray-500 mb-1">Your Pickup Code</p>
-                <p className="text-3xl font-mono font-bold tracking-[0.3em] text-amber-700">{order.pickupCode}</p>
-                <p className="text-xs text-gray-500 mt-2">Show this code to the seller when collecting your order</p>
-              </div>
-            </div>
-          )}
-
-          {order.status === 'Ready for Pickup' && (
-            <div className="card border-2 border-green-200 bg-green-50">
-              <h3 className="font-semibold text-green-800 mb-2">Ready for Pickup!</h3>
-              <p className="text-sm text-green-700 mb-4">
-                Please pick up your order at the LCCB Bookstore during operating hours 
-                (Mon-Fri, 8:00 AM - 5:00 PM).
-              </p>
-              {order.pickupCode && (
-                <div className="bg-white rounded-xl p-4 border border-green-200 text-center">
-                  <p className="text-xs text-gray-500 mb-1">Your Pickup Code</p>
-                  <p className="text-3xl font-mono font-bold tracking-[0.3em] text-green-700">{order.pickupCode}</p>
-                  <p className="text-xs text-gray-500 mt-2">Show this code to the seller when collecting your order</p>
-                </div>
-              )}
-            </div>
-          )}
-
           <div className="flex flex-col sm:flex-row gap-3">
-            <Link to="/products" className="btn-secondary flex-1 text-center">
+            <Link to="/products" className="btn-secondary flex-1 text-center py-2.5">
               Continue Shopping
             </Link>
-            <Link to="/orders" className="btn-primary flex-1 text-center">
+            <Link to="/orders" className="btn-primary flex-1 text-center py-2.5">
               View All Orders
             </Link>
           </div>

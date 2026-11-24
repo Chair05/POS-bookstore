@@ -1,11 +1,41 @@
 import axios from 'axios'
 
+const API_BASE_URL = (import.meta.env.VITE_API_URL || '/api').replace(/\/+$/, '')
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || '/api',
+  baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
 })
+
+/** Resolves stored upload paths against an absolute VITE_API_URL when configured. */
+export function resolveImageUrl(image) {
+  if (!image) return '/placeholder-book.svg'
+  if (/^https?:\/\//i.test(image)) return image
+  if (image.startsWith('/uploads') && /^https?:\/\//i.test(API_BASE_URL)) {
+    const origin = API_BASE_URL.replace(/\/api$/i, '')
+    return `${origin}${image}`
+  }
+  return image
+}
+
+export function formatCurrency(amount) {
+  const num = Number(amount || 0)
+  return `₱${num.toLocaleString('en-PH')}`
+}
+
+export function formatCategoryLabel(name) {
+  return String(name || '')
+    .trim()
+    .replace(/\b\w/g, (ch) => ch.toUpperCase())
+}
+
+export function maskEmail(email) {
+  const [name = '', domain = ''] = String(email || '').split('@')
+  if (name.length <= 2) return `${name[0] || ''}***@${domain}`
+  return `${name.slice(0, 2)}***@${domain}`
+}
 
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('token')

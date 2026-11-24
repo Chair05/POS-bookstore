@@ -85,7 +85,7 @@ export default function OtpInput({ length = 6, onComplete, onResend, resendTimer
 
   return (
     <div className="flex flex-col items-center">
-      <div className="flex gap-3 mb-6">
+      <div className="flex gap-2.5 sm:gap-3 mb-6">
         {otp.map((digit, index) => (
           <input
             key={index}
@@ -98,12 +98,12 @@ export default function OtpInput({ length = 6, onComplete, onResend, resendTimer
             onKeyDown={(e) => handleKeyDown(index, e)}
             onPaste={handlePaste}
             onFocus={() => setActiveIndex(index)}
-            className={`w-12 h-14 text-center text-xl font-bold rounded-xl border-2 transition-all duration-200 outline-none ${
+            className={`w-11 sm:w-12 h-14 text-center text-xl font-bold rounded-xl border-2 transition-all duration-150 outline-none tabular-nums ${
               digit
-                ? 'border-primary-500 bg-primary-50 text-primary-700'
+                ? 'border-primary-600 bg-primary-50/70 text-primary-800'
                 : activeIndex === index
-                ? 'border-primary-400 bg-white shadow-sm'
-                : 'border-gray-200 bg-gray-50 hover:border-gray-300'
+                  ? 'border-primary-400 bg-white ring-4 ring-primary-500/10'
+                  : 'border-slate-200 bg-slate-50 hover:border-slate-300'
             }`}
           />
         ))}
@@ -111,16 +111,16 @@ export default function OtpInput({ length = 6, onComplete, onResend, resendTimer
 
       <div className="text-center">
         {timer > 0 ? (
-          <p className="text-sm text-gray-500">
-            Resend code in <span className="font-medium text-primary-600">{timer}s</span>
+          <p className="text-sm text-slate-500">
+            Resend code in <span className="font-semibold text-primary-600 tabular-nums">{timer}s</span>
           </p>
         ) : (
           <button
             type="button"
             onClick={handleResend}
-            className="text-sm font-medium text-primary-600 hover:text-primary-700 transition-colors"
+            className="text-sm font-semibold text-primary-600 hover:text-primary-700 transition-colors"
           >
-            Resend OTP
+            Resend verification code
           </button>
         )}
       </div>

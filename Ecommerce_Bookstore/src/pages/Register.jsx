@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { maskEmail } from '../config/api'
 import OtpInput from '../components/OtpInput'
+import LccbLogo from '../assets/LCCB-Logo.jpeg'
 import toast from 'react-hot-toast'
 
 export default function Register() {
@@ -45,7 +47,7 @@ export default function Register() {
 
     setLoading(true)
     try {
-      const { confirmPassword, ...submitData } = form
+      const { confirmPassword: _confirmPassword, ...submitData } = form
       const result = await register(submitData)
       if (result.requiresOtp) {
         setOtpEmail(result.email)
@@ -88,29 +90,25 @@ export default function Register() {
     setOtpEmail('')
   }
 
-  const maskEmail = (email) => {
-    const [name, domain] = email.split('@')
-    if (name.length <= 2) return `${name[0]}***@${domain}`
-    return `${name.slice(0, 2)}***@${domain}`
-  }
-
   return (
-    <div className="page-container animate-fade-in flex items-center justify-center py-12">
-      <div className="w-full max-w-md px-4">
-        <div className="card">
+    <div className="page-container animate-fade-in bg-gradient-to-b from-slate-50 via-primary-50/30 to-slate-50 flex items-center justify-center py-12 px-4">
+      <div className="w-full max-w-md">
+        <div className="bg-white rounded-3xl border border-slate-200/80 shadow-card p-7 sm:p-8">
           {!otpPending ? (
             <>
-              <div className="text-center mb-6">
-                <div className="w-14 h-14 bg-primary-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                  <span className="text-primary-700 font-bold text-xl">L</span>
+              <div className="text-center mb-7">
+                <div className="w-14 h-14 rounded-2xl overflow-hidden mx-auto mb-4 shadow-sm ring-2 ring-primary-100">
+                  <img src={LccbLogo} alt="LCCB Bookstore" className="w-full h-full object-cover scale-125" />
                 </div>
-                <h1 className="text-2xl font-bold text-gray-900">Create Account</h1>
-                <p className="text-gray-500 text-sm mt-1">Join the LCCB Bookstore</p>
+                <h1 className="text-2xl font-bold text-slate-900">Create Account</h1>
+                <p className="text-slate-500 text-sm mt-1">Pre-order uniforms & supplies online</p>
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">
+                    Full Name
+                  </label>
                   <input
                     type="text"
                     name="fullName"
@@ -122,7 +120,9 @@ export default function Register() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">
+                    Email Address
+                  </label>
                   <input
                     type="email"
                     name="email"
@@ -134,7 +134,9 @@ export default function Register() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Contact Number</label>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">
+                    Contact Number
+                  </label>
                   <input
                     type="tel"
                     name="contactNumber"
@@ -146,7 +148,9 @@ export default function Register() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">
+                    Password
+                  </label>
                   <div className="relative">
                     <input
                       type={showPassword ? 'text' : 'password'}
@@ -160,7 +164,8 @@ export default function Register() {
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+                      aria-label={showPassword ? 'Hide password' : 'Show password'}
+                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600"
                     >
                       {showPassword ? (
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -176,7 +181,9 @@ export default function Register() {
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Confirm Password</label>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">
+                    Confirm Password
+                  </label>
                   <input
                     type={showPassword ? 'text' : 'password'}
                     name="confirmPassword"
@@ -187,17 +194,17 @@ export default function Register() {
                     required
                   />
                   {form.password && form.confirmPassword && form.password !== form.confirmPassword && (
-                    <p className="text-xs text-red-500 mt-1">Passwords do not match</p>
+                    <p className="text-xs text-red-600 mt-1">Passwords do not match</p>
                   )}
                 </div>
                 <button
                   type="submit"
                   disabled={loading}
-                  className="btn-primary w-full flex items-center justify-center gap-2"
+                  className="btn-primary w-full py-3 flex items-center justify-center gap-2 mt-2"
                 >
                   {loading ? (
                     <>
-                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-white/30 border-t-white" />
                       Creating account...
                     </>
                   ) : (
@@ -206,9 +213,9 @@ export default function Register() {
                 </button>
               </form>
 
-              <p className="text-center text-sm text-gray-500 mt-6">
+              <p className="text-center text-sm text-slate-500 mt-6">
                 Already have an account?{' '}
-                <Link to="/login" className="text-primary-600 hover:text-primary-700 font-medium">
+                <Link to="/login" className="text-primary-600 hover:text-primary-700 font-semibold">
                   Sign in
                 </Link>
               </p>
@@ -216,21 +223,19 @@ export default function Register() {
           ) : (
             <>
               <div className="text-center mb-6">
-                <div className="w-14 h-14 bg-primary-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <div className="w-14 h-14 bg-primary-50 border border-primary-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
                   <svg className="w-7 h-7 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                   </svg>
                 </div>
-                <h1 className="text-2xl font-bold text-gray-900">Verify Your Email</h1>
-                <p className="text-gray-500 text-sm mt-1">
-                  Enter the 6-digit code sent to
-                </p>
-                <p className="text-primary-600 font-medium text-sm mt-0.5">{maskEmail(otpEmail)}</p>
+                <h1 className="text-2xl font-bold text-slate-900">Verify Your Email</h1>
+                <p className="text-slate-500 text-sm mt-1">Enter the 6-digit code sent to</p>
+                <p className="text-primary-600 font-semibold text-sm mt-0.5">{maskEmail(otpEmail)}</p>
               </div>
 
               {otpLoading ? (
                 <div className="flex justify-center py-8">
-                  <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary-600"></div>
+                  <div className="animate-spin rounded-full h-10 w-10 border-4 border-primary-100 border-t-primary-600" />
                 </div>
               ) : (
                 <OtpInput
@@ -245,7 +250,7 @@ export default function Register() {
                 <button
                   type="button"
                   onClick={handleBackToRegister}
-                  className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
+                  className="text-sm font-medium text-slate-500 hover:text-slate-700 transition-colors"
                 >
                   ← Back to registration
                 </button>
