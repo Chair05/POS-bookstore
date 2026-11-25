@@ -2,11 +2,11 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://accordance-kissing-folding-kentucky.trycloudflare.com/api/:path*"
+      "destination": "https://rug-periodically-fuzzy-develop.trycloudflare.com/api/:path*"
     },
     {
       "source": "/uploads/:path*",
-      "destination": "https://accordance-kissing-folding-kentucky.trycloudflare.com/uploads/:path*"
+      "destination": "https://rug-periodically-fuzzy-develop.trycloudflare.com/uploads/:path*"
     },
     {
       "source": "/(.*)",
