@@ -2,11 +2,11 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://transportation-instead-ships-greensboro.trycloudflare.com/api/:path*"
+      "destination": "https://fifty-occupied-signal-zinc.trycloudflare.com/api/:path*"
     },
     {
       "source": "/uploads/:path*",
-      "destination": "https://transportation-instead-ships-greensboro.trycloudflare.com/uploads/:path*"
+      "destination": "https://fifty-occupied-signal-zinc.trycloudflare.com/uploads/:path*"
     },
     {
       "source": "/(.*)",
