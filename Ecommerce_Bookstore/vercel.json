@@ -2,11 +2,11 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://conceptual-recreation-walls-quit.trycloudflare.com/api/:path*"
+      "destination": "https://advance-hepatitis-why-viewers.trycloudflare.com/api/:path*"
     },
     {
       "source": "/uploads/:path*",
-      "destination": "https://conceptual-recreation-walls-quit.trycloudflare.com/uploads/:path*"
+      "destination": "https://advance-hepatitis-why-viewers.trycloudflare.com/uploads/:path*"
     },
     {
       "source": "/(.*)",
