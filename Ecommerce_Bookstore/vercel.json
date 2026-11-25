@@ -2,11 +2,11 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://stockings-armstrong-tabs-state.trycloudflare.com/api/:path*"
+      "destination": "https://proved-lamps-adding-funky.trycloudflare.com/api/:path*"
     },
     {
       "source": "/uploads/:path*",
-      "destination": "https://stockings-armstrong-tabs-state.trycloudflare.com/uploads/:path*"
+      "destination": "https://proved-lamps-adding-funky.trycloudflare.com/uploads/:path*"
     },
     {
       "source": "/(.*)",
