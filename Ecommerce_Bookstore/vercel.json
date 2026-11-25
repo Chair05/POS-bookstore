@@ -2,11 +2,11 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://richmond-fair-difference-seven.trycloudflare.com/api/:path*"
+      "destination": "https://into-patricia-circles-functioning.trycloudflare.com/api/:path*"
     },
     {
       "source": "/uploads/:path*",
-      "destination": "https://richmond-fair-difference-seven.trycloudflare.com/uploads/:path*"
+      "destination": "https://into-patricia-circles-functioning.trycloudflare.com/uploads/:path*"
     },
     {
       "source": "/(.*)",
