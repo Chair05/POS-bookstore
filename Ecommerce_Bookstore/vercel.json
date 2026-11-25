@@ -2,11 +2,11 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://expenditure-impossible-underground-mas.trycloudflare.com/api/:path*"
+      "destination": "https://outlets-micro-instruction-subsequently.trycloudflare.com/api/:path*"
     },
     {
       "source": "/uploads/:path*",
-      "destination": "https://expenditure-impossible-underground-mas.trycloudflare.com/uploads/:path*"
+      "destination": "https://outlets-micro-instruction-subsequently.trycloudflare.com/uploads/:path*"
     },
     {
       "source": "/(.*)",
