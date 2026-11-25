@@ -1,8 +1,12 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, Link } from 'react-router-dom'
+import toast from 'react-hot-toast'
 import api, { formatCurrency, resolveImageUrl } from '../config/api'
 import OrderStatusBadge, { StatusTimeline } from '../components/OrderStatusBadge'
 import Loading from '../components/Loading'
+
+const TERMINAL_STATUSES = ['Completed', 'Rejected', 'Cancelled']
+const POLL_INTERVAL_MS = 4000
 
 const PICKUP_CALLOUT = {
   'Payment Verified': {
@@ -39,21 +43,72 @@ export default function OrderStatus() {
   const [order, setOrder] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const prevStatusRef = useRef(null)
 
-  useEffect(() => {
-    const fetchOrder = async () => {
-      try {
-        const response = await api.get(`/customer/orders/${orderId}`)
-        setOrder(response.data.order || response.data)
-      } catch (err) {
+  const fetchOrder = useCallback(async ({ silent = false } = {}) => {
+    try {
+      const response = await api.get(`/customer/orders/${orderId}`, {
+        params: { _t: Date.now() },
+      })
+      const nextOrder = response.data.order || response.data
+      if (nextOrder) {
+        if (
+          prevStatusRef.current &&
+          nextOrder.status &&
+          prevStatusRef.current !== nextOrder.status
+        ) {
+          if (nextOrder.status === 'Rejected' || nextOrder.status === 'Cancelled') {
+            toast.error(`Order status updated: ${nextOrder.status}`)
+          } else {
+            toast.success(`Order status updated: ${nextOrder.status}`)
+          }
+        }
+        prevStatusRef.current = nextOrder.status
+        setOrder(nextOrder)
+        setError(null)
+      }
+    } catch (err) {
+      if (!silent) {
         console.error('Failed to fetch order:', err)
         setError('Order not found or you do not have permission to view it.')
-      } finally {
+      }
+    } finally {
+      if (!silent) {
         setLoading(false)
       }
     }
-    fetchOrder()
   }, [orderId])
+
+  useEffect(() => {
+    setLoading(true)
+    prevStatusRef.current = null
+    fetchOrder({ silent: false })
+  }, [fetchOrder])
+
+  useEffect(() => {
+    if (!order || TERMINAL_STATUSES.includes(order.status)) return undefined
+
+    const intervalId = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        fetchOrder({ silent: true })
+      }
+    }, POLL_INTERVAL_MS)
+
+    const handleVisibilityOrFocus = () => {
+      if (document.visibilityState === 'visible') {
+        fetchOrder({ silent: true })
+      }
+    }
+
+    window.addEventListener('focus', handleVisibilityOrFocus)
+    document.addEventListener('visibilitychange', handleVisibilityOrFocus)
+
+    return () => {
+      clearInterval(intervalId)
+      window.removeEventListener('focus', handleVisibilityOrFocus)
+      document.removeEventListener('visibilitychange', handleVisibilityOrFocus)
+    }
+  }, [order, fetchOrder])
 
   if (loading) return <Loading text="Loading order details..." />
 
@@ -128,7 +183,15 @@ export default function OrderStatus() {
           )}
 
           <div className="card">
-            <h2 className="text-base font-bold text-slate-900 mb-4">Order Progress</h2>
+            <div className="flex items-center justify-between gap-2 mb-4">
+              <h2 className="text-base font-bold text-slate-900">Order Progress</h2>
+              {!TERMINAL_STATUSES.includes(order.status) && (
+                <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  Live updates
+                </span>
+              )}
+            </div>
             <StatusTimeline
               statuses={order.statuses}
               currentStatus={order.status || 'Pending Payment Verification'}

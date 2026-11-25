@@ -1,8 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import api, { formatCurrency, resolveImageUrl } from '../config/api'
 import OrderStatusBadge from '../components/OrderStatusBadge'
 import Loading from '../components/Loading'
+
+const POLL_INTERVAL_MS = 5000
 
 const getOrderId = (order) => order._id ?? order.id
 const formatOrderId = (order) => String(getOrderId(order) ?? '').slice(-8).toUpperCase() || '—'
@@ -20,20 +22,48 @@ export default function OrderHistory() {
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    const fetchOrders = async () => {
-      try {
-        const response = await api.get('/customer/orders/my-orders')
-        setOrders(response.data.orders || response.data || [])
-      } catch (err) {
+  const fetchOrders = useCallback(async ({ silent = false } = {}) => {
+    try {
+      const response = await api.get('/customer/orders/my-orders', {
+        params: { _t: Date.now() },
+      })
+      setOrders(response.data.orders || response.data || [])
+    } catch (err) {
+      if (!silent) {
         console.error('Failed to fetch orders:', err)
         setOrders([])
-      } finally {
+      }
+    } finally {
+      if (!silent) {
         setLoading(false)
       }
     }
-    fetchOrders()
   }, [])
+
+  useEffect(() => {
+    fetchOrders({ silent: false })
+
+    const intervalId = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        fetchOrders({ silent: true })
+      }
+    }, POLL_INTERVAL_MS)
+
+    const handleVisibilityOrFocus = () => {
+      if (document.visibilityState === 'visible') {
+        fetchOrders({ silent: true })
+      }
+    }
+
+    window.addEventListener('focus', handleVisibilityOrFocus)
+    document.addEventListener('visibilitychange', handleVisibilityOrFocus)
+
+    return () => {
+      clearInterval(intervalId)
+      window.removeEventListener('focus', handleVisibilityOrFocus)
+      document.removeEventListener('visibilitychange', handleVisibilityOrFocus)
+    }
+  }, [fetchOrders])
 
   if (loading) return <Loading text="Loading orders..." />
 
