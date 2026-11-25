@@ -2,11 +2,11 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://spray-wrap-capitol-grew.trycloudflare.com/api/:path*"
+      "destination": "https://potentially-vehicles-spirits-aluminium.trycloudflare.com/api/:path*"
     },
     {
       "source": "/uploads/:path*",
-      "destination": "https://spray-wrap-capitol-grew.trycloudflare.com/uploads/:path*"
+      "destination": "https://potentially-vehicles-spirits-aluminium.trycloudflare.com/uploads/:path*"
     },
     {
       "source": "/(.*)",
