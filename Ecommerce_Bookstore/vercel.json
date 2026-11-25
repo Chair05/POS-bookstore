@@ -2,11 +2,11 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://textiles-painting-yamaha-conferences.trycloudflare.com/api/:path*"
+      "destination": "https://careful-jonathan-june-worth.trycloudflare.com/api/:path*"
     },
     {
       "source": "/uploads/:path*",
-      "destination": "https://textiles-painting-yamaha-conferences.trycloudflare.com/uploads/:path*"
+      "destination": "https://careful-jonathan-june-worth.trycloudflare.com/uploads/:path*"
     },
     {
       "source": "/(.*)",
