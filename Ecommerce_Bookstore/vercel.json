@@ -2,11 +2,11 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://biodiversity-beads-utc-recommend.trycloudflare.com/api/:path*"
+      "destination": "https://drugs-acts-cigarette-glenn.trycloudflare.com/api/:path*"
     },
     {
       "source": "/uploads/:path*",
-      "destination": "https://biodiversity-beads-utc-recommend.trycloudflare.com/uploads/:path*"
+      "destination": "https://drugs-acts-cigarette-glenn.trycloudflare.com/uploads/:path*"
     },
     {
       "source": "/(.*)",
