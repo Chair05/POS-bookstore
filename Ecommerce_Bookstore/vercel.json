@@ -2,11 +2,11 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://aim-sink-lots-contains.trycloudflare.com/api/:path*"
+      "destination": "https://functionality-contribution-lenses-geographic.trycloudflare.com/api/:path*"
     },
     {
       "source": "/uploads/:path*",
-      "destination": "https://aim-sink-lots-contains.trycloudflare.com/uploads/:path*"
+      "destination": "https://functionality-contribution-lenses-geographic.trycloudflare.com/uploads/:path*"
     },
     {
       "source": "/(.*)",
