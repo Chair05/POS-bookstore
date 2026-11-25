@@ -2,11 +2,11 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://decorating-tourist-firmware-programmer.trycloudflare.com/api/:path*"
+      "destination": "https://newport-cancer-last-public.trycloudflare.com/api/:path*"
     },
     {
       "source": "/uploads/:path*",
-      "destination": "https://decorating-tourist-firmware-programmer.trycloudflare.com/uploads/:path*"
+      "destination": "https://newport-cancer-last-public.trycloudflare.com/uploads/:path*"
     },
     {
       "source": "/(.*)",
