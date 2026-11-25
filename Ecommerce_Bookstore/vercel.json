@@ -2,11 +2,11 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://ethical-shoppers-north-scotland.trycloudflare.com/api/:path*"
+      "destination": "https://precious-milton-lake-factory.trycloudflare.com/api/:path*"
     },
     {
       "source": "/uploads/:path*",
-      "destination": "https://ethical-shoppers-north-scotland.trycloudflare.com/uploads/:path*"
+      "destination": "https://precious-milton-lake-factory.trycloudflare.com/uploads/:path*"
     },
     {
       "source": "/(.*)",
