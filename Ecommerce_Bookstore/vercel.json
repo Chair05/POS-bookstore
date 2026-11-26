@@ -2,11 +2,11 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://indexes-con-forms-oral.trycloudflare.com/api/:path*"
+      "destination": "https://alot-redhead-gained-wives.trycloudflare.com/api/:path*"
     },
     {
       "source": "/uploads/:path*",
-      "destination": "https://indexes-con-forms-oral.trycloudflare.com/uploads/:path*"
+      "destination": "https://alot-redhead-gained-wives.trycloudflare.com/uploads/:path*"
     },
     {
       "source": "/(.*)",
