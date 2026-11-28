@@ -2,11 +2,11 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://fighters-phd-integrated-recorders.trycloudflare.com/api/:path*"
+      "destination": "https://tue-vaccine-launched-respect.trycloudflare.com/api/:path*"
     },
     {
       "source": "/uploads/:path*",
-      "destination": "https://fighters-phd-integrated-recorders.trycloudflare.com/uploads/:path*"
+      "destination": "https://tue-vaccine-launched-respect.trycloudflare.com/uploads/:path*"
     },
     {
       "source": "/(.*)",
