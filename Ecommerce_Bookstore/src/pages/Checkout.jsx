@@ -26,7 +26,9 @@ export default function Checkout() {
   const [showGcash, setShowGcash] = useState(false)
   const [gcashReceipt, setGcashReceipt] = useState(null)
   const [gcashReceiptPreview, setGcashReceiptPreview] = useState(null)
+  const [referenceNumber, setReferenceNumber] = useState('')
   const [gcashSubmitting, setGcashSubmitting] = useState(false)
+  const [reservingLater, setReservingLater] = useState(false)
   const [gcashError, setGcashError] = useState('')
   const [paidOrder, setPaidOrder] = useState(null)
   const [form, setForm] = useState({
@@ -48,11 +50,18 @@ export default function Checkout() {
     }
   }
 
+  const getCustomerInfo = () => ({
+    fullName: user?.fullName || form.fullName,
+    email: user?.email || form.email,
+    contactNumber: user?.contactNumber || form.contactNumber,
+  })
+
   const handleSubmit = async (e) => {
     e.preventDefault()
+    const info = getCustomerInfo()
 
-    if (!form.fullName || !form.email || !form.contactNumber) {
-      toast.error('Please fill in all fields')
+    if (!info.fullName || !info.email || !info.contactNumber) {
+      toast.error('Please fill in all customer information fields')
       return
     }
 
@@ -62,6 +71,39 @@ export default function Checkout() {
     }
 
     setShowGcash(true)
+  }
+
+  const handleReservePayLater = async () => {
+    const info = getCustomerInfo()
+    if (!info.fullName || !info.email || !info.contactNumber) {
+      toast.error('Please fill in all customer information fields first')
+      return
+    }
+    setReservingLater(true)
+    try {
+      const orderData = {
+        items: checkoutItems.map((item) => ({
+          product: item._id,
+          name: item.name,
+          quantity: item.quantity,
+          price: item.price,
+          selectedSize: item.selectedSize,
+        })),
+        totalAmount: checkoutTotal,
+        paymentMethod: 'GCash',
+        customerInfo: info,
+      }
+      const orderResponse = await api.post('/customer/orders', orderData)
+      const orderId = orderResponse.data.order?._id || orderResponse.data._id || orderResponse.data.orderId
+      removeSelectedFromCart()
+      toast.success('Items reserved! Please upload your GCash receipt within 3 days.')
+      navigate(`/order-status/${orderId}`)
+    } catch (err) {
+      console.error('Reserve order failed:', err)
+      toast.error(err.response?.data?.message || 'Failed to reserve order')
+    } finally {
+      setReservingLater(false)
+    }
   }
 
   const handleGcashReceiptChange = (e) => {
@@ -99,6 +141,7 @@ export default function Checkout() {
 
     setGcashSubmitting(true)
     try {
+      const info = getCustomerInfo()
       const orderData = {
         items: checkoutItems.map((item) => ({
           product: item._id,
@@ -109,11 +152,7 @@ export default function Checkout() {
         })),
         totalAmount: checkoutTotal,
         paymentMethod: 'GCash',
-        customerInfo: {
-          fullName: form.fullName,
-          email: form.email,
-          contactNumber: form.contactNumber,
-        },
+        customerInfo: info,
       }
       const orderResponse = await api.post('/customer/orders', orderData)
       const orderId = orderResponse.data.order?._id || orderResponse.data._id || orderResponse.data.orderId
@@ -121,6 +160,9 @@ export default function Checkout() {
       const formData = new FormData()
       formData.append('receipt', gcashReceipt)
       formData.append('paymentMethod', 'GCash')
+      if (referenceNumber.trim()) {
+        formData.append('referenceNumber', referenceNumber.trim())
+      }
 
       await api.post(`/customer/orders/${orderId}/payment`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
@@ -158,7 +200,7 @@ export default function Checkout() {
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
           <p className="text-xs font-semibold uppercase tracking-wider text-primary-600 mb-1">
-            Campus Pre-Order
+            Campus Pre-Order · Pickup Only
           </p>
           <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">Checkout</h1>
         </div>
@@ -201,15 +243,6 @@ export default function Checkout() {
                     )
                   })}
                 </div>
-                {CUSTOMER_FIELDS.some(({ key }) => !user?.[key]) && (
-                  <p className="mt-3 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3.5 py-2.5">
-                    Some details are missing from your profile. Fill them in here or update your{' '}
-                    <Link to="/profile" className="underline font-semibold">
-                      profile
-                    </Link>{' '}
-                    before placing your order.
-                  </p>
-                )}
               </div>
 
               <div className="card">
@@ -218,7 +251,7 @@ export default function Checkout() {
                     2
                   </span>
                   <h2 className="text-lg font-bold text-slate-900">
-                    Order Items ({checkoutItems.length})
+                    Reserved Items ({checkoutItems.length})
                   </h2>
                 </div>
                 <div className="space-y-3">
@@ -262,19 +295,25 @@ export default function Checkout() {
                   <span className="w-7 h-7 rounded-lg bg-primary-600 text-white text-xs font-bold flex items-center justify-center">
                     3
                   </span>
-                  <h2 className="text-lg font-bold text-slate-900">Payment Method</h2>
+                  <h2 className="text-lg font-bold text-slate-900">Payment &amp; Pickup Policy</h2>
                 </div>
-                <div className="flex items-center gap-4 p-4 border-2 border-primary-500 bg-primary-50/50 rounded-2xl">
+                <div className="flex items-center gap-4 p-4 border-2 border-primary-500 bg-primary-50/50 rounded-2xl mb-4">
                   <div className="w-14 h-14 bg-white rounded-xl flex items-center justify-center p-2 shadow-sm border border-primary-100 shrink-0">
                     <img src={gcashLogo} alt="GCash" className="w-full h-full object-contain" />
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <h3 className="font-bold text-slate-900">GCash</h3>
+                      <h3 className="font-bold text-slate-900">GCash Online Payment</h3>
                       <span className="badge bg-primary-100 text-primary-700">Selected</span>
                     </div>
                     <p className="text-sm text-slate-600 mt-0.5 tabular-nums">Account: {GCASH_ACCOUNT_NUMBER}</p>
                   </div>
+                </div>
+                <div className="rounded-xl bg-amber-50 border border-amber-200 p-3.5 text-xs text-amber-900 space-y-1">
+                  <p className="font-bold">3-Day Payment Deadline &amp; Automatic Stock Restoration</p>
+                  <p>
+                    Your items are reserved immediately when you place your order. You may upload your GCash payment receipt right now or within <strong>3 days</strong>. Unpaid orders automatically cancel after 3 days and return reserved stock to inventory.
+                  </p>
                 </div>
               </div>
             </div>
@@ -290,8 +329,12 @@ export default function Checkout() {
                     <span className="font-semibold text-slate-900 tabular-nums">{formatCurrency(checkoutTotal)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-500">Pickup</span>
-                    <span className="font-semibold text-emerald-600">LCCB Bookstore</span>
+                    <span className="text-slate-500">Fulfillment</span>
+                    <span className="font-semibold text-emerald-600">Campus Pickup Only</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Payment Hold</span>
+                    <span className="font-semibold text-amber-700">3-Day Reservation</span>
                   </div>
                 </div>
                 <div className="border-t border-slate-100 pt-4 mb-5">
@@ -303,21 +346,22 @@ export default function Checkout() {
                   </div>
                 </div>
 
-                <div className="p-3.5 bg-blue-50/80 border border-blue-100 rounded-xl mb-5 flex items-start gap-2.5">
-                  <svg className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <p className="text-xs text-blue-800 leading-relaxed">
-                    Scan the GCash QR code in the next step and upload your payment receipt for staff verification.
-                  </p>
+                <div className="space-y-2.5">
+                  <button
+                    type="submit"
+                    className="btn-primary w-full py-3 flex items-center justify-center gap-2 tabular-nums"
+                  >
+                    Pay Now via GCash — {formatCurrency(checkoutTotal)}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={reservingLater}
+                    onClick={handleReservePayLater}
+                    className="btn-secondary w-full py-2.5 text-xs font-semibold"
+                  >
+                    {reservingLater ? 'Reserving Stock...' : 'Reserve Stock & Upload Receipt Within 3 Days'}
+                  </button>
                 </div>
-
-                <button
-                  type="submit"
-                  className="btn-primary w-full py-3 flex items-center justify-center gap-2 tabular-nums"
-                >
-                  Pay with GCash — {formatCurrency(checkoutTotal)}
-                </button>
               </div>
             </div>
           </div>
@@ -394,6 +438,19 @@ export default function Checkout() {
                     Open GCash payment link
                   </a>
                 )}
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">
+                  GCash Reference Number (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={referenceNumber}
+                  onChange={(e) => setReferenceNumber(e.target.value)}
+                  placeholder="Enter 13-digit GCash Ref. No."
+                  className="input-field"
+                />
               </div>
 
               <div className="space-y-2">
@@ -490,17 +547,17 @@ export default function Checkout() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M5 13l4 4L19 7" />
               </svg>
             </div>
-            <h2 className="text-2xl font-bold text-slate-900 mb-2">Payment Submitted!</h2>
+            <h2 className="text-2xl font-bold text-slate-900 mb-2">Order Reserved &amp; Receipt Submitted!</h2>
             <p className="text-sm text-slate-600 mb-5 leading-relaxed">
-              Your GCash receipt for <span className="font-bold text-slate-900 tabular-nums">{formatCurrency(paidOrder.amount)}</span> has been received. Our staff will verify your payment before preparing your pickup order.
+              Your GCash receipt for <span className="font-bold text-slate-900 tabular-nums">{formatCurrency(paidOrder.amount)}</span> has been received and your stock is reserved. Our staff will verify your payment and issue your Pickup Verification Code.
             </p>
             <div className="bg-primary-50/80 border border-primary-100 rounded-2xl p-4 mb-6 text-left">
               <p className="text-xs font-bold uppercase tracking-wider text-primary-700 mb-1">
-                Pickup Location
+                Campus Pickup Only
               </p>
               <p className="text-sm font-semibold text-slate-900">LCCB Bookstore Counter</p>
               <p className="text-xs text-slate-600 mt-1">
-                Your pickup code will unlock once payment is verified.
+                Your 6-character Pickup Verification Code will unlock automatically on the order tracker (and via email) once payment is verified.
               </p>
             </div>
             <div className="space-y-2.5">
@@ -509,7 +566,7 @@ export default function Checkout() {
                 onClick={() => navigate(`/order-status/${paidOrder.orderId}`)}
                 className="btn-primary w-full py-3"
               >
-                Track Order Status
+                Track Live Order Status
               </button>
               <button
                 type="button"

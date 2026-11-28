@@ -1,14 +1,18 @@
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useCart } from '../context/CartContext'
+import { useAuth } from '../context/AuthContext'
 import { formatCategoryLabel, formatCurrency, resolveImageUrl } from '../config/api'
 import toast from 'react-hot-toast'
 
-export default function ProductCard({ product }) {
+export default function ProductCard({ product, badgeLabel = null }) {
   const { addToCart } = useCart()
+  const { user } = useAuth()
+  const navigate = useNavigate()
 
   const imageSrc = resolveImageUrl(product.image)
   const variants = Array.isArray(product.variants) ? product.variants : []
   const hasMultipleSizes = variants.length > 1
+  const maxOrderQty = Number(product.maxOrderQuantity || 5)
 
   const priceLabel = (() => {
     if (!hasMultipleSizes) return formatCurrency(product.price)
@@ -22,18 +26,27 @@ export default function ProductCard({ product }) {
   const handleAddToCart = (e) => {
     e.preventDefault()
     e.stopPropagation()
-    if (product.stock <= 0) {
-      toast.error('This product is out of stock')
+    if (!user) {
+      toast.error('Please sign in or register an account to reserve products')
+      navigate('/login', { state: { from: `/products/${product._id}` } })
       return
     }
-    addToCart(product, 1, product.size || null, variants)
-    toast.success(`Added to cart${product.size ? ` (${product.size})` : ''}`)
+    if (product.stock <= 0) {
+      toast.error('This product is out of online stock')
+      return
+    }
+    const res = addToCart(product, 1, product.size || null, variants)
+    if (res?.capped) {
+      toast.error(`Bulk purchase limit: Maximum ${maxOrderQty} units allowed per order`)
+    } else {
+      toast.success(`Added to cart${product.size ? ` (${product.size})` : ''}`)
+    }
   }
 
   const stockStatus = () => {
     if (product.stock === 0) return { text: 'Out of Stock', color: 'bg-red-50 text-red-700 ring-1 ring-red-200/80' }
-    if (product.stock <= 5) return { text: `Only ${product.stock} left`, color: 'bg-amber-50 text-amber-700 ring-1 ring-amber-200/80' }
-    return { text: 'In Stock', color: 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/80' }
+    if (product.stock <= 10) return { text: `Only ${product.stock} left online`, color: 'bg-amber-50 text-amber-700 ring-1 ring-amber-200/80' }
+    return { text: `${product.stock} in stock`, color: 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/80' }
   }
 
   const status = stockStatus()
@@ -50,11 +63,18 @@ export default function ProductCard({ product }) {
               e.target.src = '/placeholder-book.svg'
             }}
           />
-          {product.category && (
-            <span className="absolute top-3 left-3 badge bg-white/90 backdrop-blur-sm text-slate-700 ring-1 ring-slate-200/80">
-              {formatCategoryLabel(product.category)}
-            </span>
-          )}
+          <div className="absolute top-3 left-3 flex flex-wrap gap-1.5">
+            {badgeLabel && (
+              <span className="badge bg-primary-600 text-white shadow-xs">
+                {badgeLabel}
+              </span>
+            )}
+            {product.category && (
+              <span className="badge bg-white/90 backdrop-blur-sm text-slate-700 ring-1 ring-slate-200/80">
+                {formatCategoryLabel(product.category)}
+              </span>
+            )}
+          </div>
           <span className={`absolute top-3 right-3 badge ${status.color}`}>
             {status.text}
           </span>
@@ -86,6 +106,9 @@ export default function ProductCard({ product }) {
                 {variants.length} sizes
               </span>
             )}
+            <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-slate-100 text-slate-500 text-[11px] font-medium">
+              Max {maxOrderQty}/order
+            </span>
           </div>
 
           <div className="mt-auto pt-3 border-t border-slate-100 flex items-center justify-between gap-2">

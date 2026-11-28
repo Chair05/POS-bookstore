@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import api, { formatCategoryLabel, formatCurrency, resolveImageUrl } from '../config/api'
 import { useCart } from '../context/CartContext'
+import { useAuth } from '../context/AuthContext'
 import Loading from '../components/Loading'
 import { sortVariantsBySize } from '../utils/products'
 import toast from 'react-hot-toast'
@@ -10,6 +11,7 @@ export default function ProductDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { addToCart } = useCart()
+  const { user } = useAuth()
   const [product, setProduct] = useState(null)
   const [loading, setLoading] = useState(true)
   const [quantity, setQuantity] = useState(1)
@@ -34,6 +36,7 @@ export default function ProductDetail() {
             name: p.name,
             price: p.price,
             stock: p.stock,
+            maxOrderQuantity: p.maxOrderQuantity || 5,
             image: p.image,
           })
         }
@@ -54,17 +57,35 @@ export default function ProductDetail() {
     setQuantity(1)
   }
 
+  const requireAccount = () => {
+    if (!user) {
+      toast.error('Please sign in or register an account to reserve products')
+      navigate('/login', { state: { from: `/products/${id}` } })
+      return false
+    }
+    return true
+  }
+
   const handleAddToCart = () => {
+    if (!requireAccount()) return
     if (!selectedVariant || selectedVariant.stock <= 0) return
     const sizeVal = selectedVariant.size || null
-    addToCart(selectedVariant, quantity, sizeVal, product?.variants || [])
-    toast.success(`Added ${quantity} item${quantity > 1 ? 's' : ''} to cart`)
+    const res = addToCart(selectedVariant, quantity, sizeVal, product?.variants || [])
+    if (res?.capped) {
+      toast.error(`Bulk purchase protection: Maximum ${res.maxOrderQty} units allowed per order`)
+    } else {
+      toast.success(`Added ${quantity} item${quantity > 1 ? 's' : ''} to cart`)
+    }
   }
 
   const handleBuyNow = () => {
+    if (!requireAccount()) return
     if (!selectedVariant || selectedVariant.stock <= 0) return
     const sizeVal = selectedVariant.size || null
-    addToCart(selectedVariant, quantity, sizeVal, product?.variants || [])
+    const res = addToCart(selectedVariant, quantity, sizeVal, product?.variants || [])
+    if (res?.capped) {
+      toast.error(`Bulk purchase protection: Capped at ${res.maxOrderQty} units per order`)
+    }
     navigate('/cart')
   }
 
@@ -72,6 +93,8 @@ export default function ProductDetail() {
   if (!product) return null
 
   const current = selectedVariant || product
+  const maxOrderQty = Number(current.maxOrderQuantity || product.maxOrderQuantity || 5)
+  const maxSelectableQty = Math.min(Math.max(1, current.stock), maxOrderQty)
   const sortedVariants = sortVariantsBySize(product.variants || [])
   const hasVariants = product.hasVariants && sortedVariants.length > 1
 
@@ -117,12 +140,15 @@ export default function ProductDetail() {
                 </span>
               )}
               {current.stock > 0 ? (
-                <span className={`badge ${current.stock <= 5 ? 'bg-amber-50 text-amber-700 ring-1 ring-amber-200' : 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200'}`}>
-                  {current.stock <= 5 ? `Only ${current.stock} left` : `${current.stock} in stock`}
+                <span className={`badge ${current.stock <= 10 ? 'bg-amber-50 text-amber-700 ring-1 ring-amber-200' : 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200'}`}>
+                  {current.stock <= 10 ? `Only ${current.stock} left online` : `${current.stock} in online stock`}
                 </span>
               ) : (
-                <span className="badge bg-red-50 text-red-700 ring-1 ring-red-200">Out of Stock</span>
+                <span className="badge bg-red-50 text-red-700 ring-1 ring-red-200">Out of Online Stock</span>
               )}
+              <span className="badge bg-slate-100 text-slate-600">
+                Max {maxOrderQty} per order
+              </span>
             </div>
 
             <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight mb-2">
@@ -177,7 +203,12 @@ export default function ProductDetail() {
             )}
 
             <div className="mb-6">
-              <span className="block text-sm font-semibold text-slate-900 mb-2.5">Quantity</span>
+              <div className="flex items-center justify-between mb-2.5">
+                <span className="text-sm font-semibold text-slate-900">Quantity</span>
+                <span className="text-xs text-slate-500">
+                  Bulk limit: up to {maxOrderQty} units per order
+                </span>
+              </div>
               <div className="inline-flex items-center rounded-xl border border-slate-200 bg-slate-50 p-1">
                 <button
                   type="button"
@@ -194,8 +225,14 @@ export default function ProductDetail() {
                 </span>
                 <button
                   type="button"
-                  onClick={() => setQuantity(Math.min(Math.max(1, current.stock), quantity + 1))}
-                  disabled={current.stock <= 0 || quantity >= current.stock}
+                  onClick={() => {
+                    if (quantity >= maxOrderQty) {
+                      toast.error(`Bulk purchase protection: Max ${maxOrderQty} units per order`)
+                      return
+                    }
+                    setQuantity(Math.min(maxSelectableQty, quantity + 1))
+                  }}
+                  disabled={current.stock <= 0 || quantity >= maxSelectableQty}
                   aria-label="Increase quantity"
                   className="w-9 h-9 rounded-lg bg-white border border-slate-200/80 flex items-center justify-center text-slate-700 hover:bg-slate-100 disabled:opacity-40 transition-colors"
                 >
@@ -228,16 +265,18 @@ export default function ProductDetail() {
               </button>
             </div>
 
-            <div className="mt-6 p-4 rounded-2xl bg-slate-50 border border-slate-200/70 flex items-start gap-3">
-              <div className="w-8 h-8 rounded-lg bg-primary-100 text-primary-700 flex items-center justify-center shrink-0">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
+            <div className="mt-6 p-4 rounded-2xl bg-slate-50 border border-slate-200/70 space-y-2 text-xs text-slate-600 leading-relaxed">
+              <div className="flex items-start gap-2.5">
+                <span className="w-2 h-2 rounded-full bg-primary-600 mt-1.5 shrink-0" />
+                <p>
+                  <strong className="text-slate-900">Campus Pickup Only:</strong> Collect your order at the LCCB Bookstore counter (Mon–Fri, 8:00 AM – 5:00 PM) using your Pickup Verification Code.
+                </p>
               </div>
-              <div className="text-xs text-slate-600 leading-relaxed">
-                <p className="font-semibold text-slate-900 mb-0.5">Campus Pickup Only</p>
-                <p>Pay via GCash online, then collect your order at the LCCB Bookstore counter (Mon–Fri, 8:00 AM – 5:00 PM).</p>
+              <div className="flex items-start gap-2.5">
+                <span className="w-2 h-2 rounded-full bg-amber-500 mt-1.5 shrink-0" />
+                <p>
+                  <strong className="text-slate-900">3-Day Payment Deadline:</strong> Reserved items are held for 3 days. Unpaid orders automatically expire after 3 days and return stock to inventory.
+                </p>
               </div>
             </div>
           </div>

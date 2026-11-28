@@ -216,7 +216,12 @@ export default function Cart() {
                         </span>
                         <button
                           type="button"
-                          onClick={() => updateQuantity(item._id, item.quantity + 1, item.selectedSize)}
+                          onClick={() => {
+                            const res = updateQuantity(item._id, item.quantity + 1, item.selectedSize)
+                            if (res?.capped) {
+                              toast.error(`Bulk purchase protection: Max ${res.limit} units per order`)
+                            }
+                          }}
                           aria-label="Increase quantity"
                           className="w-7 h-7 rounded-lg bg-white border border-slate-200/80 flex items-center justify-center text-slate-700 hover:bg-slate-100 text-sm transition-colors"
                         >

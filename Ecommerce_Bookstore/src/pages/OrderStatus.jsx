@@ -25,7 +25,7 @@ const PICKUP_CALLOUT = {
     codeBorder: 'border-indigo-200',
     codeText: 'text-indigo-700',
     heading: 'Preparing Your Order',
-    message: 'Our bookstore staff is gathering your items for pickup.',
+    message: 'Our bookstore staff is gathering your items for campus pickup.',
   },
   'Ready for Pickup': {
     box: 'border-emerald-200 bg-emerald-50/70',
@@ -33,7 +33,7 @@ const PICKUP_CALLOUT = {
     copy: 'text-emerald-700',
     codeBorder: 'border-emerald-200',
     codeText: 'text-emerald-700',
-    heading: 'Ready for Pickup',
+    heading: 'Ready for Campus Pickup!',
     message: 'Please collect your order at the LCCB Bookstore counter (Mon–Fri, 8:00 AM – 5:00 PM).',
   },
 }
@@ -42,6 +42,7 @@ export default function OrderStatus() {
   const { orderId } = useParams()
   const [order, setOrder] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [cancelling, setCancelling] = useState(false)
   const [error, setError] = useState(null)
   const prevStatusRef = useRef(null)
 
@@ -110,6 +111,22 @@ export default function OrderStatus() {
     }
   }, [order, fetchOrder])
 
+  const handleCancelOrder = async () => {
+    if (!window.confirm('Are you sure you want to cancel this order? Reserved online stock will be returned to inventory.')) {
+      return
+    }
+    setCancelling(true)
+    try {
+      await api.post(`/customer/orders/${orderId}/cancel`)
+      toast.success('Order cancelled and reserved stock restored')
+      await fetchOrder({ silent: true })
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to cancel order')
+    } finally {
+      setCancelling(false)
+    }
+  }
+
   if (loading) return <Loading text="Loading order details..." />
 
   if (error) {
@@ -132,6 +149,12 @@ export default function OrderStatus() {
   }
 
   const callout = PICKUP_CALLOUT[order.status]
+  const formattedDeadline = order.expiresAt
+    ? new Date(order.expiresAt).toLocaleString('en-US', {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+      })
+    : null
 
   return (
     <div className="page-container animate-fade-in">
@@ -141,18 +164,59 @@ export default function OrderStatus() {
           <svg className="w-4 h-4 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
           </svg>
-          <span className="text-slate-900 font-medium">Order #{orderId?.slice(-8).toUpperCase()}</span>
+          <span className="text-slate-900 font-medium">Order #{String(orderId).slice(-8).toUpperCase()}</span>
         </nav>
 
         <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">Order Details</h1>
-            <p className="text-sm text-slate-500 mt-1 tabular-nums">Order #{orderId?.slice(-8).toUpperCase()}</p>
+            <p className="text-sm text-slate-500 mt-1 tabular-nums">
+              Order #{String(orderId).slice(-8).toUpperCase()} · Campus Pickup Only
+            </p>
           </div>
           <OrderStatusBadge status={order.status || 'Pending Payment Verification'} showDescription={false} />
         </div>
 
         <div className="space-y-5">
+          {/* 3-DAY PAYMENT DEADLINE & RESERVATION CARD */}
+          {order.status === 'Pending Payment Verification' && (
+            <div className="rounded-2xl border border-amber-200 bg-amber-50/80 p-5 sm:p-6">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider bg-amber-100 text-amber-800 mb-2">
+                    Online Stock Reserved · 3-Day Payment Hold
+                  </span>
+                  <h2 className="font-bold text-amber-950 text-base">
+                    {order.receiptImage
+                      ? 'Payment Receipt Uploaded — Awaiting Admin Verification'
+                      : 'Action Required: Upload GCash Payment Receipt Within 3 Days'}
+                  </h2>
+                  {formattedDeadline && (
+                    <p className="text-xs text-amber-800 mt-1">
+                      Payment Verification Deadline: <strong>{formattedDeadline}</strong>. Unpaid orders automatically expire after 3 days and return reserved stock to inventory.
+                    </p>
+                  )}
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Link
+                    to={`/upload-payment/${order._id || order.id}`}
+                    className="px-3.5 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold transition"
+                  >
+                    {order.receiptImage ? 'Re-upload Receipt' : 'Upload GCash Receipt'}
+                  </Link>
+                  <button
+                    type="button"
+                    disabled={cancelling}
+                    onClick={handleCancelOrder}
+                    className="px-3.5 py-2 rounded-xl border border-amber-300 bg-white hover:bg-amber-100 text-amber-900 text-xs font-semibold transition"
+                  >
+                    {cancelling ? 'Cancelling...' : 'Cancel Order'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {callout && (order.pickupCode || order.status === 'Ready for Pickup' || order.status === 'Payment Verified') && (
             <div className={`rounded-2xl border p-6 ${callout.box}`}>
               <h2 className={`font-bold text-base mb-1 ${callout.title}`}>{callout.heading}</h2>
@@ -160,24 +224,25 @@ export default function OrderStatus() {
               {order.pickupCode && (
                 <div className={`bg-white rounded-2xl p-4 border text-center ${callout.codeBorder}`}>
                   <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">
-                    Your Pickup Code
+                    Your Pickup Verification Code
                   </p>
                   <p className={`text-3xl font-mono font-extrabold tracking-[0.28em] ${callout.codeText}`}>
                     {order.pickupCode}
                   </p>
                   <p className="text-xs text-slate-500 mt-2">
-                    Present this code at the LCCB Bookstore counter when collecting your items.
+                    Present this code at the LCCB Bookstore counter to confirm your identity when collecting your items.
                   </p>
                 </div>
               )}
             </div>
           )}
 
-          {order.status === 'Rejected' && (
+          {(order.status === 'Rejected' || order.status === 'Cancelled') && (
             <div className="rounded-2xl border border-red-200 bg-red-50/80 p-6">
-              <h2 className="font-bold text-red-900 mb-1">Payment Rejected</h2>
+              <h2 className="font-bold text-red-900 mb-1">Order {order.status}</h2>
               <p className="text-sm text-red-700">
-                Your payment could not be verified. Please visit the LCCB Bookstore or contact the administrator for assistance.
+                {order.cancelledReason ||
+                  'This order was cancelled or its payment could not be verified. Any reserved stock has been returned to bookstore inventory.'}
               </p>
             </div>
           )}

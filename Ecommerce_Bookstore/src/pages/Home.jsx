@@ -5,6 +5,7 @@ import ProductCard from '../components/ProductCard'
 import { ProductGridSkeleton } from '../components/Loading'
 import HeroCarousel from '../components/HeroCarousel'
 import { dedupeProductsByName } from '../utils/products'
+import { useAuth } from '../context/AuthContext'
 
 const CATEGORY_ICON_PATHS = {
   shirt: 'M20.38 3.46L16 2a4 4 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.47a1 1 0 0 0 .99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.47a2 2 0 0 0-1.34-2.23z',
@@ -19,40 +20,76 @@ const DEFAULT_ICON_PATH = 'M4 6h16v12H4V6zm2 2v8h12V8H6z'
 const PICKUP_STEPS = [
   {
     step: '01',
-    title: 'Browse & Reserve',
-    description: 'Select your textbooks, uniforms, or supplies and choose sizes right from the catalog.',
+    title: 'Browse & Reserve Online',
+    description: 'Visitors can browse freely. Sign in to reserve items from dedicated online stock (bulk limits apply for fair student access).',
     iconPath: 'M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z',
   },
   {
     step: '02',
-    title: 'Pay via GCash',
-    description: 'Scan the bookstore QR code at checkout and upload your payment receipt for verification.',
+    title: 'Pay Within 3 Days via GCash',
+    description: 'Scan the bookstore QR code and upload your payment receipt within 3 days. Unpaid orders auto-expire after 3 days and return stock.',
     iconPath: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z',
   },
   {
     step: '03',
-    title: 'Claim at Campus',
-    description: 'Present your pickup code at the LCCB Bookstore counter (Mon–Fri, 8:00 AM – 5:00 PM).',
+    title: 'Claim with Pickup Code',
+    description: 'Once verified, receive your 6-character Pickup Verification Code via email & order tracker and collect at the LCCB Bookstore counter.',
     iconPath: 'M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z M15 11a3 3 0 11-6 0 3 3 0 016 0z',
+  },
+]
+
+const BOOKSTORE_POLICIES = [
+  {
+    title: 'Campus Pickup Only',
+    desc: 'No delivery service. Collect your reserved items directly at the LCCB Bookstore counter (Mon–Fri, 8:00 AM – 5:00 PM).',
+  },
+  {
+    title: '3-Day Payment Deadline',
+    desc: 'Items are temporarily held when you order. Unpaid orders automatically cancel after 3 days and restore stock.',
+  },
+  {
+    title: 'Dedicated Online Stock',
+    desc: 'Online pre-order inventory is allocated separately from walk-in physical bookstore stock.',
+  },
+  {
+    title: 'Bulk Purchase Protection',
+    desc: 'Per-item quantity limits prevent stock hoarding so all students can reserve uniforms and books fairly.',
   },
 ]
 
 export default function Home() {
   const [featuredProducts, setFeaturedProducts] = useState([])
+  const [newArrivals, setNewArrivals] = useState([])
   const [categories, setCategories] = useState([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
+  const { user } = useAuth()
   const navigate = useNavigate()
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         const [productsRes, categoriesRes] = await Promise.all([
-          api.get('/customer/products?limit=24&sort=-createdAt'),
+          api.get('/customer/products?limit=48&sort=-createdAt'),
           api.get('/customer/products/categories/list'),
         ])
-        const unique = dedupeProductsByName(productsRes.data.products || []).slice(0, 8)
-        setFeaturedProducts(unique)
+        const allUnique = dedupeProductsByName(productsRes.data.products || [])
+
+        // New arrivals: latest added items
+        const latest = allUnique.slice(0, 4)
+        setNewArrivals(latest)
+
+        // Featured products: items explicitly marked featured, or top catalog items
+        const markedFeatured = allUnique.filter((p) => p.isFeatured)
+        const featuredList =
+          markedFeatured.length >= 4
+            ? markedFeatured.slice(0, 8)
+            : [
+                ...markedFeatured,
+                ...allUnique.filter((p) => !p.isFeatured),
+              ].slice(0, 8)
+
+        setFeaturedProducts(featuredList)
         setCategories(categoriesRes.data.categories || [])
       } catch (err) {
         console.error('Failed to fetch data:', err)
@@ -75,8 +112,55 @@ export default function Home() {
         }}
       />
 
+      {/* ACCOUNT & PICKUP POLICY STRIP */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+          {BOOKSTORE_POLICIES.map((policy) => (
+            <div
+              key={policy.title}
+              className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-soft"
+            >
+              <div className="flex items-center gap-2 mb-1">
+                <span className="w-2 h-2 rounded-full bg-primary-600" />
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900">
+                  {policy.title}
+                </h3>
+              </div>
+              <p className="text-xs text-slate-600 leading-relaxed">{policy.desc}</p>
+            </div>
+          ))}
+        </div>
+
+        {!user && (
+          <div className="mt-4 rounded-2xl bg-gradient-to-r from-primary-600 to-blue-700 text-white p-4 sm:px-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm">
+            <div>
+              <p className="text-sm font-bold">
+                Browsing as a Visitor — Create an Account to Pre-Order
+              </p>
+              <p className="text-xs text-blue-100 mt-0.5">
+                Anyone can browse our catalog, sizes, and real-time online stock. Sign in or register a student/customer account to reserve items for campus pickup.
+              </p>
+            </div>
+            <div className="flex items-center gap-2.5 shrink-0">
+              <Link
+                to="/login"
+                className="px-3.5 py-2 rounded-xl bg-white/15 hover:bg-white/25 text-white text-xs font-semibold transition"
+              >
+                Sign In
+              </Link>
+              <Link
+                to="/register"
+                className="px-4 py-2 rounded-xl bg-white text-primary-700 hover:bg-blue-50 text-xs font-bold transition shadow-xs"
+              >
+                Register Account
+              </Link>
+            </div>
+          </div>
+        )}
+      </section>
+
       {categories.length > 0 && (
-        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 pb-6">
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-10 pb-4">
           <div className="flex items-end justify-between mb-6">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wider text-primary-600 mb-1">
@@ -131,11 +215,45 @@ export default function Home() {
         </section>
       )}
 
+      {/* NEW ARRIVALS SECTION */}
+      {(loading || newArrivals.length > 0) && (
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-10 pb-4">
+          <div className="flex items-end justify-between mb-6">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-emerald-600 mb-1">
+                Just Added to LCCB Bookstore
+              </p>
+              <h2 className="text-2xl font-bold text-slate-900">New Arrivals</h2>
+            </div>
+            <Link
+              to="/products?sort=newest"
+              className="inline-flex items-center gap-1 px-4 py-2 rounded-xl bg-white border border-slate-200 text-sm font-semibold text-slate-700 hover:border-primary-300 hover:text-primary-700 shadow-sm transition-all"
+            >
+              See All New
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </Link>
+          </div>
+
+          {loading ? (
+            <ProductGridSkeleton count={4} />
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+              {newArrivals.map((product) => (
+                <ProductCard key={`new-${product._id}`} product={product} badgeLabel="NEW" />
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* FEATURED PRODUCTS SECTION */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
         <div className="flex items-end justify-between mb-6">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wider text-primary-600 mb-1">
-              Storefront Picks
+              LCCB Bookstore Essentials
             </p>
             <h2 className="text-2xl font-bold text-slate-900">Featured Products</h2>
           </div>
@@ -143,7 +261,7 @@ export default function Home() {
             to="/products"
             className="inline-flex items-center gap-1 px-4 py-2 rounded-xl bg-white border border-slate-200 text-sm font-semibold text-slate-700 hover:border-primary-300 hover:text-primary-700 shadow-sm transition-all"
           >
-            View Catalog
+            View Full Catalog
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
@@ -165,7 +283,11 @@ export default function Home() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
             {featuredProducts.map((product) => (
-              <ProductCard key={product._id} product={product} />
+              <ProductCard
+                key={product._id}
+                product={product}
+                badgeLabel={product.isFeatured ? 'FEATURED' : null}
+              />
             ))}
           </div>
         )}
@@ -181,7 +303,7 @@ export default function Home() {
               <h2 className="text-xl sm:text-2xl font-bold text-slate-900">How Pre-Ordering Works</h2>
             </div>
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary-50 text-primary-700 text-xs font-semibold w-fit">
-              No delivery fees · Campus pickup only
+              No delivery · Campus pickup only · 3-day payment deadline
             </span>
           </div>
 

@@ -26,12 +26,6 @@ export function CartProvider({ children }) {
     localStorage.setItem(key, JSON.stringify(cart))
   }, [cart, user?.id])
 
-  // Default to everything selected when a cart is loaded or when the first item
-  // is added.
-  //
-  // This deliberately does not read selectedIds. Keying off "nothing is selected
-  // yet" meant that a customer who deliberately unchecked every item had their
-  // choices silently reverted the next time the cart changed.
   const previousCartRef = useRef(null)
 
   useEffect(() => {
@@ -76,6 +70,10 @@ export function CartProvider({ children }) {
   }
 
   const addToCart = (product, quantity = 1, selectedSize = null, variants = []) => {
+    const maxOrderQty = Number(product.maxOrderQuantity || 5)
+    const maxAllowed = Math.min(Number(product.stock || maxOrderQty), maxOrderQty)
+    let capped = false
+
     setCart((prevCart) => {
       const existingIndex = prevCart.findIndex(
         (item) => item._id === product._id && item.selectedSize === selectedSize
@@ -83,9 +81,19 @@ export function CartProvider({ children }) {
 
       if (existingIndex > -1) {
         const updated = [...prevCart]
-        updated[existingIndex].quantity += quantity
+        const nextQty = updated[existingIndex].quantity + quantity
+        if (nextQty > maxAllowed) {
+          capped = true
+          updated[existingIndex].quantity = Math.max(1, maxAllowed)
+        } else {
+          updated[existingIndex].quantity = nextQty
+        }
+        updated[existingIndex].maxOrderQuantity = maxOrderQty
         return updated
       }
+
+      const initialQty = Math.min(quantity, Math.max(1, maxAllowed))
+      if (quantity > maxAllowed) capped = true
 
       return [
         ...prevCart,
@@ -96,13 +104,16 @@ export function CartProvider({ children }) {
           image: product.image,
           category: product.category,
           stock: product.stock,
+          maxOrderQuantity: maxOrderQty,
           sizes: product.sizes || [],
           variants: variants.length > 0 ? variants : (product.variants || []),
           selectedSize,
-          quantity,
+          quantity: initialQty,
         },
       ]
     })
+
+    return { capped, maxOrderQty }
   }
 
   const removeFromCart = (productId, selectedSize = null) => {
@@ -116,15 +127,26 @@ export function CartProvider({ children }) {
   const updateQuantity = (productId, quantity, selectedSize = null) => {
     if (quantity < 1) {
       removeFromCart(productId, selectedSize)
-      return
+      return { capped: false }
     }
+    let capped = false
+    let limit = 5
     setCart((prevCart) =>
-      prevCart.map((item) =>
-        item._id === productId && item.selectedSize === selectedSize
-          ? { ...item, quantity }
-          : item
-      )
+      prevCart.map((item) => {
+        if (item._id === productId && item.selectedSize === selectedSize) {
+          const maxOrderQty = Number(item.maxOrderQuantity || 5)
+          const maxAllowed = Math.min(Number(item.stock || maxOrderQty), maxOrderQty)
+          limit = maxOrderQty
+          if (quantity > maxAllowed) {
+            capped = true
+            return { ...item, quantity: Math.max(1, maxAllowed) }
+          }
+          return { ...item, quantity }
+        }
+        return item
+      })
     )
+    return { capped, limit }
   }
 
   const changeSize = (cartItemId, newSize) => {
@@ -144,7 +166,14 @@ export function CartProvider({ children }) {
 
       if (existingIndex > -1 && existingIndex !== oldIndex) {
         const updated = [...prevCart]
-        updated[existingIndex].quantity += oldItem.quantity
+        const maxAllowed = Math.min(
+          Number(newVariant.stock || 5),
+          Number(newVariant.maxOrderQuantity || oldItem.maxOrderQuantity || 5)
+        )
+        updated[existingIndex].quantity = Math.min(
+          maxAllowed,
+          updated[existingIndex].quantity + oldItem.quantity
+        )
         updated.splice(oldIndex, 1)
         return updated
       }
@@ -158,6 +187,7 @@ export function CartProvider({ children }) {
               price: newVariant.price,
               image: newVariant.image || item.image,
               stock: newVariant.stock,
+              maxOrderQuantity: newVariant.maxOrderQuantity || item.maxOrderQuantity || 5,
               selectedSize: newSize,
             }
           : item
