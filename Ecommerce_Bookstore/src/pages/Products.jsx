@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import api, { formatCategoryLabel } from '../config/api'
 import ProductCard from '../components/ProductCard'
+import CategoryIcon from '../components/CategoryIcon'
 import SearchBar from '../components/SearchBar'
 import { ProductGridSkeleton } from '../components/Loading'
 import { dedupeProductsByName } from '../utils/products'
@@ -173,12 +174,13 @@ export default function Products() {
                   key={catName}
                   type="button"
                   onClick={() => setSelectedCategory(catName)}
-                  className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all ${
+                  className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all ${
                     active
                       ? 'bg-primary-600 text-white shadow-sm'
                       : 'bg-slate-100 text-slate-600 hover:bg-slate-200/80 hover:text-slate-900'
                   }`}
                 >
+                  <CategoryIcon category={catName} className="w-3.5 h-3.5" />
                   {formatCategoryLabel(catName)}
                 </button>
               )

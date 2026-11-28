@@ -2,20 +2,11 @@ import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import api, { formatCategoryLabel } from '../config/api'
 import ProductCard from '../components/ProductCard'
+import CategoryIcon, { getCategoryMeta } from '../components/CategoryIcon'
 import { ProductGridSkeleton } from '../components/Loading'
 import HeroCarousel from '../components/HeroCarousel'
 import { dedupeProductsByName } from '../utils/products'
 import { useAuth } from '../context/AuthContext'
-
-const CATEGORY_ICON_PATHS = {
-  shirt: 'M20.38 3.46L16 2a4 4 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.47a1 1 0 0 0 .99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.47a2 2 0 0 0-1.34-2.23z',
-  'school clothes': 'M12 10.5l8.5 5.3a2.2 2.2 0 0 1-1.2 4H4.7a2.2 2.2 0 0 1-1.2-4L12 10.5zM12 10.5V6m0 0a2.5 2.5 0 0 0-5 0m5 0a2.5 2.5 0 0 1 5 0',
-  'foot wear': 'M4 17h16M4 17v-3a2 2 0 0 0 2-2h1l2-4h6l2 4h1a2 2 0 0 1 2 2v3M7 12V8M17 12V8',
-  'school supplies': 'M17 3l4 4L8 20H4v-4L17 3zM12 10l4 4M7 17l-3 3',
-  merchandise: 'M6 7V6a6 6 0 1 1 12 0v1M5 7h14l1 14H4L5 7z',
-  supplies: 'M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8zM3.3 7L12 12l8.7-5M12 22V12',
-}
-const DEFAULT_ICON_PATH = 'M4 6h16v12H4V6zm2 2v8h12V8H6z'
 
 const PICKUP_STEPS = [
   {
@@ -179,34 +170,26 @@ export default function Home() {
             </Link>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3.5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3.5">
             {categories.map((cat) => {
               const catName = typeof cat === 'string' ? cat : cat.name
-              const iconPath = CATEGORY_ICON_PATHS[catName.toLowerCase()] || DEFAULT_ICON_PATH
+              const meta = getCategoryMeta(catName)
               return (
                 <Link
                   key={typeof cat === 'string' ? cat : cat.id}
                   to={`/products?category=${encodeURIComponent(catName)}`}
-                  className="group flex items-center gap-3.5 p-4 rounded-2xl border border-slate-200/80 bg-white shadow-soft hover:shadow-card-hover hover:border-primary-200 hover:-translate-y-0.5 transition-all duration-200"
+                  className={`group flex items-center gap-3.5 p-4 rounded-2xl border border-slate-200/80 bg-white shadow-soft hover:shadow-card-hover ${meta.ringColor} hover:-translate-y-0.5 transition-all duration-200`}
                 >
-                  <div className="w-11 h-11 rounded-xl bg-primary-50 flex items-center justify-center shrink-0 group-hover:bg-primary-600 transition-colors">
-                    <svg
-                      className="w-5 h-5 text-primary-600 group-hover:text-white transition-colors"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth={1.8}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d={iconPath} />
-                    </svg>
+                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 transition-all duration-200 shadow-xs ${meta.badgeBg}`}>
+                    <CategoryIcon category={catName} className="w-6 h-6" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <span className="text-sm font-semibold text-slate-800 group-hover:text-primary-700 transition-colors block truncate">
+                    <span className="text-sm font-bold text-slate-900 group-hover:text-primary-700 transition-colors block truncate">
                       {formatCategoryLabel(catName)}
                     </span>
-                    <span className="text-xs text-slate-400">Browse →</span>
+                    <span className="text-[11px] text-slate-500 block truncate mt-0.5">
+                      {meta.subtitle}
+                    </span>
                   </div>
                 </Link>
               )
