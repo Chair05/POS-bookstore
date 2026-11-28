@@ -2,11 +2,11 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://penny-loans-apparent-sara.trycloudflare.com/api/:path*"
+      "destination": "https://create-front-humanities-pamela.trycloudflare.com/api/:path*"
     },
     {
       "source": "/uploads/:path*",
-      "destination": "https://penny-loans-apparent-sara.trycloudflare.com/uploads/:path*"
+      "destination": "https://create-front-humanities-pamela.trycloudflare.com/uploads/:path*"
     },
     {
       "source": "/(.*)",
