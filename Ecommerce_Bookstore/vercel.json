@@ -2,11 +2,11 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://broader-responsibility-chamber-excluded.trycloudflare.com/api/:path*"
+      "destination": "https://robert-tea-unified-releases.trycloudflare.com/api/:path*"
     },
     {
       "source": "/uploads/:path*",
-      "destination": "https://broader-responsibility-chamber-excluded.trycloudflare.com/uploads/:path*"
+      "destination": "https://robert-tea-unified-releases.trycloudflare.com/uploads/:path*"
     },
     {
       "source": "/(.*)",
